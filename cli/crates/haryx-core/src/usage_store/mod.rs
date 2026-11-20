@@ -183,6 +183,11 @@ impl UsageStore {
         }
     }
 
+    /// The store's clock, for stores that must agree with it.
+    pub fn clock(&self) -> Clock {
+        Arc::clone(&self.clock)
+    }
+
     /// The store's current time.
     pub fn now(&self) -> f64 {
         (self.clock)()

@@ -14,6 +14,8 @@ mod relocate;
 mod sequence;
 mod session_profile;
 mod storage;
+mod usage;
+mod usage_active;
 
 #[cfg(test)]
 mod test_support;
@@ -23,9 +25,11 @@ mod tests_grant;
 mod tests_relocate;
 #[cfg(test)]
 mod tests_sequence;
+#[cfg(test)]
+mod tests_usage;
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde_json::{Map, Value};
@@ -42,8 +46,10 @@ use crate::oauth::Api;
 use crate::paths::{self, PathEnv};
 use crate::printer;
 use crate::session::{self, ProfileKeychain};
+use crate::usage_store::UsageStore;
 
 pub use sequence::LineageKey;
+pub use usage::AccountInfo;
 
 /// A parsed `sequence.json` (or any JSON object file).
 pub type JsonObject = Map<String, Value>;
@@ -76,6 +82,10 @@ pub struct Switcher {
     pub(crate) session_retry_delay: Duration,
     /// The OAuth/usage endpoints (`HARYX_API_BASE` redirects them in tests).
     pub(crate) api: Api,
+    /// Per-account usage table (`cache/usage.json`).
+    pub(crate) usage_store: UsageStore,
+    /// Mutable per-process state of the collector (upstream's instance caches).
+    pub(crate) state: Mutex<usage::CollectState>,
     debug: bool,
     #[cfg(test)]
     pub(crate) faults: test_support::Faults,
@@ -107,6 +117,7 @@ impl Switcher {
         let env = host.env.clone();
         let keychain_account = host.keychain_account.clone();
         let store = CredentialStore::with_keychain(host.clone(), keychain.clone(), tunables);
+        let usage_store = UsageStore::new(&backup_dir.join("cache"));
         Switcher {
             env,
             sequence_file: host.sequence_file.clone(),
@@ -119,6 +130,8 @@ impl Switcher {
             keychain_account,
             session_retry_delay: session::STRICT_KEYCHAIN_RETRY_DELAY,
             api: Api::from_env(),
+            usage_store,
+            state: Mutex::new(usage::CollectState::default()),
             debug,
             #[cfg(test)]
             faults: test_support::Faults::default(),

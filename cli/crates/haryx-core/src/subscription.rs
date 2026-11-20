@@ -393,6 +393,11 @@ impl PlanStore {
         Self::with_clock(path, Arc::new(system_clock))
     }
 
+    /// The store's current time.
+    pub fn now(&self) -> f64 {
+        (self.clock)()
+    }
+
     pub fn with_clock(path: &Path, clock: Clock) -> Self {
         PlanStore {
             path: path.to_path_buf(),

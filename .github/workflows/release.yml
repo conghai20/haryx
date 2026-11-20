@@ -16,13 +16,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { target: aarch64-apple-darwin, os: macos-14, tool: cargo }
-          - { target: x86_64-apple-darwin, os: macos-14, tool: cargo }
+          - { target: aarch64-apple-darwin, os: macos-26, tool: cargo }
+          - { target: x86_64-apple-darwin, os: macos-26, tool: cargo }
           - { target: x86_64-unknown-linux-musl, os: ubuntu-24.04, tool: cross }
           - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04, tool: cross }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -45,13 +45,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { target: aarch64-apple-darwin, os: macos-14 }
-          - { target: x86_64-apple-darwin, os: macos-14 }
+          - { target: aarch64-apple-darwin, os: macos-26 }
+          - { target: x86_64-apple-darwin, os: macos-26 }
           - { target: x86_64-unknown-linux-musl, os: ubuntu-24.04 }
           - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04 }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: PyO3/maturin-action@v1
         with:
           working-directory: packaging/pypi
@@ -70,7 +70,7 @@ jobs:
       HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
       HAS_NOTARY: ${{ secrets.APPLE_ID != '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - name: Import signing certificate
         if: env.HAS_CERT == 'true'
@@ -111,7 +111,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Check the tag matches the crate version
         run: |
           VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' cli/Cargo.toml | head -1)

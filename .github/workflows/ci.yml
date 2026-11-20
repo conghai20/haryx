@@ -12,13 +12,13 @@ jobs:
   cli:
     strategy:
       matrix:
-        os: [macos-14, ubuntu-24.04]
+        os: [macos-26, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
         working-directory: cli
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -36,6 +36,6 @@ jobs:
       run:
         working-directory: apps/macos
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: swift build
       - run: swift test

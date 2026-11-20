@@ -46,9 +46,11 @@ pub const OAUTH_TOKEN_URL: &str = "https://platform.claude.com/v1/oauth/token";
 pub const OAUTH_CLIENT_ID: &str = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 pub const USAGE_URL: &str = "https://api.anthropic.com/api/oauth/usage";
 pub const PROFILE_URL: &str = "https://api.anthropic.com/api/oauth/profile";
-/// Sent on every request. The usage endpoint's budget is counted per identity × UA class, so this
-/// stays upstream's value: changing it would move haryx into a budget class nobody has measured.
-pub const USER_AGENT: &str = "claude-swap/1.0";
+/// User-Agent on every request: haryx identifies as itself (upstream sends `claude-swap/1.0`). Like upstream's,
+/// it is a non-first-party User-Agent, which the usage endpoint puts under a request budget (see
+/// `usage_store`); the polling numbers in `poll_policy` were measured against that class, not a specific string.
+/// The OAuth client id and beta header stay Claude Code's, since the stored tokens belong to that client.
+pub const USER_AGENT: &str = concat!("haryx/", env!("CARGO_PKG_VERSION"));
 
 /// What `claude setup-token` grants (and what `add-token` stores). Such a token can run inference
 /// but cannot read the usage endpoint.

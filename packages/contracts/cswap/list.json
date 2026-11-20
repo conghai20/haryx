@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "activeAccountNumber": 3,
+  "accounts": [
+    {
+      "number": 1,
+      "email": "a@x.com",
+      "organizationName": "Org",
+      "organizationUuid": "o1",
+      "isOrganization": true,
+      "active": false,
+      "usageStatus": "ok",
+      "usage": {
+        "fiveHour": {
+          "pct": 0.0
+        },
+        "sevenDay": {
+          "pct": 50.0,
+          "resetsAt": "2026-11-25T11:00:00.497815+00:00",
+          "countdown": "4d 20h",
+          "clock": "Nov 25 18:00",
+          "expectedPct": 30.8,
+          "aheadOfPace": true,
+          "projectedExhaustionAt": "2026-11-22T18:19:28Z",
+          "willLastToReset": false
+        }
+      },
+      "loginExpiresAt": "2026-12-14T03:30:48Z",
+      "plan": {
+        "label": "Team",
+        "expired": false
+      },
+      "usageAgeSeconds": 158.8
+    },
+    {
+      "number": 3,
+      "email": "c@x.com",
+      "organizationUuid": "o1",
+      "active": true,
+      "usageStatus": "ok",
+      "alias": "work",
+      "usage": {
+        "fiveHour": {
+          "pct": 88.0,
+          "resetsAt": "2026-11-20T15:29:59.930003+00:00",
+          "countdown": "47m"
+        },
+        "sevenDay": {
+          "pct": 77.0
+        }
+      }
+    },
+    {
+      "number": 4,
+      "email": "d@x.com",
+      "active": false,
+      "usageStatus": "relogin_required",
+      "usage": null,
+      "disabled": true
+    }
+  ]
+}

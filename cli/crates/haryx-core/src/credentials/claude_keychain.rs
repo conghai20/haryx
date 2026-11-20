@@ -7,6 +7,7 @@ use std::ffi::OsStr;
 use std::path::{Component, Path, PathBuf};
 
 use sha2::{Digest, Sha256};
+use unicode_normalization::UnicodeNormalization;
 
 use super::KeychainBackend;
 use crate::paths::{self, HostOs, PathEnv};
@@ -31,7 +32,13 @@ pub const CLAUDE_CODE_MANAGED_KEYCHAIN_SERVICE: &str = "Claude Code";
 /// already-NFC values, which is what a shell hands over, hash identically; a decomposed (NFD) value would
 /// name a different item than Claude Code's.
 pub fn keychain_service_name(config_dir: &OsStr) -> String {
-    let digest = Sha256::digest(os_bytes(config_dir));
+    // Claude Code hashes the NFC-normalized value (macOS file names often arrive decomposed). A value that is
+    // not valid UTF-8 cannot be normalized; hash its raw bytes.
+    let bytes = match config_dir.to_str() {
+        Some(text) => text.nfc().collect::<String>().into_bytes(),
+        None => os_bytes(config_dir),
+    };
+    let digest = Sha256::digest(bytes);
     let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
     format!("{CLAUDE_CODE_KEYCHAIN_SERVICE}-{}", &hex[..8])
 }
@@ -142,6 +149,15 @@ pub fn active_store_is_the_default_secure_store(env: &PathEnv) -> bool {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn service_name_is_nfc_normalized() {
+        let composed = keychain_service_name(OsStr::new("/Users/caf\u{e9}/.claude-x"));
+        let decomposed = keychain_service_name(OsStr::new("/Users/cafe\u{301}/.claude-x"));
+        assert_eq!(composed, decomposed);
+        // Python: hashlib.sha256("/Users/café/.claude-x".encode()).hexdigest()[:8]
+        assert_eq!(composed, "Claude Code-credentials-29f5bd81");
+    }
     use super::*;
     use std::ffi::OsString;
     use tempfile::TempDir;

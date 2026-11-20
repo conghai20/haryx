@@ -63,13 +63,18 @@ fn bare_haryx_without_a_terminal_is_a_usage_error() {
 }
 
 #[test]
-fn commands_are_not_implemented_yet() {
-    for (argv, name) in [(&["watch"][..], "watch"), (&["upgrade"], "upgrade")] {
-        let output = haryx(argv);
-        assert_eq!(output.status.code(), Some(2), "{argv:?}");
-        assert_eq!(
-            stderr(&output).trim(),
-            format!("haryx {name}: not implemented yet")
-        );
-    }
+fn watch_is_not_implemented_yet() {
+    let output = haryx(&["watch"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(stderr(&output).trim(), "haryx watch: not implemented yet");
+}
+
+#[test]
+fn upgrade_from_a_source_build_explains_the_manual_routes() {
+    // The test binary lives under target/, which matches no package manager.
+    let output = haryx(&["upgrade"]);
+    assert_eq!(output.status.code(), Some(1));
+    let err = stderr(&output);
+    assert!(err.contains("Could not detect install method"), "{err}");
+    assert!(err.contains("brew upgrade haryx"), "{err}");
 }

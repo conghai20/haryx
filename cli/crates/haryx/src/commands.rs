@@ -5,6 +5,7 @@ mod auto;
 mod config;
 mod guard;
 mod listing;
+mod upgrade;
 
 use std::fmt;
 
@@ -84,7 +85,8 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Enable { account } => accounts::set_disabled(&account, false, debug),
         Command::Run(opts) => accounts::run(&opts, debug),
         Command::Auto(opts) => auto::run(&opts, debug),
-        Command::Tui | Command::Watch | Command::Upgrade => Err(not_implemented(&command)),
+        Command::Upgrade => upgrade::run(),
+        Command::Tui | Command::Watch => Err(not_implemented(&command)),
     }
 }
 

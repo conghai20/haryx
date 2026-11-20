@@ -12,6 +12,7 @@ use serde_json::{Map, Value};
 
 use crate::error::{Error, Result};
 use crate::fsutil::{WriteOptions, atomic_write_text};
+use crate::usage_store::UsageEntry;
 
 // ---------------------------------------------------------------------------------------------- alias
 
@@ -259,10 +260,57 @@ pub fn org_tag_shown(mode: &str, email: &str, emails: &[&str]) -> bool {
     mode == "on" || (mode == "auto" && emails.iter().filter(|e| **e == email).count() > 1)
 }
 
-// TODO(usage_store): `AccountSnapshot` (one managed account as the TUI sees it: number, email,
-// org_name, org_uuid, is_active, kind, switchable, usage: UsageEntry, alias, disabled,
-// policy: AccountPolicy, subscription_plan, login_expires_at; `display_tag`) and `AccountsSnapshot`
-// (active_number, accounts, taken_at), which holds it, need `usage_store::UsageEntry` and land with it.
+// ------------------------------------------------------------------------------------------ snapshot
+
+/// One managed account as seen by interactive UIs (the TUI).
+///
+/// `usage` is the store-backed [`UsageEntry`] read model; display code reads `usage.last_good` /
+/// `age_s` directly (may show old data, annotated with its age), while `usage.sentinel` carries
+/// derived states ("api key", "token expired", ...) that replace the bars entirely.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct AccountSnapshot {
+    pub number: String,
+    pub email: String,
+    pub org_name: String,
+    pub org_uuid: String,
+    pub is_active: bool,
+    /// `"oauth"` or `"api_key"`.
+    pub kind: String,
+    pub switchable: bool,
+    pub usage: UsageEntry,
+    pub alias: String,
+    /// Held out of auto-rotation (still a valid explicit target).
+    pub disabled: bool,
+    /// Per-account auto-switch overrides.
+    pub policy: AccountPolicy,
+    /// Stored subscription plan record (`subscription::PlanStore` shape), or `None` for a slot whose
+    /// plan has never been fetched.
+    pub subscription_plan: Option<Map<String, Value>>,
+    /// Stored refresh token's expiry (epoch seconds), or `None` when missing/unreadable; feeds the
+    /// "re-login in 5d 12h" note every account view shows while the login is due.
+    pub login_expires_at: Option<f64>,
+}
+
+impl AccountSnapshot {
+    /// Org tag for display: the org name, or `personal`.
+    pub fn display_tag(&self) -> &str {
+        if self.org_name.is_empty() {
+            "personal"
+        } else {
+            &self.org_name
+        }
+    }
+}
+
+/// Coherent one-pass view of every managed account: metadata, active detection and usage entries
+/// all come from the same collect pass, so a consumer never sees an account list and usage table
+/// that disagree.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct AccountsSnapshot {
+    pub active_number: Option<String>,
+    pub accounts: Vec<AccountSnapshot>,
+    pub taken_at: f64,
+}
 
 // -------------------------------------------------------------------------------- switch transaction
 

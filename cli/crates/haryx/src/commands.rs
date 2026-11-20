@@ -46,6 +46,16 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Config { json, action } => config::run(json, &action),
         Command::List { token_status, json } => listing::list(token_status, json, debug),
         Command::Status { json } => listing::status(json, debug),
+        Command::Switch {
+            strategy,
+            model,
+            json,
+        } => listing::switch(strategy, model.as_deref(), json, debug),
+        Command::SwitchTo {
+            target,
+            json,
+            force,
+        } => listing::switch_to(&target, json, force, debug),
         Command::Add { slot, alias } => accounts::add(slot, alias.as_deref(), debug),
         Command::AddToken { token, email, slot } => {
             accounts::add_token(token.as_deref(), email.as_deref(), slot, debug)
@@ -63,8 +73,6 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Enable { account } => accounts::set_disabled(&account, false, debug),
         Command::Tui
         | Command::Watch
-        | Command::Switch { .. }
-        | Command::SwitchTo { .. }
         | Command::Export { .. }
         | Command::Import { .. }
         | Command::ImportUsage { .. }

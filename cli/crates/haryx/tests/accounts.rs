@@ -67,6 +67,7 @@ impl Sandbox {
             .env("CLAUDE_CONFIG_DIR", self.dir.path().join(".claude"))
             .env("HARYX_SECURITY_BIN", self.dir.path().join("security"))
             .env("NO_COLOR", "1")
+            .env("HARYX_API_BASE", "http://127.0.0.1:9")
             .env_remove("XDG_DATA_HOME")
             .output()
             .unwrap();
@@ -314,4 +315,92 @@ fn list_json_without_a_store_is_empty() {
         payload,
         json!({"schemaVersion": 1, "activeAccountNumber": null, "accounts": []})
     );
+}
+
+fn login(s: &Sandbox, email: &str, uuid: &str, token: &str) {
+    let dir = s.dir.path().join(".claude");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join(".claude.json"),
+        json!({"oauthAccount": {"emailAddress": email, "accountUuid": uuid, "organizationUuid": "",
+            "organizationName": ""}, "theme": "dark"})
+        .to_string(),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join(".credentials.json"),
+        json!({"claudeAiOauth": {"accessToken": token, "refreshToken": format!("rt-{token}"),
+            "expiresAt": 9_999_999_999_000_i64}})
+        .to_string(),
+    )
+    .unwrap();
+}
+
+fn live_token(s: &Sandbox) -> String {
+    let creds: Value = serde_json::from_str(
+        &std::fs::read_to_string(s.dir.path().join(".claude/.credentials.json")).unwrap(),
+    )
+    .unwrap();
+    creds["claudeAiOauth"]["accessToken"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+#[test]
+fn add_then_switch_round_trip() {
+    let s = Sandbox::new();
+    std::fs::remove_file(s.store().join("sequence.json")).unwrap();
+    login(&s, "a@example.com", "u-a", "at-a");
+    assert_eq!(s.run(&["add"]).code, 0);
+    login(&s, "b@example.com", "u-b", "at-b");
+    assert_eq!(s.run(&["add"]).code, 0);
+
+    let rotate = s.run(&["switch"]);
+    assert_eq!(rotate.code, 0, "{}", rotate.err);
+    assert!(
+        rotate
+            .out
+            .starts_with("Switched to Account-1 (a@example.com)"),
+        "{}",
+        rotate.out
+    );
+    assert_eq!(live_token(&s), "at-a");
+    let config: Value = serde_json::from_str(
+        &std::fs::read_to_string(s.dir.path().join(".claude/.claude.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(config["oauthAccount"]["emailAddress"], "a@example.com");
+    assert_eq!(
+        config["theme"], "dark",
+        "the rest of .claude.json is left alone"
+    );
+
+    let to_b = s.run(&["switch", "2", "--json"]);
+    let payload: Value = serde_json::from_str(&to_b.out).unwrap();
+    assert_eq!(payload["switched"], true);
+    assert_eq!(
+        payload["from"],
+        json!({"number": 1, "email": "a@example.com"})
+    );
+    assert_eq!(
+        payload["to"],
+        json!({"number": 2, "email": "b@example.com"})
+    );
+    assert_eq!(live_token(&s), "at-b");
+
+    let again = s.run(&["switch", "2", "--json"]);
+    let payload: Value = serde_json::from_str(&again.out).unwrap();
+    assert_eq!(payload["reason"], "already-active");
+}
+
+#[test]
+fn switch_with_one_account_says_so() {
+    let s = Sandbox::new();
+    std::fs::remove_file(s.store().join("sequence.json")).unwrap();
+    login(&s, "a@example.com", "u-a", "at-a");
+    s.run(&["add"]);
+    let run = s.run(&["switch", "--json"]);
+    let payload: Value = serde_json::from_str(&run.out).unwrap();
+    assert_eq!(payload["reason"], "only-one-account");
 }

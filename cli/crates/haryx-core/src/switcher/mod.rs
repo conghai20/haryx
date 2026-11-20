@@ -11,11 +11,13 @@ mod accounts;
 mod add;
 mod grant;
 mod listing;
+mod perform;
 mod policy;
 mod relocate;
 mod sequence;
 mod session_profile;
 mod storage;
+mod switch;
 mod usage;
 mod usage_active;
 
@@ -50,6 +52,7 @@ use crate::printer;
 use crate::session::{self, ProfileKeychain};
 use crate::usage_store::UsageStore;
 
+pub use perform::{Provenance, SwitchOp};
 pub use sequence::LineageKey;
 pub use usage::AccountInfo;
 

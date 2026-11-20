@@ -234,3 +234,84 @@ fn swap_same_account_is_rejected() {
     assert_eq!(run.code, 1);
     assert!(run.err.starts_with("Error: "), "{}", run.err);
 }
+
+#[test]
+fn list_json_matches_the_contract_shape() {
+    let s = Sandbox::new();
+    std::fs::create_dir_all(s.dir.path().join(".claude")).unwrap();
+    std::fs::write(
+        s.dir.path().join(".claude/.claude.json"),
+        json!({"oauthAccount": {"emailAddress": "account2@example.com", "organizationUuid": ""}})
+            .to_string(),
+    )
+    .unwrap();
+    s.run(&["alias", "2", "work"]);
+    let run = s.run(&["list", "--json"]);
+    assert_eq!(run.code, 0, "{}", run.err);
+    let payload: Value = serde_json::from_str(&run.out).unwrap();
+    assert_eq!(payload["schemaVersion"], 1);
+    assert_eq!(payload["activeAccountNumber"], 2);
+    let rows = payload["accounts"].as_array().unwrap();
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[1]["alias"], "work");
+    assert_eq!(rows[1]["active"], true);
+    assert_eq!(rows[0]["usageStatus"], "no_credentials");
+    let keys: Vec<&str> = rows[0]
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        keys,
+        [
+            "number",
+            "email",
+            "organizationName",
+            "organizationUuid",
+            "isOrganization",
+            "active",
+            "usageStatus",
+            "usage"
+        ]
+    );
+}
+
+#[test]
+fn list_human_view_and_status() {
+    let s = Sandbox::new();
+    let run = s.run(&["list"]);
+    assert_eq!(run.code, 0, "{}", run.err);
+    assert!(
+        run.out
+            .starts_with("Accounts:\n  1: account1@example.com\n"),
+        "{}",
+        run.out
+    );
+    assert!(
+        run.out.contains("no credentials") || run.out.contains("usage unavailable"),
+        "{}",
+        run.out
+    );
+
+    let status = s.run(&["status"]);
+    assert_eq!(status.code, 0, "{}", status.err);
+    assert_eq!(status.out, "Status: No active Claude account\n");
+    let json = s.run(&["status", "--json"]);
+    assert_eq!(
+        json.out.trim(),
+        "{\n  \"schemaVersion\": 1,\n  \"active\": null\n}"
+    );
+}
+
+#[test]
+fn list_json_without_a_store_is_empty() {
+    let s = Sandbox::new();
+    std::fs::remove_file(s.store().join("sequence.json")).unwrap();
+    let run = s.run(&["list", "--json"]);
+    let payload: Value = serde_json::from_str(&run.out).unwrap();
+    assert_eq!(
+        payload,
+        json!({"schemaVersion": 1, "activeAccountNumber": null, "accounts": []})
+    );
+}

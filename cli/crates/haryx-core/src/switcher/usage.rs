@@ -704,7 +704,7 @@ impl Switcher {
     }
 
     /// An empty `fetch` set means no network eligibility, for plans too.
-    fn plans_for_pass(
+    pub(crate) fn plans_for_pass(
         &self,
         infos: &[AccountInfo],
         fetch: Option<&HashSet<String>>,

@@ -65,7 +65,7 @@ fn bare_haryx_without_a_terminal_is_a_usage_error() {
 #[test]
 fn commands_are_not_implemented_yet() {
     for (argv, name) in [
-        (&["list"][..], "list"),
+        (&["add"][..], "add"),
         (&["switch", "2"], "switch"),
         (&["run", "2", "--", "--resume"], "run"),
     ] {

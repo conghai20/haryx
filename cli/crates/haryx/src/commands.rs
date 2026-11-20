@@ -3,6 +3,7 @@
 mod accounts;
 mod config;
 mod guard;
+mod listing;
 
 use std::fmt;
 
@@ -43,6 +44,8 @@ impl CommandError {
 pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
     match command {
         Command::Config { json, action } => config::run(json, &action),
+        Command::List { token_status, json } => listing::list(token_status, json, debug),
+        Command::Status { json } => listing::status(json, debug),
         Command::Alias(setting) => accounts::alias(&setting, debug),
         Command::Threshold(setting) => accounts::threshold(&setting, debug),
         Command::Priority(setting) => accounts::priority(&setting, debug),
@@ -55,8 +58,6 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Enable { account } => accounts::set_disabled(&account, false, debug),
         Command::Tui
         | Command::Watch
-        | Command::List { .. }
-        | Command::Status { .. }
         | Command::Switch { .. }
         | Command::SwitchTo { .. }
         | Command::Add { .. }

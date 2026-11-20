@@ -10,12 +10,14 @@
 
 use std::path::Path;
 
+use haryx_core::json_output::error_envelope;
+
 use haryx_core::models::pyfmt::json_dumps_pretty;
 use haryx_core::settings::{
     self, EffectiveSetting, SettingValue, format_setting_value, setting_spec, settings_path,
 };
 use haryx_core::{Error, paths};
-use serde_json::{Value, json};
+use serde_json::json;
 
 use super::{CommandError, guard};
 use crate::cli::ConfigAction;
@@ -41,34 +43,6 @@ fn report(err: &Error, json_mode: bool) -> CommandError {
             message: format!("Error: {err}"),
             exit_code: ERROR_EXIT,
         }
-    }
-}
-
-/// The structured error payload of a handled error (upstream `json_output.error_envelope`).
-// TODO(json_output): move to `haryx_core::json_output` once that module is ported.
-fn error_envelope(err: &Error) -> Value {
-    json!({
-        "schemaVersion": 1,
-        "error": {"type": exception_name(err), "message": err.to_string()},
-    })
-}
-
-/// The upstream exception class name of an error, as `type(exc).__name__` reports it.
-fn exception_name(err: &Error) -> &'static str {
-    match err {
-        Error::General(_) | Error::Io(_) | Error::Json(_) => "ClaudeSwitchError",
-        Error::Credential(_) => "CredentialError",
-        Error::CredentialRead(_) => "CredentialReadError",
-        Error::CredentialWrite(_) => "CredentialWriteError",
-        Error::Config(_) => "ConfigError",
-        Error::Switch(_) => "SwitchError",
-        Error::Session(_) => "SessionError",
-        Error::Lock(_) => "LockError",
-        Error::ClaudeCodeLockTimeout(_) => "ClaudeCodeLockTimeout",
-        Error::AccountNotFound(_) => "AccountNotFoundError",
-        Error::Validation(_) => "ValidationError",
-        Error::Transfer(_) => "TransferError",
-        Error::Migration(_) => "MigrationError",
     }
 }
 

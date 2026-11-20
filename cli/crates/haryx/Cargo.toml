@@ -1,0 +1,28 @@
+[package]
+name = "haryx"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description.workspace = true
+
+[[bin]]
+name = "haryx"
+path = "src/main.rs"
+
+[dependencies]
+haryx-core.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+log.workspace = true
+env_logger.workspace = true
+ratatui.workspace = true
+crossterm.workspace = true
+is-terminal.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

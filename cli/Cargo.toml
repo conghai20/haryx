@@ -1,0 +1,44 @@
+[workspace]
+resolver = "3"
+members = ["crates/haryx-core", "crates/haryx"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+description = "HaryX: a unified control center for AI coding accounts, usage and sessions"
+
+[workspace.dependencies]
+haryx-core = { path = "crates/haryx-core" }
+anyhow = "1"
+thiserror = "2"
+clap = { version = "4", features = ["derive", "wrap_help"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+jiff = { version = "0.2", features = ["serde"] }
+fs4 = "0.13"
+libc = "0.2"
+log = "0.4"
+env_logger = "0.11"
+ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier", "json"] }
+rand = "0.9"
+sha2 = "0.10"
+base64 = "0.22"
+tempfile = "3"
+dirs = "6"
+ratatui = "0.29"
+crossterm = "0.29"
+is-terminal = "0.4"
+tiny_http = "0.12"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

@@ -4,7 +4,7 @@
 //! here until `session.rs` is ported, because the credential store needs them first.
 
 use std::ffi::OsStr;
-use std::path::{Component, Path, PathBuf};
+use std::path::Path;
 
 use sha2::{Digest, Sha256};
 use unicode_normalization::UnicodeNormalization;
@@ -80,29 +80,8 @@ pub fn delete_macos_keychain_entry(
 /// the path resolves rather than on the variable being set. Resolution also collapses symlinks, which is how
 /// a profile reached through one shows up as itself.
 pub fn active_profile_is_default(env: &PathEnv) -> bool {
-    resolve_lenient(&paths::claude_config_home_in(env))
-        == resolve_lenient(&paths::default_claude_config_home_in(env))
-}
-
-/// Python's non-strict `Path.resolve()`: walk the components, resolving symlinks in every prefix that
-/// exists and applying `..` to the resolved prefix; a missing tail is kept as written.
-fn resolve_lenient(path: &Path) -> PathBuf {
-    let mut out = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                out.pop();
-            }
-            other => {
-                out.push(other);
-                if let Ok(canonical) = std::fs::canonicalize(&out) {
-                    out = canonical;
-                }
-            }
-        }
-    }
-    out
+    paths::resolve_lenient(&paths::claude_config_home_in(env))
+        == paths::resolve_lenient(&paths::default_claude_config_home_in(env))
 }
 
 /// Keychain services holding the OAuth credential for the active environment, in try-order.

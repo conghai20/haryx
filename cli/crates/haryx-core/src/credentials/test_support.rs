@@ -11,10 +11,10 @@ use super::{CredentialStore, KeychainBackend, StoreHost, Tunables};
 use crate::keychain::KeychainError;
 use crate::paths::{HostOs, PathEnv};
 
-pub(super) const ACCOUNT: &str = "tester";
+pub(crate) const ACCOUNT: &str = "tester";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Op {
+pub(crate) enum Op {
     Get,
     Set,
     Delete,
@@ -26,7 +26,7 @@ type Hook = Arc<dyn Fn(Op, &str, &str) + Send + Sync>;
 /// A fake Keychain: a map of `(service, account) -> value`, a call log, an injectable failure rule and a hook
 /// run before each op.
 #[derive(Default)]
-pub(super) struct FakeKeychain {
+pub(crate) struct FakeKeychain {
     pub data: Mutex<HashMap<(String, String), String>>,
     pub calls: Mutex<Vec<(Op, String, String)>>,
     fail: Mutex<Option<FailRule>>,
@@ -161,7 +161,7 @@ impl KeychainBackend for FakeKeychain {
 }
 
 /// A sandbox: a temp home, a store root inside it, a fake Keychain.
-pub(super) struct Sandbox {
+pub(crate) struct Sandbox {
     /// Held so the directory lives as long as the sandbox.
     _tmp: TempDir,
     pub env: PathEnv,
@@ -242,7 +242,7 @@ impl Sandbox {
     }
 }
 
-pub(super) fn creds(tag: &str) -> String {
+pub(crate) fn creds(tag: &str) -> String {
     format!(
         r#"{{"claudeAiOauth": {{"accessToken": "sk-{tag}", "refreshToken": "rt-{tag}", "expiresAt": 9999999999000}}}}"#
     )

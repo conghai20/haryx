@@ -1,4 +1,5 @@
 import HaryXCore
+import AppKit
 import Foundation
 import UserNotifications
 import os
@@ -25,6 +26,36 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
+    enum Permission { case granted, denied, unavailable }
+
+    /// Resolves the current permission, prompting the system dialog when the user hasn't decided yet.
+    func ensurePermission() async -> Permission {
+        guard let center else { return .unavailable }
+        center.delegate = self
+        switch await center.notificationSettings().authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            return .granted
+        case .notDetermined:
+            do {
+                return try await center.requestAuthorization(options: [.alert, .sound]) ? .granted : .denied
+            } catch {
+                log.error("Notification auth failed: \(error.localizedDescription)")
+                return .denied
+            }
+        case .denied:
+            return .denied
+        @unknown default:
+            return .denied
+        }
+    }
+
+    /// Deep-links to this app's page in System Settings › Notifications.
+    static func openSystemSettings() {
+        let id = Bundle.main.bundleIdentifier.map { "?id=\($0)" } ?? ""
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension\(id)") else { return }
+        NSWorkspace.shared.open(url)
+    }
+
     func handle(_ notices: [Notice]) {
         guard seeded else {
             fired.formUnion(notices.map(\.key))
@@ -42,8 +73,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    func post(_ notice: Notice) {
-        guard Prefs.d.bool(forKey: Prefs.notifyKey(notice.category)), let center else { return }
+    /// `force` bypasses the per-category toggle (used by the test button).
+    func post(_ notice: Notice, force: Bool = false) {
+        guard force || Prefs.d.bool(forKey: Prefs.notifyKey(notice.category)), let center else { return }
         let content = UNMutableNotificationContent()
         content.title = notice.title
         content.body = notice.body

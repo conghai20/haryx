@@ -12,6 +12,7 @@ struct PreferencesPane: View {
     @AppStorage(Prefs.menuBarPercent) private var menuBarPercent = true
     @AppStorage(Prefs.menuBarAnimate) private var menuBarAnimate = true
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @State private var showNotifyDenied = false
 
     var body: some View {
         Form {
@@ -53,10 +54,13 @@ struct PreferencesPane: View {
                 ForEach(Notice.Category.allCases, id: \.self) { c in
                     NotifyToggle(category: c)
                 }
-                Button("Send Test Notification") {
-                    store.notifier.post(Notice(key: "test:\(Date().timeIntervalSince1970)", category: .switched,
-                                               title: "HaryX notifications work", body: "You'll hear from your mascots here."))
-                }
+                Button("Send Test Notification") { Task { await sendTestNotification() } }
+            }
+            .alert("Notifications are turned off", isPresented: $showNotifyDenied) {
+                Button("Open System Settings") { Notifier.openSystemSettings() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("HaryX isn't allowed to post notifications. Allow them in System Settings › Notifications › HaryX.")
             }
 
             Section {
@@ -68,6 +72,19 @@ struct PreferencesPane: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private func sendTestNotification() async {
+        switch await store.notifier.ensurePermission() {
+        case .granted:
+            store.notifier.post(Notice(key: "test:\(Date().timeIntervalSince1970)", category: .switched,
+                                       title: "HaryX notifications work", body: "You'll hear from your mascots here."),
+                                force: true)
+        case .denied:
+            showNotifyDenied = true
+        case .unavailable:
+            store.flash("Notifications need the bundled HaryX.app (not `swift run`).", error: true)
+        }
     }
 
     private func setLaunchAtLogin(_ on: Bool) {

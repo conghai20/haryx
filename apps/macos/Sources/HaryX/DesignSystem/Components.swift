@@ -25,7 +25,7 @@ struct UsageBar: View {
                 HStack {
                     Text(label).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
                     Spacer()
-                    if let c = window?.countdown { Text("resets in \(c)").font(.caption2).foregroundStyle(.tertiary) }
+                    if let reset = resetText { Text(reset).font(.caption2).foregroundStyle(.tertiary) }
                 }
             }
             HStack(spacing: 6) {
@@ -48,9 +48,24 @@ struct UsageBar: View {
                     .foregroundStyle(pct == nil ? .tertiary : .primary)
                     .frame(width: 34, alignment: .trailing)
             }
+            if compact, let c = window?.countdown {
+                Label(c, systemImage: "arrow.clockwise")
+                    .labelStyle(.titleAndIcon)
+                    .font(.system(size: 9).monospacedDigit())
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .padding(.leading, 20)
+                    .help(window?.clock.map { "Resets \($0)" } ?? "")
+            }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(label) usage \(pct.map { "\(Int($0)) percent" } ?? "unknown")")
+        .accessibilityLabel("\(label) usage \(pct.map { "\(Int($0)) percent" } ?? "unknown")\(window?.countdown.map { ", resets in \($0)" } ?? "")")
+    }
+
+    /// "resets in 3h 18m · 03:20"
+    private var resetText: String? {
+        guard let c = window?.countdown else { return nil }
+        return window?.clock.map { "resets in \(c) · \($0)" } ?? "resets in \(c)"
     }
 }
 

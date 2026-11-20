@@ -10,7 +10,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         case .accounts: "Accounts"
         case .autoSwitch: "Auto-Switch"
         case .mappings: "Folder Mappings"
-        case .config: "cswap Settings"
+        case .config: "CLI Settings"
         case .maintenance: "Backup & Maintenance"
         case .preferences: "App Preferences"
         }

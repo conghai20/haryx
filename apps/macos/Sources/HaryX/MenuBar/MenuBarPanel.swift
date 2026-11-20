@@ -54,7 +54,7 @@ struct MenuBarPanel: View {
             }
         }
         .scrollIndicators(.never)
-        .frame(maxHeight: min(CGFloat(max(store.accounts.count - 1, 0)) * 52, 320))
+        .frame(maxHeight: min(CGFloat(max(store.accounts.count - 1, 0)) * 64, 360))
     }
 
     private var footer: some View {

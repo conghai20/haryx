@@ -18,7 +18,7 @@ fn main() -> ExitCode {
         Err(err) => err.exit(),
     };
     init_logging(invocation.debug);
-    match commands::dispatch(invocation.command) {
+    match commands::dispatch(invocation.command, invocation.debug) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             if !err.message.is_empty() {

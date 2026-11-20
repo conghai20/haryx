@@ -1,5 +1,6 @@
 //! Routes a parsed [`Command`] to its implementation. Commands not ported yet answer "not implemented".
 
+mod accounts;
 mod config;
 mod guard;
 
@@ -39,9 +40,19 @@ impl CommandError {
 }
 
 /// Run one command.
-pub fn dispatch(command: Command) -> Result<(), CommandError> {
+pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
     match command {
         Command::Config { json, action } => config::run(json, &action),
+        Command::Alias(setting) => accounts::alias(&setting, debug),
+        Command::Threshold(setting) => accounts::threshold(&setting, debug),
+        Command::Priority(setting) => accounts::priority(&setting, debug),
+        Command::Swap { first, second } => accounts::swap(&first, &second, debug),
+        Command::Move { account, slot } => accounts::move_account(&account, &slot, debug),
+        Command::Map { account, path } => accounts::map(account.as_deref(), path.as_deref(), debug),
+        Command::Unmap { path } => accounts::unmap(path.as_deref(), debug),
+        Command::Unclaimed { purge } => accounts::unclaimed(purge.as_deref(), debug),
+        Command::Disable { account } => accounts::set_disabled(&account, true, debug),
+        Command::Enable { account } => accounts::set_disabled(&account, false, debug),
         Command::Tui
         | Command::Watch
         | Command::List { .. }
@@ -51,23 +62,13 @@ pub fn dispatch(command: Command) -> Result<(), CommandError> {
         | Command::Add { .. }
         | Command::AddToken { .. }
         | Command::Remove { .. }
-        | Command::Disable { .. }
-        | Command::Enable { .. }
         | Command::Export { .. }
         | Command::Import { .. }
         | Command::ImportUsage { .. }
         | Command::Purge
         | Command::Upgrade
         | Command::Run(_)
-        | Command::Auto(_)
-        | Command::Map { .. }
-        | Command::Unmap { .. }
-        | Command::Unclaimed { .. }
-        | Command::Alias(_)
-        | Command::Threshold(_)
-        | Command::Priority(_)
-        | Command::Swap { .. }
-        | Command::Move { .. } => Err(not_implemented(&command)),
+        | Command::Auto(_) => Err(not_implemented(&command)),
     }
 }
 

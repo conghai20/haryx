@@ -1,6 +1,6 @@
 # `haryx` CLI: Rust rebuild of claude-swap
 
-Status: **in progress**. Source of truth for behaviour: `upstream/claude-swap/` (1.2.0b1, MIT, pinned in
+Status: **in progress**. Done: phase 0 (scaffold, full command surface), phase 1 storage/platform leaves. Source of truth for behaviour: `upstream/claude-swap/` (1.2.0b1, MIT, pinned in
 `upstream/README.md`). Its `docs/architecture.md` is the module map this port follows.
 
 ## Decisions (confirmed with the owner, 2026-11-20)
@@ -14,7 +14,7 @@ Status: **in progress**. Source of truth for behaviour: `upstream/claude-swap/` 
 | cswap users | `haryx import --from-cswap` copies (never moves) a cswap store, including Keychain backups. On first run with an empty store, a cswap store is detected and the import is offered (interactive y/N at a terminal; a one-line stderr hint otherwise; never on `--json` stdout). |
 | Live login | Unchanged and shared by necessity: haryx reads and writes the same live credential and `.claude.json` that Claude Code uses, under Claude Code's own locks. |
 | Platforms | macOS + Linux in v1. Windows stays on the roadmap; platform code is `cfg`-gated so it can be added. |
-| Scope of v1 | Everything except the Python menu bar (the HaryX macOS app replaces it): core commands, `auto`, `run`/sessions, launch-agent service, `watch`, TUI. |
+| Scope of v1 | Everything except the Python menu bar (the HaryX macOS app replaces it): core commands, `auto`, `run`/sessions, `watch`, TUI. Upstream's launch-agent service exists only to run that menu bar, so it is dropped with it. |
 | Layout | Self-contained Cargo workspace in `cli/` (the future server is Go). |
 
 ## Layout
@@ -40,8 +40,7 @@ cli/
 │   │       ├── transfer.rs    # export / import / import --from-cswap              (transfer.py)
 │   │       ├── session.rs     # `run`, profiles, mappings                          (session.py, mappings.py)
 │   │       ├── process.rs     # running Claude Code detection                      (process_detection.py, spawn.py)
-│   │       ├── autoswitch/    # engine + events                                    (autoswitch.py, lines.py)
-│   │       └── service.rs     # launchd / systemd service                          (launch_agent.py)
+│   │       └── autoswitch/    # engine + events                                    (autoswitch.py, lines.py)
 │   └── haryx/                 # binary: clap CLI, printer, TUI (ratatui), watch
 └── tests/                     # integration tests against a sandboxed HOME
 ```
@@ -72,7 +71,7 @@ Each phase ends green: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo t
 | 6 | Transfer | export, import, import-usage, `import --from-cswap`, first-run offer |
 | 7 | Sessions | `run`, process detection, spawn |
 | 8 | Auto-switch | engine, `auto` (`--once`, `--json` events, strategies, dry run) |
-| 9 | Service, watch, TUI, upgrade | launchd/systemd service; `watch`; ratatui dashboard; `upgrade` against HaryX releases |
+| 9 | Watch, TUI, upgrade | `watch`; ratatui dashboard; `upgrade` against HaryX releases |
 | 10 | Integration | macOS app calls `haryx` (falls back to `cswap`) and watches the haryx store; contract fixtures refreshed to 1.2.0b1; packaging (Homebrew, crates.io, npm/pip binary wrappers via cargo-dist) |
 
 ## Testing

@@ -8,6 +8,7 @@
 //! enters a slot only when it is known to belong there; paths only from [`crate::paths`].
 
 mod accounts;
+mod grant;
 mod policy;
 mod relocate;
 mod sequence;
@@ -16,6 +17,8 @@ mod storage;
 
 #[cfg(test)]
 mod test_support;
+#[cfg(test)]
+mod tests_grant;
 #[cfg(test)]
 mod tests_relocate;
 #[cfg(test)]
@@ -35,6 +38,7 @@ use crate::fsutil::{self, WriteOptions};
 use crate::keychain::Security;
 use crate::locking::{DEFAULT_LOCK_TIMEOUT, FileLock};
 use crate::models::pyfmt::json_dumps_pretty;
+use crate::oauth::Api;
 use crate::paths::{self, PathEnv};
 use crate::printer;
 use crate::session::{self, ProfileKeychain};
@@ -70,6 +74,8 @@ pub struct Switcher {
     pub(crate) keychain_account: String,
     /// Pause between strict session Keychain read attempts.
     pub(crate) session_retry_delay: Duration,
+    /// The OAuth/usage endpoints (`HARYX_API_BASE` redirects them in tests).
+    pub(crate) api: Api,
     debug: bool,
     #[cfg(test)]
     pub(crate) faults: test_support::Faults,
@@ -112,6 +118,7 @@ impl Switcher {
             keychain,
             keychain_account,
             session_retry_delay: session::STRICT_KEYCHAIN_RETRY_DELAY,
+            api: Api::from_env(),
             debug,
             #[cfg(test)]
             faults: test_support::Faults::default(),
@@ -133,6 +140,12 @@ impl Switcher {
     /// haryx's own store for this process's environment.
     pub fn from_process(debug: bool) -> Result<Self> {
         Self::from_env(PathEnv::from_process()?, debug)
+    }
+
+    /// Point every endpoint at another base URL (tests, a local stub).
+    pub fn with_api(mut self, api: Api) -> Self {
+        self.api = api;
+        self
     }
 
     pub fn debug(&self) -> bool {

@@ -362,4 +362,4 @@ pub fn build_token_status_at(
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

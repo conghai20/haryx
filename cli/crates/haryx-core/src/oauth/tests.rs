@@ -3,7 +3,7 @@
 
 mod network;
 mod probe;
-mod stub;
+pub(crate) mod stub;
 
 use super::*;
 use jiff::tz::TimeZone;

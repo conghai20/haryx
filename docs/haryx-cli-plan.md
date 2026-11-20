@@ -89,5 +89,25 @@ Each phase ends green: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo t
 - **User-Agent:** haryx sends `haryx/<version>` (upstream: `claude-swap/1.0`). Both are non-first-party, so the
   usage endpoint's request budget should behave the same, but this is unmeasured: once `haryx list` works on real
   data, watch one real account for unexpected 429s over a few hours.
-- **Terms:** review Anthropic's Consumer and Commercial Terms on using subscription OAuth tokens outside Claude
-  Code and on switching between several accounts, before a public release.
+- **Terms (reviewed 2026-11-21, not legal advice):** sources are Anthropic's Claude Code
+  [Legal and compliance](https://code.claude.com/docs/en/legal-and-compliance) page, the
+  [log-in help article](https://support.claude.com/en/articles/13189465-log-in-to-your-claude-account), the
+  [Usage Policy](https://www.anthropic.com/legal/aup) and the Consumer Terms.
+  - *Fits:* subscription OAuth is for the subscriber's own, ordinary use of Claude Code. haryx never sends model
+    requests, never offers a "log in with Claude" of its own and never resells or intermediates usage; the
+    unmodified Claude Code binary does the work with each account's own login, and the binary's authentication is
+    not removed or disabled.
+  - *Risk 1, limit rotation:* the help article says tools that "attempt to route third-party traffic against
+    subscription limits" are prohibited, and the docs say advertised limits "assume ordinary, individual usage".
+    The Usage Policy forbids creating multiple accounts "to avoid detection, circumvent product guardrails", aimed
+    at malicious use. Auto-switching to keep working past one plan's limit is the closest thing to this: the
+    biggest exposure, and Anthropic may read it as circumvention.
+  - *Risk 2, identity:* tools that "misrepresent their identity to Anthropic's servers" are prohibited. haryx
+    already sends its own User-Agent, but token refresh reuses Claude Code's OAuth client id, and the usage
+    endpoint is undocumented.
+  - *Risk 3, sharing:* the account holder is responsible for all activity on the account; one person's own
+    accounts only, never a team sharing logins.
+  - *Before going public:* state these limits in the README (personal accounts only, no sharing, the user's own
+    responsibility under Anthropic's terms); keep `auto` opt-in and describe it as balancing the user's own plans,
+    not as getting around limits; ideally ask Anthropic whether multi-account switching and the usage endpoint
+    are acceptable. Enforcement is a warning, throttling, suspension or termination of the user's accounts.

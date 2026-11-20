@@ -1,0 +1,65 @@
+//! Routes a parsed [`Command`] to its implementation. Every command is still a stub.
+
+use std::fmt;
+
+use haryx_core::PROG;
+
+use crate::cli::Command;
+
+/// Exit code of a command that is not implemented yet (argparse's usage-error code).
+pub const NOT_IMPLEMENTED_EXIT: u8 = 2;
+
+/// A command that could not complete: the message for stderr and the process exit code.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommandError {
+    pub message: String,
+    pub exit_code: u8,
+}
+
+impl fmt::Display for CommandError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for CommandError {}
+
+/// Run one command.
+pub fn dispatch(command: Command) -> Result<(), CommandError> {
+    match command {
+        Command::Tui
+        | Command::Watch
+        | Command::List { .. }
+        | Command::Status { .. }
+        | Command::Switch { .. }
+        | Command::SwitchTo { .. }
+        | Command::Add { .. }
+        | Command::AddToken { .. }
+        | Command::Remove { .. }
+        | Command::Disable { .. }
+        | Command::Enable { .. }
+        | Command::Export { .. }
+        | Command::Import { .. }
+        | Command::ImportUsage { .. }
+        | Command::Purge
+        | Command::Upgrade
+        | Command::Run(_)
+        | Command::Auto(_)
+        | Command::Config { .. }
+        | Command::Map { .. }
+        | Command::Unmap { .. }
+        | Command::Unclaimed { .. }
+        | Command::Alias(_)
+        | Command::Threshold(_)
+        | Command::Priority(_)
+        | Command::Swap { .. }
+        | Command::Move { .. } => Err(not_implemented(&command)),
+    }
+}
+
+fn not_implemented(command: &Command) -> CommandError {
+    CommandError {
+        message: format!("{PROG} {}: not implemented yet", command.name()),
+        exit_code: NOT_IMPLEMENTED_EXIT,
+    }
+}

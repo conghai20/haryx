@@ -13,7 +13,7 @@ path = "src/main.rs"
 [dependencies]
 haryx-core.workspace = true
 anyhow.workspace = true
-clap.workspace = true
+clap = { workspace = true, features = ["string"] }
 serde_json.workspace = true
 log.workspace = true
 env_logger.workspace = true

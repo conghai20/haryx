@@ -114,12 +114,14 @@ impl AutoSwitchEngine<'_> {
         let line = thresholds.get(&current);
         let (entries, mut usage, mut headroom) =
             self.collect_scheduled_usage(&current, &quarantined, line)?;
-        let fetch_errors = entries
+        // Slot order (as `usage`), not the entries map's text order.
+        let fetch_errors = usage
             .iter()
-            .filter(|(num, e)| {
-                usage.iter().any(|(n, v)| n == *num && v.is_none()) && e.last_error.is_some()
+            .filter(|(_, v)| v.is_none())
+            .filter_map(|(num, _)| {
+                let err = entries.get(num)?.last_error.clone()?;
+                Some((num.clone(), err))
             })
-            .map(|(num, e)| (num.clone(), e.last_error.clone().unwrap_or_default()))
             .collect();
         let windows = usage
             .iter()
@@ -435,15 +437,19 @@ impl AutoSwitchEngine<'_> {
 
 /// `datetime.fromtimestamp(ts, utc).isoformat().replace("+00:00", "Z")`: whole seconds unless
 /// the timestamp carries a fraction (then microseconds, as Python prints them).
-fn iso_utc(ts: f64) -> String {
-    let secs = ts.floor();
-    let micros = ((ts - secs) * 1e6).round() as i64;
-    let Ok(base) = jiff::Timestamp::from_second(secs as i64) else {
+pub(super) fn iso_utc(ts: f64) -> String {
+    // Round to whole microseconds first so a fraction that rounds up carries into the second.
+    let total_micros = (ts * 1e6).round() as i64;
+    let (secs, micros) = (
+        total_micros.div_euclid(1_000_000),
+        total_micros.rem_euclid(1_000_000),
+    );
+    let Ok(base) = jiff::Timestamp::from_second(secs) else {
         return ts.to_string();
     };
-    if micros == 0 || micros >= 1_000_000 {
-        return iso_seconds(base);
-    }
     let text = iso_seconds(base);
+    if micros == 0 {
+        return text;
+    }
     format!("{}.{micros:06}Z", text.trim_end_matches('Z'))
 }

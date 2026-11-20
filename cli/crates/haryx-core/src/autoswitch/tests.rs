@@ -73,3 +73,12 @@ fn outcome_codes_match_exit_codes() {
     assert_eq!(TickOutcome::NoAction.code(), 2);
     assert_eq!(TickOutcome::Blocked.code(), 3);
 }
+
+#[test]
+fn iso_utc_matches_python_isoformat() {
+    use super::tick::iso_utc;
+    assert_eq!(iso_utc(1_700_000_000.0), "2023-11-14T22:13:20Z");
+    assert_eq!(iso_utc(1_700_000_000.25), "2023-11-14T22:13:20.250000Z");
+    // A fraction that rounds up to a whole second carries over.
+    assert_eq!(iso_utc(1_700_000_000.999_999_9), "2023-11-14T22:13:21Z");
+}

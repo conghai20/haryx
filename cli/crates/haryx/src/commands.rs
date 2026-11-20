@@ -61,6 +61,7 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
             accounts::add_token(token.as_deref(), email.as_deref(), slot, debug)
         }
         Command::Remove { account } => accounts::remove(&account, debug),
+        Command::Purge => accounts::purge(debug),
         Command::Alias(setting) => accounts::alias(&setting, debug),
         Command::Threshold(setting) => accounts::threshold(&setting, debug),
         Command::Priority(setting) => accounts::priority(&setting, debug),
@@ -76,7 +77,6 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         | Command::Export { .. }
         | Command::Import { .. }
         | Command::ImportUsage { .. }
-        | Command::Purge
         | Command::Upgrade
         | Command::Run(_)
         | Command::Auto(_) => Err(not_implemented(&command)),

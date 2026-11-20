@@ -404,3 +404,31 @@ fn switch_with_one_account_says_so() {
     let payload: Value = serde_json::from_str(&run.out).unwrap();
     assert_eq!(payload["reason"], "only-one-account");
 }
+
+#[test]
+fn purge_removes_the_store_but_not_the_live_login() {
+    let s = Sandbox::new();
+    std::fs::remove_file(s.store().join("sequence.json")).unwrap();
+    login(&s, "a@example.com", "u-a", "at-a");
+    s.run(&["add"]);
+    let output = Command::new(env!("CARGO_BIN_EXE_haryx"))
+        .arg("purge")
+        .env("HOME", s.dir.path())
+        .env("HARYX_HOME", s.store())
+        .env("CLAUDE_CONFIG_DIR", s.dir.path().join(".claude"))
+        .env("HARYX_SECURITY_BIN", s.dir.path().join("security"))
+        .env("NO_COLOR", "1")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .and_then(|mut child| {
+            use std::io::Write;
+            child.stdin.take().unwrap().write_all(b"y\n")?;
+            child.wait_with_output()
+        })
+        .unwrap();
+    let out = String::from_utf8_lossy(&output.stdout);
+    assert!(out.contains("Purge complete."), "{out}");
+    assert!(!s.store().exists());
+    assert_eq!(live_token(&s), "at-a");
+}

@@ -13,6 +13,7 @@ mod grant;
 mod listing;
 mod perform;
 mod policy;
+mod purge;
 mod relocate;
 mod sequence;
 mod session_profile;

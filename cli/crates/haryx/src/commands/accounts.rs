@@ -314,3 +314,8 @@ pub fn remove(account: &str, debug: bool) -> Result<(), CommandError> {
     let switcher = open(debug)?;
     switcher.remove_account(account, false).map_err(fail)
 }
+
+pub fn purge(debug: bool) -> Result<(), CommandError> {
+    let switcher = open(debug)?;
+    switcher.purge().map_err(fail)
+}

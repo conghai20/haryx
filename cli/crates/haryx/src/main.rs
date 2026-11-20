@@ -21,7 +21,9 @@ fn main() -> ExitCode {
     match commands::dispatch(invocation.command) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            eprintln!("{err}");
+            if !err.message.is_empty() {
+                eprintln!("{err}");
+            }
             ExitCode::from(err.exit_code)
         }
     }

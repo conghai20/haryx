@@ -601,6 +601,7 @@ dependencies = [
  "env_logger",
  "haryx-core",
  "is-terminal",
+ "libc",
  "log",
  "ratatui",
  "serde_json",

@@ -639,13 +639,22 @@ impl Switcher {
             );
             return;
         };
-        // TODO(add): prompt "[Y/n]" and call add_account once `add` is ported.
-        println!(
-            "{}",
-            dimmed(&format!(
-                "Add the current account ({email}) with: {PROG} add"
-            ))
+        let question = format!(
+            "No managed accounts found. Add current account ({email}) to managed list? [Y/n] "
         );
+        let answer = super::add::prompt(&question).unwrap_or_default();
+        if answer.to_lowercase() == "n" {
+            println!(
+                "{}",
+                dimmed(&format!(
+                    "Setup cancelled. You can run '{PROG} --add-account' later."
+                ))
+            );
+            return;
+        }
+        if let Err(err) = self.add_account(None, None, false) {
+            crate::printer::error(&format!("Error: {err}"));
+        }
     }
 
     /// The active account's usage entry and login expiry (one collect pass over that slot only).

@@ -292,3 +292,25 @@ pub fn set_disabled(account: &str, disabled: bool, debug: bool) -> Result<(), Co
         .set_account_disabled(account, disabled)
         .map_err(fail)
 }
+
+pub fn add(slot: Option<i64>, alias: Option<&str>, debug: bool) -> Result<(), CommandError> {
+    let switcher = open(debug)?;
+    switcher.add_account(slot, alias, false).map_err(fail)
+}
+
+pub fn add_token(
+    token: Option<&str>,
+    email: Option<&str>,
+    slot: Option<i64>,
+    debug: bool,
+) -> Result<(), CommandError> {
+    let switcher = open(debug)?;
+    switcher
+        .add_account_from_token(token, email, slot, false)
+        .map_err(fail)
+}
+
+pub fn remove(account: &str, debug: bool) -> Result<(), CommandError> {
+    let switcher = open(debug)?;
+    switcher.remove_account(account, false).map_err(fail)
+}

@@ -8,6 +8,7 @@
 //! enters a slot only when it is known to belong there; paths only from [`crate::paths`].
 
 mod accounts;
+mod add;
 mod grant;
 mod listing;
 mod policy;

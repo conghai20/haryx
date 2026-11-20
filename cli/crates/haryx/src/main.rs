@@ -3,7 +3,7 @@
 use std::io::IsTerminal;
 use std::process::ExitCode;
 
-use haryx::{cli, commands};
+use haryx::{cli, commands, logging};
 
 fn main() -> ExitCode {
     let argv: Vec<String> = std::env::args_os()
@@ -17,7 +17,7 @@ fn main() -> ExitCode {
         // Help and version go to stdout (exit 0); usage errors to stderr (exit 2).
         Err(err) => err.exit(),
     };
-    init_logging(invocation.debug);
+    logging::init(invocation.debug);
     match commands::dispatch(invocation.command, invocation.debug) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
@@ -27,17 +27,4 @@ fn main() -> ExitCode {
             ExitCode::from(err.exit_code)
         }
     }
-}
-
-/// `--debug` turns on debug-level logging; otherwise only warnings. Logs go to stderr.
-fn init_logging(debug: bool) {
-    let level = if debug {
-        log::LevelFilter::Debug
-    } else {
-        log::LevelFilter::Warn
-    };
-    env_logger::Builder::new()
-        .filter_level(level)
-        .target(env_logger::Target::Stderr)
-        .init();
 }

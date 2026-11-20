@@ -16,7 +16,7 @@ anyhow.workspace = true
 clap = { workspace = true, features = ["string"] }
 serde_json.workspace = true
 log.workspace = true
-env_logger.workspace = true
+jiff.workspace = true
 ratatui.workspace = true
 crossterm.workspace = true
 is-terminal.workspace = true

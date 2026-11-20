@@ -46,6 +46,11 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Config { json, action } => config::run(json, &action),
         Command::List { token_status, json } => listing::list(token_status, json, debug),
         Command::Status { json } => listing::status(json, debug),
+        Command::Add { slot, alias } => accounts::add(slot, alias.as_deref(), debug),
+        Command::AddToken { token, email, slot } => {
+            accounts::add_token(token.as_deref(), email.as_deref(), slot, debug)
+        }
+        Command::Remove { account } => accounts::remove(&account, debug),
         Command::Alias(setting) => accounts::alias(&setting, debug),
         Command::Threshold(setting) => accounts::threshold(&setting, debug),
         Command::Priority(setting) => accounts::priority(&setting, debug),
@@ -60,9 +65,6 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         | Command::Watch
         | Command::Switch { .. }
         | Command::SwitchTo { .. }
-        | Command::Add { .. }
-        | Command::AddToken { .. }
-        | Command::Remove { .. }
         | Command::Export { .. }
         | Command::Import { .. }
         | Command::ImportUsage { .. }

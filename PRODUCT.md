@@ -12,8 +12,8 @@ macos
 Two parts:
 - **HaryX app:** native macOS (SwiftUI, macOS 26+, Liquid Glass), menu bar status item plus dashboard window.
   Native macOS conventions apply. *(Platform value is outside the web/ios/android/adaptive set; recorded as-is.)*
-- **`haryx` CLI:** Ruby, cross-platform (macOS, Linux, Windows). The terminal is its interface.
-- **Future:** a server (language undecided), a web dashboard, and native iOS and Android apps. The CLI keeps
+- **`haryx` CLI:** Rust, cross-platform (macOS and Linux first, Windows on the roadmap). The terminal is its interface.
+- **Future:** a server (Go), a web dashboard, and native iOS and Android apps. The CLI keeps
   credentials on the device; the server receives metadata only. Layout: `docs/architecture.md`.
 
 ## Users
@@ -55,14 +55,15 @@ The switching/routing idea is the core of the identity (it is what the X mark re
   swap, map/unmap, run, auto, config, export/import, import-usage, unclaimed, upgrade, purge), notifications,
   terminal quick actions, launch at login.
 - Zero third-party Swift dependencies; SwiftPM build; ad-hoc signed `.app`.
-- Planned: fork upstream claude-swap (Python) and rebuild its full functionality in Ruby as the **`haryx`** CLI.
+- Planned: fork upstream claude-swap (Python) and rebuild its full functionality in Rust as the **`haryx`** CLI
+  (plan: `docs/haryx-cli-plan.md`).
   It is **drop-in compatible**: same commands, flags, prompts and `--json` output shapes as `cswap`, so the app only
   changes the binary it calls. HaryX-only commands may be added later without breaking that contract.
   Open: upstream license terms (check before forking). Windows support is on the roadmap (`docs/roadmap.md`).
 - Renaming from `cswapui` to HaryX (app name, bundle, binary, docs) is planned.
-- Distribution (all wanted): Homebrew (formula for the CLI, cask for the app), RubyGems (`gem install haryx`),
+- Distribution (all wanted): Homebrew (formula for the CLI, cask for the app), crates.io (`cargo install haryx`),
   Developer ID signed and notarized DMG via GitHub releases, plus wrapper packages on other managers (pip, npm and
-  similar) so the CLI installs on macOS, Linux and Windows. How the non-Ruby wrappers ship a Ruby runtime is open.
+  similar) that ship prebuilt `haryx` binaries, so the CLI installs on macOS, Linux and later Windows.
 - Undecided: which DevSecOps/SRE/Cloud area comes after AI accounts. Focus stays on AI accounts until the core ships.
 
 ## Brand Commitments

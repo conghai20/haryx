@@ -11,7 +11,7 @@
 A unified control center for AI coding accounts, usage and sessions.
 
 Today HaryX is a native macOS menu bar app for Claude accounts managed by
-[claude-swap](https://github.com/realiti4/claude-swap) (`cswap`). A Ruby `haryx` CLI that replaces `cswap`,
+[claude-swap](https://github.com/realiti4/claude-swap) (`cswap`). A Rust `haryx` CLI that replaces `cswap` (in progress, `cli/`),
 a server, a web dashboard and native mobile apps are on the [roadmap](docs/roadmap.md).
 
 ## Repository
@@ -21,7 +21,7 @@ a server, a web dashboard and native mobile apps are on the [roadmap](docs/roadm
 | [`apps/macos/`](apps/macos) | HaryX macOS app (SwiftUI, macOS 26+) |
 | [`packages/contracts/`](packages/contracts) | JSON contracts shared by the app and the CLI |
 | `assets/brand/`, `scripts/brand/` | logo sources, exports and generators |
-| [`upstream/`](upstream) | local reference copy of claude-swap (MIT) for the Ruby port |
+| [`upstream/`](upstream) | local reference copy of claude-swap (MIT) for the Rust port |
 | [`docs/`](docs) | [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), brand notes |
 
 ## macOS app

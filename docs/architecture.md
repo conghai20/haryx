@@ -5,15 +5,15 @@
 | Path | Part | Status |
 |---|---|---|
 | `apps/macos/` | HaryX macOS app (SwiftUI menu bar + dashboard) | shipping |
-| `cli/` | `haryx` Ruby CLI, drop-in replacement for `cswap`; owns accounts and credentials on the device | planned |
-| `server/` | HaryX server: sync, team view, API for web and mobile (language undecided) | future |
+| `cli/` | `haryx` Rust CLI, drop-in replacement for `cswap`; owns accounts and credentials on the device | in progress |
+| `server/` | HaryX server: sync, team view, API for web and mobile (Go) | future |
 | `apps/web/` | web dashboard | future |
 | `apps/ios/`, `apps/android/` | native mobile apps | future |
 | `packages/contracts/` | language-neutral JSON fixtures/schemas shared by every part | active |
 | `packages/design-tokens/` | palette, type, spacing generated per platform | planned (after the palette is final) |
 | `assets/brand/`, `scripts/brand/` | logo sources and generators (move to `packages/brand/` once logo work settles) | active |
-| `upstream/claude-swap/` | local, unpushed copy of upstream claude-swap (MIT) used as reference for the Ruby port | reference |
-| `packaging/` | Homebrew, RubyGems, npm, PyPI, signed DMG | planned |
+| `upstream/claude-swap/` | local, unpushed copy of upstream claude-swap (MIT) used as reference for the Rust port | reference |
+| `packaging/` | Homebrew, crates.io, npm, PyPI, signed DMG | planned |
 
 Folders for future parts are created only when that work starts.
 

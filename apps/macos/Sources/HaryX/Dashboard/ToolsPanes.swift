@@ -29,7 +29,7 @@ struct MappingsPane: View {
                     }
                 }
                 if store.mappings.isEmpty {
-                    Text("No folders mapped. Mapped folders run Claude as their account with plain `cswap run`.")
+                    Text("No folders mapped. Mapped folders run Claude as their account with plain `haryx run`.")
                         .foregroundStyle(.secondary)
                 }
             }
@@ -87,7 +87,7 @@ struct MaintenancePane: View {
                     guard let url = openPanel() else { return }
                     Task { await store.importUsage(from: url, hold: holdSeconds > 0 ? holdSeconds : nil) }
                 }
-                .help("Feed `cswap list --json` output from another machine so both don't poll the usage endpoint")
+                .help("Feed `haryx list --json` output from another machine so both don't poll the usage endpoint")
             }
 
             Section("Unclaimed credentials") {
@@ -104,20 +104,20 @@ struct MaintenancePane: View {
                 }
             }
 
-            Section("cswap") {
+            Section(store.cli?.flavor.rawValue ?? "haryx") {
                 LabeledContent("Version", value: store.version.isEmpty ? "—" : store.version)
                 LabeledContent("Executable", value: store.cli?.executable.path ?? "not found")
                 HStack {
-                    Button("Upgrade cswap") { Task { await store.upgrade() } }
+                    Button("Upgrade \(store.cli?.flavor.rawValue ?? "haryx")") { Task { await store.upgrade() } }
                     Button("Open Data Folder") { NSWorkspace.shared.open(URL(fileURLWithPath: CSwapCLI.backupRoot)) }
                     Button("Show Log") {
-                        NSWorkspace.shared.selectFile(CSwapCLI.backupRoot + "/claude-swap.log", inFileViewerRootedAtPath: "")
+                        NSWorkspace.shared.selectFile(CSwapCLI.backupRoot + "/" + CSwapCLI.selectedFlavor.logFileName, inFileViewerRootedAtPath: "")
                     }
                 }
             }
 
             Section {
-                Button("Purge All claude-swap Data…", role: .destructive) { confirmPurge = true }
+                Button("Purge All Account Data…", role: .destructive) { confirmPurge = true }
             } footer: {
                 Text("Removes every stored account, backup, and setting. Your current Claude Code login stays as it is.")
             }
@@ -126,7 +126,7 @@ struct MaintenancePane: View {
         .task { await store.loadExtras() }
         .sheet(isPresented: $confirmPurge) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Purge all claude-swap data?").font(.title3.bold())
+                Text("Purge all account data?").font(.title3.bold())
                 Text("This can't be undone. Type PURGE to confirm.").foregroundStyle(.secondary)
                 TextField("PURGE", text: $purgeText)
                 HStack {
@@ -147,7 +147,7 @@ struct MaintenancePane: View {
     private func savePanel() -> URL? {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = "cswap-export-\(Date().formatted(.iso8601.year().month().day())).json"
+        panel.nameFieldStringValue = "haryx-export-\(Date().formatted(.iso8601.year().month().day())).json"
         return panel.runModal() == .OK ? panel.url : nil
     }
 

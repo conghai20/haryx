@@ -64,11 +64,11 @@ struct PreferencesPane: View {
             }
 
             Section {
-                TextField("cswap path", text: $cswapPath, prompt: Text(CSwapCLI.locate(override: nil)?.path ?? "auto-detect"))
+                TextField("CLI path", text: $cswapPath, prompt: Text(CSwapCLI.locate(override: nil)?.path ?? "auto-detect"))
                     .onSubmit { store.relocateCLI(); Task { await store.refresh() } }
                 LabeledContent("Using", value: store.cli?.executable.path ?? "not found")
-            } header: { Text("cswap") } footer: {
-                Text("Leave blank to auto-detect in ~/.local/bin, /opt/homebrew/bin, /usr/local/bin. Install with `uv tool install claude-swap`.")
+            } header: { Text("Command-line backend") } footer: {
+                Text("Leave blank to auto-detect `haryx` (then `cswap`) in ~/.local/bin, /opt/homebrew/bin, /usr/local/bin, ~/.cargo/bin. Install with `brew install haryx` or `cargo install haryx`.")
             }
         }
         .formStyle(.grouped)

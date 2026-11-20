@@ -25,7 +25,7 @@ struct ConfigRow: View {
         "run.shareHistory": "Session-mode runs share chat history with your default profile.",
         "usage.headerProbe": "Read setup-token usage via a 1-token Haiku request (spends quota).",
         "usage.fableProbe": "Also probe Fable limits (spends quota).",
-        "updates.check": "Check PyPI for cswap updates.",
+        "updates.check": "Check for new releases of the command-line backend.",
     ]
 
     var body: some View {
@@ -126,7 +126,7 @@ struct AutoSwitchPane: View {
                     Toggle("Start when HaryX launches", isOn: $onLaunch)
                     Button("Check Once Now") { Task { await store.runAutoOnce() } }
                 } footer: {
-                    Text("Runs `cswap auto --json` inside HaryX. It switches the active account when a quota window nears its threshold, and every decision appears in the log.")
+                    Text("Runs `haryx auto --json` inside HaryX. It switches the active account when a quota window nears its threshold, and every decision appears in the log.")
                 }
                 Section("Rules") {
                     ForEach(store.config.filter { $0.key.hasPrefix("autoswitch.") }) { ConfigRow(entry: $0) }

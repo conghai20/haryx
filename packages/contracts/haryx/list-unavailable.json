@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "activeAccountNumber": 2,
+  "accounts": [
+    {
+      "number": 1,
+      "email": "a@example.com",
+      "organizationName": "",
+      "organizationUuid": "",
+      "isOrganization": false,
+      "active": false,
+      "usageStatus": "unavailable",
+      "usage": null,
+      "usageError": "network",
+      "usageRetryAt": "2026-11-20T19:45:14Z"
+    },
+    {
+      "number": 2,
+      "email": "b@example.com",
+      "organizationName": "",
+      "organizationUuid": "",
+      "isOrganization": false,
+      "active": true,
+      "usageStatus": "unavailable",
+      "usage": null,
+      "usageError": "network",
+      "usageRetryAt": "2026-11-20T19:45:14Z"
+    }
+  ]
+}

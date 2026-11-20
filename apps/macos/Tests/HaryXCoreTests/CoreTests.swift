@@ -3,7 +3,7 @@ import Testing
 @testable import HaryXCore
 
 /// Shared contract fixture: a trimmed, anonymised `cswap list --json` (1.1.0) payload.
-/// The same file is checked by the Ruby `haryx` CLI specs, so app and CLI agree on the JSON shape.
+/// `haryx` is a drop-in port, so the app must decode both CLIs' payloads (see `decodesHaryxPayload`).
 let contractsDir = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()
     .appendingPathComponent("../../../../packages/contracts/cswap")
@@ -132,4 +132,40 @@ func spritesAreWellFormed(_ species: Species) {
 @Test func stableMascotAssignment() {
     #expect(Species.defaultFor(key: "a@x.com|o1") == Species.defaultFor(key: "a@x.com|o1"))
     #expect(AppIcon.render()?.width == AppIcon.side)
+}
+
+@Test func locatePrefersHaryxOverCswap() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let first = dir.appendingPathComponent("a"), second = dir.appendingPathComponent("b")
+    for d in [first, second] { try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true) }
+    defer { try? FileManager.default.removeItem(at: dir) }
+    func touch(_ url: URL) throws {
+        try Data("#!/bin/sh\n".utf8).write(to: url)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+    }
+    // cswap earlier on the path, haryx later: haryx still wins.
+    try touch(first.appendingPathComponent("cswap"))
+    #expect(CSwapCLI.locate(override: nil, searchPaths: [first.path, second.path])?.lastPathComponent == "cswap")
+    try touch(second.appendingPathComponent("haryx"))
+    let found = try #require(CSwapCLI.locate(override: nil, searchPaths: [first.path, second.path]))
+    #expect(found.lastPathComponent == "haryx")
+    #expect(CLIFlavor.of(found) == .haryx)
+}
+
+@Test func flavorsKeepSeparateStores() {
+    #expect(CLIFlavor.cswap.storeRoot.hasSuffix("/.claude-swap-backup"))
+    #expect(CLIFlavor.haryx.logFileName == "haryx.log")
+    #expect(CLIFlavor.of(URL(fileURLWithPath: "/opt/homebrew/bin/cswap")) == .cswap)
+    #expect(CLIFlavor.of(URL(fileURLWithPath: "/x/haryx")) == .haryx)
+}
+
+/// Real `haryx list --json` output (sandbox, usage endpoint unreachable): `usage: null` plus
+/// `usageError`/`usageRetryAt` must decode like a cswap row.
+@Test func decodesHaryxPayload() throws {
+    let url = contractsDir.deletingLastPathComponent().appendingPathComponent("haryx/list-unavailable.json")
+    let list = try CSwapJSON.decoder.decode(AccountList.self, from: Data(contentsOf: url))
+    #expect(list.activeAccountNumber == 2)
+    #expect(list.accounts.count == 2)
+    #expect(list.accounts[1].active)
+    #expect(list.accounts[0].usageError == "network")
 }

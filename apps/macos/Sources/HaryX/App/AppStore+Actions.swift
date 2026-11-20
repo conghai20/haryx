@@ -171,13 +171,23 @@ extension AppStore {
         await perform("Purging", ["unclaimed", "--purge", id], extras: true)
     }
 
+    /// haryx keeps its own store; on first run, copy cswap's accounts in (cswap is left untouched).
+    var canImportFromCswap: Bool {
+        cli?.flavor == .haryx && accounts.isEmpty
+            && FileManager.default.fileExists(atPath: CLIFlavor.cswap.storeRoot + "/sequence.json")
+    }
+
+    func importFromCswap() async {
+        await perform("Importing from cswap", ["import", "--from-cswap"], success: "Accounts imported from cswap", extras: true)
+    }
+
     func upgrade() async {
-        await perform("Upgrading cswap", ["upgrade"], extras: true)
+        await perform("Upgrading \(CSwapCLI.selectedFlavor.rawValue)", ["upgrade"], extras: true)
     }
 
     func purgeAll() async {
         await auto.stopAndWait()
-        await perform("Purging all data", ["purge"], stdin: "y\n", success: "All claude-swap data removed", extras: true)
+        await perform("Purging all data", ["purge"], stdin: "y\n", success: "All account data removed", extras: true)
     }
 
     func runAutoOnce() async {

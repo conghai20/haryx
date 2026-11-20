@@ -89,9 +89,17 @@ struct AccountsPane: View {
     var body: some View {
         ScrollView {
             if store.accounts.isEmpty {
-                ContentUnavailableView("No accounts yet", systemImage: "person.crop.circle.badge.plus",
-                                       description: Text(store.refreshError ?? "Log in with Claude Code, then add the current login."))
-                    .padding(.top, 80)
+                ContentUnavailableView {
+                    Label("No accounts yet", systemImage: "person.crop.circle.badge.plus")
+                } description: {
+                    Text(store.refreshError ?? "Log in with Claude Code, then add the current login.")
+                } actions: {
+                    if store.canImportFromCswap {
+                        Button("Import Accounts from cswap") { Task { await store.importFromCswap() } }
+                            .buttonStyle(.borderedProminent)
+                    }
+                }
+                .padding(.top, 80)
             }
             GlassEffectContainer(spacing: 16) {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 16)], spacing: 16) {

@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 public enum CLIError: LocalizedError, Sendable {
     case notFound
@@ -7,9 +8,9 @@ public enum CLIError: LocalizedError, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .notFound: "cswap not found. Install it with `uv tool install claude-swap`, or set its path in Preferences."
+        case .notFound: "haryx not found (cswap works too). Install it with `brew install haryx` or `cargo install haryx`, or set its path in Preferences."
         case .failed(_, let message): message
-        case .decode(let command, let message): "Unexpected output from `cswap \(command)`: \(message)"
+        case .decode(let command, let message): "Unexpected output from `\(CSwapCLI.selectedFlavor.rawValue) \(command)`: \(message)"
         }
     }
 }
@@ -21,28 +22,68 @@ public struct CLIResult: Sendable {
     public var text: String { String(decoding: stdout, as: UTF8.self) }
 }
 
-/// Thin async wrapper over the `cswap` executable. Arguments go straight to `Process`
-/// (never through a shell), and secrets are passed on stdin.
+/// Which command-line backend the app drives. `haryx` is the drop-in Rust port of `cswap`
+/// (same commands, flags and JSON), but each keeps its own store.
+public enum CLIFlavor: String, Sendable, CaseIterable {
+    case haryx, cswap
+
+    /// The backend's data folder: haryx honours `HARYX_HOME`, else `~/Library/Application Support/HaryX`.
+    public var storeRoot: String {
+        switch self {
+        case .haryx:
+            if let custom = ProcessInfo.processInfo.environment["HARYX_HOME"], !custom.isEmpty {
+                return (custom as NSString).expandingTildeInPath
+            }
+            return CSwapCLI.home + "/Library/Application Support/HaryX"
+        case .cswap:
+            return CSwapCLI.home + "/.claude-swap-backup"
+        }
+    }
+
+    public var logFileName: String { self == .haryx ? "haryx.log" : "claude-swap.log" }
+
+    /// Identify a backend by its executable name (`cswap*` is cswap; anything else is haryx).
+    public static func of(_ executable: URL) -> CLIFlavor {
+        executable.lastPathComponent.lowercased().hasPrefix("cswap") ? .cswap : .haryx
+    }
+}
+
+/// Thin async wrapper over the `haryx` (or legacy `cswap`) executable. Arguments go straight to
+/// `Process` (never through a shell), and secrets are passed on stdin.
 public struct CSwapCLI: Sendable {
     public let executable: URL
 
-    public init(executable: URL) { self.executable = executable }
+    public init(executable: URL) {
+        self.executable = executable
+        Self.selected.withLock { $0 = CLIFlavor.of(executable) }
+    }
+
+    public var flavor: CLIFlavor { CLIFlavor.of(executable) }
 
     public static let home = FileManager.default.homeDirectoryForCurrentUser.path
-    public static let backupRoot = home + "/.claude-swap-backup"
+
+    private static let selected = Mutex<CLIFlavor>(.haryx)
+
+    /// The flavor of the most recently located backend (haryx until one is found).
+    public static var selectedFlavor: CLIFlavor { selected.withLock { $0 } }
+
+    /// The selected backend's data folder (sequence.json, mappings.json, sessions/, the log).
+    public static var backupRoot: String { selectedFlavor.storeRoot }
 
     /// GUI apps get a bare PATH, so look where uv/pipx/brew install tools.
     public static let searchPaths = [
         home + "/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", home + "/.cargo/bin", "/usr/bin",
     ]
 
-    public static func locate(override: String?) -> URL? {
+    /// The override when given; else `haryx` on any search path, then `cswap` as a fallback.
+    public static func locate(override: String?, searchPaths: [String] = searchPaths) -> URL? {
         let fm = FileManager.default
         if let override, !override.isEmpty {
             let path = (override as NSString).expandingTildeInPath
             return fm.isExecutableFile(atPath: path) ? URL(fileURLWithPath: path) : nil
         }
-        return searchPaths.map { $0 + "/cswap" }.first(where: fm.isExecutableFile(atPath:)).map(URL.init(fileURLWithPath:))
+        let candidates = CLIFlavor.allCases.flatMap { flavor in searchPaths.map { $0 + "/" + flavor.rawValue } }
+        return candidates.first(where: fm.isExecutableFile(atPath:)).map(URL.init(fileURLWithPath:))
     }
 
     public static var environment: [String: String] {
@@ -54,7 +95,7 @@ public struct CSwapCLI: Sendable {
         return env
     }
 
-    /// Runs cswap to completion. `stdin` answers y/N prompts or carries a token; when nil,
+    /// Runs the CLI to completion. `stdin` answers y/N prompts or carries a token; when nil,
     /// stdin is /dev/null so a prompt can never hang the app.
     public func run(_ args: [String], stdin: String? = nil) async throws -> CLIResult {
         let process = Process()
@@ -76,7 +117,7 @@ public struct CSwapCLI: Sendable {
                     return
                 }
                 if let input, let stdin {
-                    // cswap may exit before reading (e.g. refuses up front): EPIPE must not crash us.
+                    // The CLI may exit before reading (e.g. refuses up front): EPIPE must not crash us.
                     try? input.fileHandleForWriting.write(contentsOf: Data(stdin.utf8))
                     try? input.fileHandleForWriting.close()
                 }
@@ -97,7 +138,7 @@ public struct CSwapCLI: Sendable {
         }
     }
 
-    /// Runs and throws on non-zero exit, with cswap's own error line as the message.
+    /// Runs and throws on non-zero exit, with the CLI's own error line as the message.
     @discardableResult
     public func checked(_ args: [String], stdin: String? = nil) async throws -> String {
         let result = try await run(args, stdin: stdin)
@@ -125,7 +166,7 @@ public struct CSwapCLI: Sendable {
         }
         let lines = (r.stderr + "\n" + r.text).split(separator: "\n").map(String.init)
         let error = lines.last(where: { $0.hasPrefix("Error:") }) ?? lines.last(where: { !$0.isEmpty })
-        return error.map { $0.replacingOccurrences(of: "Error: ", with: "") } ?? "cswap exited with status \(r.status)"
+        return error.map { $0.replacingOccurrences(of: "Error: ", with: "") } ?? "\(CSwapCLI.selectedFlavor.rawValue) exited with status \(r.status)"
     }
 }
 

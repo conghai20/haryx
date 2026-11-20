@@ -20,6 +20,7 @@ env_logger.workspace = true
 ratatui.workspace = true
 crossterm.workspace = true
 is-terminal.workspace = true
+libc.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

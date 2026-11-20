@@ -68,7 +68,6 @@ fn commands_are_not_implemented_yet() {
         (&["list"][..], "list"),
         (&["switch", "2"], "switch"),
         (&["run", "2", "--", "--resume"], "run"),
-        (&["config", "path"], "config"),
     ] {
         let output = haryx(argv);
         assert_eq!(output.status.code(), Some(2), "{argv:?}");

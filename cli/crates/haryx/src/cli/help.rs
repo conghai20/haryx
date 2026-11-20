@@ -4,14 +4,19 @@
 //! program name lives in one place. Examples say `haryx` where upstream says `cswap`.
 
 use haryx_core::PROG;
+use haryx_core::models::{
+    ACCOUNT_PRIORITY_MAX, ACCOUNT_THRESHOLD_MAX, ACCOUNT_THRESHOLD_MIN, pyfmt::format_g,
+};
+use haryx_core::settings::{SETTING_SPECS, format_setting_value};
 
-/// Lowest per-account switch-away threshold (`models.ACCOUNT_THRESHOLD_MIN`). Shown in help only; the
-/// validator lives in `haryx-core`.
-pub const ACCOUNT_THRESHOLD_MIN: &str = "50";
-/// Highest per-account switch-away threshold (`models.ACCOUNT_THRESHOLD_MAX`).
-pub const ACCOUNT_THRESHOLD_MAX: &str = "99.9";
-/// Highest account priority tier (`models.ACCOUNT_PRIORITY_MAX`).
-pub const ACCOUNT_PRIORITY_MAX: &str = "1000";
+/// The per-account threshold range as help shows it (`50-99.9`), read from `haryx_core::models`.
+fn threshold_range() -> String {
+    format!(
+        "{}-{}",
+        format_g(ACCOUNT_THRESHOLD_MIN),
+        format_g(ACCOUNT_THRESHOLD_MAX)
+    )
+}
 
 /// argparse prints the usage line first, then the description, the options and the epilog.
 pub const HELP_TEMPLATE: &str =
@@ -142,18 +147,20 @@ pub fn alias_epilog() -> String {
 
 pub fn threshold_epilog() -> String {
     format!(
-        "{}\n\nValid range: {ACCOUNT_THRESHOLD_MIN}-{ACCOUNT_THRESHOLD_MAX} (percent used).",
+        "{}\n\nValid range: {} (percent used).",
         p("Examples:
   {prog} threshold 2 85
   {prog} threshold user@example.com 99.9
   {prog} threshold 2 --unset           # back to the global default
-  {prog} threshold                     # list the global default and overrides")
+  {prog} threshold                     # list the global default and overrides"),
+        threshold_range()
     )
 }
 
 pub fn threshold_pct_help() -> String {
     format!(
-        "Percent used at which to switch away ({ACCOUNT_THRESHOLD_MIN}-{ACCOUNT_THRESHOLD_MAX})."
+        "Percent used at which to switch away ({}).",
+        threshold_range()
     )
 }
 
@@ -180,87 +187,6 @@ Examples:
 Defaults live in settings.json in the backup root; flags override them.")
 }
 
-/// One `settings.json` key for the `config` epilog: dotted name, help, default as
-/// `format_setting_value` renders it. Mirrors `settings.SETTING_SPECS` (help only; the specs that
-/// validate live in `haryx-core`).
-const SETTING_KEYS: &[(&str, &str, &str)] = &[
-    (
-        "autoswitch.threshold",
-        "Switch when the 5h window (or any window, if no weekly line) reaches this pct",
-        "90",
-    ),
-    (
-        "autoswitch.weeklyThreshold",
-        "Switch line for the 7d and per-model windows (unset: threshold)",
-        "(none)",
-    ),
-    (
-        "autoswitch.intervalSeconds",
-        "Poll interval for the {prog} auto loop, in seconds",
-        "60",
-    ),
-    (
-        "autoswitch.cooldownSeconds",
-        "Minimum seconds between proactive switches",
-        "300",
-    ),
-    (
-        "autoswitch.hysteresisPct",
-        "A target must beat the active account by this many pct of headroom",
-        "10",
-    ),
-    (
-        "autoswitch.strategy",
-        "How auto-switch picks the target account",
-        "best",
-    ),
-    (
-        "autoswitch.includeApiKeyAccounts",
-        "Allow rotating onto managed API-key accounts (bill per token)",
-        "false",
-    ),
-    (
-        "autoswitch.unhealthyTicks",
-        "Consecutive failed polls before an account is unhealthy",
-        "3",
-    ),
-    (
-        "autoswitch.model",
-        "Also switch on these models' weekly limits (e.g. Fable, Fable,Opus, or all)",
-        "(none)",
-    ),
-    (
-        "ui.theme",
-        "Color theme; auto follows the terminal background",
-        "auto",
-    ),
-    (
-        "ui.orgTag",
-        "Show the [org] tag beside accounts; auto only where accounts share an email",
-        "auto",
-    ),
-    (
-        "run.shareHistory",
-        "{prog} run shares one chat history across accounts",
-        "true",
-    ),
-    (
-        "updates.check",
-        "Check for a newer release once a day and print a hint when one exists",
-        "true",
-    ),
-    (
-        "usage.headerProbe",
-        "Read setup-token usage from a 1-token Haiku request's rate-limit headers (opt-in: uses quota)",
-        "false",
-    ),
-    (
-        "usage.fableProbe",
-        "With usage.headerProbe, also read Fable's weekly limit from a 1-token Fable request (opt-in: uses Fable quota)",
-        "false",
-    ),
-];
-
 /// Width of the key column in the `config` epilog (`{spec.dotted:<34}` plus the two-space indent).
 const KEY_COLUMN: usize = 36;
 /// The `config` epilog is pre-wrapped to this width, with a hanging indent under the help column,
@@ -282,17 +208,25 @@ fn wrap_words(text: &str, width: usize) -> Vec<String> {
 }
 
 fn key_line(key: &str, help: &str, default: &str) -> String {
-    let text = format!("{} (default {default})", p(help));
+    let text = format!("{help} (default {default})");
     let indent = " ".repeat(KEY_COLUMN);
     let lines = wrap_words(&text, EPILOG_WIDTH - KEY_COLUMN);
     let body = lines.join(&format!("\n{indent}"));
     format!("  {key:<34}{body}")
 }
 
+/// The `config` epilog: one line per `haryx_core::settings::SETTING_SPECS` key (dotted name, help,
+/// default as `format_setting_value` renders it), then examples.
 pub fn config_epilog() -> String {
-    let keys: Vec<String> = SETTING_KEYS
+    let keys: Vec<String> = SETTING_SPECS
         .iter()
-        .map(|(key, help, default)| key_line(key, help, default))
+        .map(|spec| {
+            key_line(
+                &spec.dotted(),
+                &spec.help_text(),
+                &format_setting_value(&spec.default()),
+            )
+        })
         .collect();
     format!(
         "Keys:\n{}\n\n{}",

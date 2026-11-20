@@ -1,4 +1,7 @@
-//! Routes a parsed [`Command`] to its implementation. Every command is still a stub.
+//! Routes a parsed [`Command`] to its implementation. Commands not ported yet answer "not implemented".
+
+mod config;
+mod guard;
 
 use std::fmt;
 
@@ -24,9 +27,21 @@ impl fmt::Display for CommandError {
 
 impl std::error::Error for CommandError {}
 
+impl CommandError {
+    /// A failure whose output the command already printed (e.g. a `--json` error envelope on stdout):
+    /// only the exit code remains.
+    pub fn silent(exit_code: u8) -> Self {
+        CommandError {
+            message: String::new(),
+            exit_code,
+        }
+    }
+}
+
 /// Run one command.
 pub fn dispatch(command: Command) -> Result<(), CommandError> {
     match command {
+        Command::Config { json, action } => config::run(json, &action),
         Command::Tui
         | Command::Watch
         | Command::List { .. }
@@ -45,7 +60,6 @@ pub fn dispatch(command: Command) -> Result<(), CommandError> {
         | Command::Upgrade
         | Command::Run(_)
         | Command::Auto(_)
-        | Command::Config { .. }
         | Command::Map { .. }
         | Command::Unmap { .. }
         | Command::Unclaimed { .. }

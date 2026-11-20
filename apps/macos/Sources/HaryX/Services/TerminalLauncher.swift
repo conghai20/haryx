@@ -68,6 +68,9 @@ enum TerminalLauncher {
 
     static func open(_ app: TerminalApp = .preferred, command: String?, in folder: String) throws {
         guard let appURL = app.appURL else { throw LaunchError.notInstalled(app.title) }
+        // Warp gets the bare command: a wrapper script would be echoed as a block and its
+        // `exec $SHELL` would replace Warp's bootstrapped shell, losing blocks/completions.
+        if app == .warp { return try openWarp(command: command, folder: folder) }
         let script = try writeScript(command: command, folder: folder)
         let config = NSWorkspace.OpenConfiguration()
         config.activates = true
@@ -84,7 +87,7 @@ enum TerminalLauncher {
             end tell
             """)
         case .warp:
-            try openWarp(script: script, folder: folder)
+            break // handled above
         case .ghostty, .alacritty:
             config.createsNewApplicationInstance = true
             config.arguments = ["-e", script.path]
@@ -126,8 +129,10 @@ enum TerminalLauncher {
         return url
     }
 
-    /// Warp runs commands only via launch configurations (YAML) opened by URL.
-    static func openWarp(script: URL, folder: String) throws {
+    /// Warp runs commands only via launch configurations (YAML) opened by URL. Warp starts
+    /// its own integrated shell in `cwd` and runs `command` there, so the session stays a
+    /// native Warp shell after the command exits. The HaryX shell preference doesn't apply.
+    static func openWarp(command: String?, folder: String) throws {
         let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".warp/launch_configurations", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         // Unique per launch: two quick launches must not overwrite each other's config.
@@ -136,15 +141,14 @@ enum TerminalLauncher {
         }
         let id = UUID().uuidString.prefix(8)
         let name = "haryx-\(id).yaml"
+        let commands = command.map { "\n          commands:\n            - exec: \(yamlString($0))" } ?? ""
         let yaml = """
         ---
         name: haryx-\(id)
         windows:
           - tabs:
               - layout:
-                  cwd: \(yamlString(folder))
-                  commands:
-                    - exec: \(yamlString(shellQuote(script.path)))
+                  cwd: \(yamlString(folder))\(commands)
         """
         try yaml.write(to: dir.appendingPathComponent(name), atomically: true, encoding: .utf8)
         guard let url = URL(string: "warp://launch/\(name)") else { throw LaunchError.failed("Bad Warp URL") }

@@ -45,7 +45,7 @@ struct PreferencesPane: View {
                 }
                 Button("Test: Open a New Shell") { store.openTerminal() }
                 if TerminalApp.preferred == .warp {
-                    Text("Warp runs commands through a launch configuration written to ~/.warp/launch_configurations/haryx-launch.yaml.")
+                    Text("Warp opens through a launch configuration in ~/.warp/launch_configurations/ and uses its own shell setting (the Shell choice above doesn't apply).")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }

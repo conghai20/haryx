@@ -82,3 +82,11 @@ Each phase ends green: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo t
 - Contract tests: `list --json`, `status --json`, `switch --json` and `auto --json` events validate against
   `packages/contracts/`.
 - Tests can never touch the real store: the binary refuses to write a real store when `HARYX_TEST_GUARD` is set.
+
+## Open checks before release
+
+- **User-Agent:** haryx sends `haryx/<version>` (upstream: `claude-swap/1.0`). Both are non-first-party, so the
+  usage endpoint's request budget should behave the same, but this is unmeasured: once `haryx list` works on real
+  data, watch one real account for unexpected 429s over a few hours.
+- **Terms:** review Anthropic's Consumer and Commercial Terms on using subscription OAuth tokens outside Claude
+  Code and on switching between several accounts, before a public release.

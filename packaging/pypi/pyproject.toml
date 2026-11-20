@@ -1,0 +1,31 @@
+# PyPI distribution of the haryx CLI: maturin builds one wheel per platform that carries the
+# native binary (no Python code), so `pipx install haryx` / `uv tool install haryx` put `haryx` on
+# PATH. Build: `maturin build --release` from this folder (CI: .github/workflows/release.yml).
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "haryx"
+description = "A unified control center for AI coding accounts, usage and sessions"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.8"
+keywords = ["claude", "claude-code", "accounts", "cli", "quota"]
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Rust",
+    "Topic :: Software Development",
+]
+dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/conghai20/haryx"
+
+[tool.maturin]
+bindings = "bin"
+manifest-path = "../../cli/crates/haryx/Cargo.toml"
+strip = true

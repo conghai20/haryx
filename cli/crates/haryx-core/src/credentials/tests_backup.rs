@@ -541,10 +541,10 @@ fn a_drop_during_the_fill_wins() {
     let store = Arc::new(sb.store());
     let weak = Arc::downgrade(&store);
     sb.keychain.on_op(move |op, _, _| {
-        if op == Op::Get {
-            if let Some(store) = weak.upgrade() {
-                store.drop_backup_read_cache(); // lands while `security` runs
-            }
+        if op == Op::Get
+            && let Some(store) = weak.upgrade()
+        {
+            store.drop_backup_read_cache(); // lands while `security` runs
         }
     });
     assert_eq!(
@@ -566,14 +566,15 @@ fn a_write_landing_after_a_racing_fill_is_not_shadowed() {
     let store = Arc::new(sb.store());
     let weak = Arc::downgrade(&store);
     sb.keychain.on_op(move |op, _, account| {
-        if op == Op::Set && account == "account-2-user2@example.com" {
-            if let Some(store) = weak.upgrade() {
-                // A display read slips in before the write lands and caches the old generation.
-                assert_eq!(
-                    store.read_account_credentials("2", EMAIL2, true),
-                    creds("backup2")
-                );
-            }
+        if op == Op::Set
+            && account == "account-2-user2@example.com"
+            && let Some(store) = weak.upgrade()
+        {
+            // A display read slips in before the write lands and caches the old generation.
+            assert_eq!(
+                store.read_account_credentials("2", EMAIL2, true),
+                creds("backup2")
+            );
         }
     });
     store

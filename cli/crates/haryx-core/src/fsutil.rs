@@ -236,10 +236,10 @@ fn write_and_publish(
 ) -> io::Result<()> {
     file.write_all(data)?;
     set_mode(&file, mode)?;
-    if let Err(err) = file.sync_all() {
-        if !fsync_unsupported(&err) {
-            return Err(err);
-        }
+    if let Err(err) = file.sync_all()
+        && !fsync_unsupported(&err)
+    {
+        return Err(err);
     }
     drop(file);
     replace_with_retry(tmp, target, DEFAULT_RETRY_ATTEMPTS, INITIAL_RETRY_DELAY)

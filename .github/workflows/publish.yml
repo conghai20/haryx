@@ -1,0 +1,62 @@
+# Runs when a release is published (the draft from release.yml). Each registry is opt-in through a
+# repository variable (Settings → Variables): PUBLISH_CRATES, PUBLISH_PYPI, PUBLISH_NPM = "true".
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  crates:
+    if: vars.PUBLISH_CRATES == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: dtolnay/rust-toolchain@stable
+      - working-directory: cli
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cargo publish --locked -p haryx-core
+          cargo publish --locked -p haryx
+
+  pypi:
+    if: vars.PUBLISH_PYPI == 'true'
+    runs-on: ubuntu-24.04
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write   # PyPI trusted publishing; no token stored
+    steps:
+      - name: Download wheels from the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "${{ github.event.release.tag_name }}" --repo "$GITHUB_REPOSITORY" --pattern '*.whl' --dir wheels
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: wheels
+
+  npm:
+    # The package downloads this release's binaries on first run, so it publishes only now.
+    if: vars.PUBLISH_NPM == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write   # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - working-directory: packaging/npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public

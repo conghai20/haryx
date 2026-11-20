@@ -275,10 +275,10 @@ pub fn translate_subcommand(argv: &[String]) -> Vec<String> {
 /// [`clap::Error`] of kind `DisplayHelp` / `DisplayVersion`; [`clap::Error::exit`] prints them on
 /// stdout with exit code 0 and usage errors on stderr with exit code 2.
 pub fn parse(argv: &[String], interactive: bool) -> Result<Invocation, Error> {
-    if let Some((first, rest)) = argv.split_first() {
-        if let Some(parsed) = subparsers::parse(first, rest) {
-            return parsed;
-        }
+    if let Some((first, rest)) = argv.split_first()
+        && let Some(parsed) = subparsers::parse(first, rest)
+    {
+        return parsed;
     }
     if argv.is_empty() && interactive {
         return Ok(Invocation {

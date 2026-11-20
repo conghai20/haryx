@@ -5,3 +5,5 @@ build/
 .DS_Store
 target/
 .claude/worktrees/
+dist/
+packaging/pypi/dist/

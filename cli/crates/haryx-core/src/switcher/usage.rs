@@ -343,17 +343,16 @@ impl Switcher {
                 session_creds = None;
             }
         }
-        if let Some(profile) = session_creds {
-            if let Some(o) = oauth::extract_oauth_data(&profile)
-                && o.get("accessToken")
-                    .and_then(Value::as_str)
-                    .is_some_and(|t| !t.is_empty())
-            {
-                if oauth::is_oauth_token_expired(o.get("expiresAt")) {
-                    return FetchRecord::sentinel(USAGE_TOKEN_EXPIRED);
-                }
-                return self.read_only_fetch(&num, email, &profile, rejected_fp, last_usage);
+        if let Some(profile) = session_creds
+            && let Some(o) = oauth::extract_oauth_data(&profile)
+            && o.get("accessToken")
+                .and_then(Value::as_str)
+                .is_some_and(|t| !t.is_empty())
+        {
+            if oauth::is_oauth_token_expired(o.get("expiresAt")) {
+                return FetchRecord::sentinel(USAGE_TOKEN_EXPIRED);
             }
+            return self.read_only_fetch(&num, email, &profile, rejected_fp, last_usage);
         }
         if has_live_session || self.is_default_login_from_another_profile(email, &info.org_uuid) {
             let expires =

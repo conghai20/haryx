@@ -70,10 +70,12 @@ public struct CSwapCLI: Sendable {
     /// The selected backend's data folder (sequence.json, mappings.json, sessions/, the log).
     public static var backupRoot: String { selectedFlavor.storeRoot }
 
-    /// GUI apps get a bare PATH, so look where uv/pipx/brew install tools.
+    /// GUI apps get a bare PATH, so look where uv/pipx/brew/cargo install tools, and finally in
+    /// the app bundle (`Contents/Resources/bin`, the DMG build's bundled haryx) so a user-installed
+    /// copy always wins and stays upgradable.
     public static let searchPaths = [
         home + "/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", home + "/.cargo/bin", "/usr/bin",
-    ]
+    ] + (Bundle.main.resourceURL.map { [$0.appendingPathComponent("bin").path] } ?? [])
 
     /// The override when given; else `haryx` on any search path, then `cswap` as a fallback.
     public static func locate(override: String?, searchPaths: [String] = searchPaths) -> URL? {

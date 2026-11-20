@@ -220,10 +220,10 @@ pub fn build_usage_result_in(
                 detail: "extra_usage is not an object".into(),
             });
         };
-        if eu.get("is_enabled").is_some_and(truthy) {
-            if let Some(spend) = spend_entry(eu, now, tz) {
-                result.insert("spend".into(), spend);
-            }
+        if eu.get("is_enabled").is_some_and(truthy)
+            && let Some(spend) = spend_entry(eu, now, tz)
+        {
+            result.insert("spend".into(), spend);
         }
     }
     if let Some(Value::Array(limits)) = data.get("limits") {

@@ -370,10 +370,11 @@ pub fn offer_cswap_import(switcher: &Switcher, json: bool) {
         ns.store_root.display()
     );
     let mut answer = String::new();
-    if std::io::stdin().read_line(&mut answer).is_ok() && answer.trim().eq_ignore_ascii_case("y") {
-        if let Err(err) = haryx_core::transfer::import_from_cswap(switcher, false) {
-            haryx_core::printer::error(&format!("Error: {err}"));
-        }
+    if std::io::stdin().read_line(&mut answer).is_ok()
+        && answer.trim().eq_ignore_ascii_case("y")
+        && let Err(err) = haryx_core::transfer::import_from_cswap(switcher, false)
+    {
+        haryx_core::printer::error(&format!("Error: {err}"));
     }
 }
 

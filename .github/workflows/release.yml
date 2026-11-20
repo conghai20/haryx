@@ -1,0 +1,131 @@
+# Tag-driven release: push `v<version>` (matching cli/Cargo.toml) to build every artifact and
+# create a draft GitHub release holding the binaries, wheels, DMG and Homebrew formula. Publishing
+# that draft triggers publish.yml (crates.io, PyPI, npm).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  binaries:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: aarch64-apple-darwin, os: macos-14, tool: cargo }
+          - { target: x86_64-apple-darwin, os: macos-14, tool: cargo }
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-24.04, tool: cross }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04, tool: cross }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - if: matrix.tool == 'cross'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+      - name: Build
+        working-directory: cli
+        run: ${{ matrix.tool }} build --release --locked -p haryx --target ${{ matrix.target }}
+      - name: Package
+        run: scripts/release/package.sh ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.target }}
+          path: dist/*
+
+  wheels:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: aarch64-apple-darwin, os: macos-14 }
+          - { target: x86_64-apple-darwin, os: macos-14 }
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-24.04 }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          working-directory: packaging/pypi
+          target: ${{ matrix.target }}
+          manylinux: musllinux_1_2
+          args: --release --locked --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.target }}
+          path: packaging/pypi/dist/*.whl
+
+  dmg:
+    runs-on: macos-26
+    env:
+      # A step's `if` cannot read secrets, so expose only whether they are configured.
+      HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
+      HAS_NOTARY: ${{ secrets.APPLE_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Import signing certificate
+        if: env.HAS_CERT == 'true'
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/release.keychain-db"
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN"
+          rm "$RUNNER_TEMP/cert.p12"
+      - name: Notary credentials
+        if: env.HAS_NOTARY == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          xcrun notarytool store-credentials haryx --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD"
+          echo "NOTARY_PROFILE=haryx" >> "$GITHUB_ENV"
+      - name: Build DMG
+        env:
+          SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+        run: apps/macos/scripts/package-dmg.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dmg
+          path: apps/macos/build/HaryX-*.dmg*
+
+  release:
+    needs: [binaries, wheels, dmg]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the tag matches the crate version
+        run: |
+          VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' cli/Cargo.toml | head -1)
+          [[ "${GITHUB_REF_NAME}" == "v$VERSION" ]] || { echo "tag $GITHUB_REF_NAME != v$VERSION"; exit 1; }
+          NPM=$(node -p 'require("./packaging/npm/package.json").version')
+          [[ "$NPM" == "$VERSION" ]] || { echo "packaging/npm version $NPM != $VERSION"; exit 1; }
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Homebrew formula
+        run: scripts/release/formula.sh dist > dist/haryx.rb
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "HaryX $GITHUB_REF_NAME" --generate-notes --draft
+

@@ -251,11 +251,11 @@ impl Switcher {
             if dir_b.exists() && !new_b.exists() {
                 std::fs::rename(&dir_b, &new_b)?;
             }
-            if let Some(tmp) = &staging {
-                if !new_a.exists() {
-                    std::fs::rename(tmp, &new_a)?;
-                    staging = None;
-                }
+            if let Some(tmp) = &staging
+                && !new_a.exists()
+            {
+                std::fs::rename(tmp, &new_a)?;
+                staging = None;
             }
             Ok(())
         })();
@@ -263,10 +263,10 @@ impl Switcher {
             log::warn!("Session profile move skipped during swap: {err}");
         }
         // Never strand a profile under the staging name.
-        if let Some(tmp) = staging {
-            if !dir_a.exists() {
-                let _ = std::fs::rename(&tmp, &dir_a);
-            }
+        if let Some(tmp) = staging
+            && !dir_a.exists()
+        {
+            let _ = std::fs::rename(&tmp, &dir_a);
         }
     }
 
@@ -429,10 +429,11 @@ impl Switcher {
         let src_dir = self.session_dir(num_src, &email);
         let dst_dir = self.session_dir(target, &email);
         let result = (|| -> Result<()> {
-            if src_dir.exists() && !dst_dir.exists() {
-                if let Err(err) = std::fs::rename(&src_dir, &dst_dir) {
-                    log::warn!("Session profile move skipped during move: {err}");
-                }
+            if src_dir.exists()
+                && !dst_dir.exists()
+                && let Err(err) = std::fs::rename(&src_dir, &dst_dir)
+            {
+                log::warn!("Session profile move skipped during move: {err}");
             }
             self.write_or_clear(target, &email, &material)?;
             if let Some(Value::Object(accts)) = data.get_mut("accounts") {

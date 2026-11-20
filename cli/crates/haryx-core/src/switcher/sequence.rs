@@ -395,10 +395,10 @@ impl Switcher {
         let Some(token) = oauth::extract_access_token(creds).filter(|t| !t.is_empty()) else {
             return unverified("no access token to resolve");
         };
-        if let Some(data) = &oauth_data {
-            if oauth::is_oauth_token_expired(data.get("expiresAt")) {
-                return unverified("the access token is expired");
-            }
+        if let Some(data) = &oauth_data
+            && oauth::is_oauth_token_expired(data.get("expiresAt"))
+        {
+            return unverified("the access token is expired");
         }
         let Some(profile) = fetch_profile(&token) else {
             return unverified("the identity lookup did not resolve");

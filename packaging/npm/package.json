@@ -1,0 +1,42 @@
+{
+  "name": "haryx",
+  "version": "0.1.0",
+  "description": "A unified control center for AI coding accounts, usage and sessions",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/conghai20/haryx.git"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "accounts",
+    "cli",
+    "quota"
+  ],
+  "bin": {
+    "haryx": "bin/haryx.js"
+  },
+  "scripts": {
+    "prepack": "cp ../../LICENSE ../../cli/README.md .",
+    "postinstall": "node install.js"
+  },
+  "files": [
+    "bin/haryx.js",
+    "install.js",
+    "platform.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

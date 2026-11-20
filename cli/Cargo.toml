@@ -5,13 +5,15 @@ members = ["crates/haryx-core", "crates/haryx"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 license = "MIT"
 description = "HaryX: a unified control center for AI coding accounts, usage and sessions"
+repository = "https://github.com/conghai20/haryx"
+keywords = ["claude", "claude-code", "accounts", "cli", "quota"]
+categories = ["command-line-utilities", "development-tools"]
 
 [workspace.dependencies]
-haryx-core = { path = "crates/haryx-core" }
-anyhow = "1"
+haryx-core = { path = "crates/haryx-core", version = "0.1.0" }
 thiserror = "2"
 clap = { version = "4", features = ["derive", "wrap_help"] }
 serde = { version = "1", features = ["derive"] }
@@ -29,7 +31,6 @@ tempfile = "3"
 dirs = "6"
 ratatui = "0.29"
 crossterm = "0.29"
-is-terminal = "0.4"
 tiny_http = "0.12"
 
 [workspace.lints.rust]

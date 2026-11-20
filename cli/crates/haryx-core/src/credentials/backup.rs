@@ -105,10 +105,10 @@ impl CredentialStore {
                 cache.epoch += 1;
                 cache.generation = generation;
             }
-            if let Some((value, read_at)) = cache.entries.get(&key) {
-                if now.duration_since(*read_at) < self.tunables.backup_read_cache_ttl {
-                    return Ok(value.clone());
-                }
+            if let Some((value, read_at)) = cache.entries.get(&key)
+                && now.duration_since(*read_at) < self.tunables.backup_read_cache_ttl
+            {
+                return Ok(value.clone());
             }
             fill_epoch = Some(cache.epoch);
         }
@@ -309,10 +309,10 @@ impl CredentialStore {
         }
         for num in nums {
             let enc_file = self.backup_enc_path(num, email);
-            if let Err(err) = std::fs::remove_file(&enc_file) {
-                if err.kind() != std::io::ErrorKind::NotFound {
-                    log::warn!("Failed to delete credentials file: {err}");
-                }
+            if let Err(err) = std::fs::remove_file(&enc_file)
+                && err.kind() != std::io::ErrorKind::NotFound
+            {
+                log::warn!("Failed to delete credentials file: {err}");
             }
             if self.is_macos() {
                 self.delete_backup_keychain_quiet(num, email);
@@ -355,10 +355,10 @@ impl CredentialStore {
     /// key's history stops belonging to its account (a renumber), so recovery never resurrects a displaced
     /// generation onto the key's new owner.
     pub fn delete_previous_backup(&self, account_num: &str, email: &str) {
-        if let Err(err) = std::fs::remove_file(self.prev_backup_path(account_num, email)) {
-            if err.kind() != std::io::ErrorKind::NotFound {
-                log::warn!("Failed to delete .prev file: {err}");
-            }
+        if let Err(err) = std::fs::remove_file(self.prev_backup_path(account_num, email))
+            && err.kind() != std::io::ErrorKind::NotFound
+        {
+            log::warn!("Failed to delete .prev file: {err}");
         }
         if self.is_macos() {
             let account = prev_backup_keychain_account(account_num, email);

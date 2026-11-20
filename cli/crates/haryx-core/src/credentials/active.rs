@@ -361,12 +361,12 @@ impl CredentialStore {
             .as_ref()
             .and_then(|c| c.get("primaryApiKey"))
             .is_some_and(|v| !v.is_null());
-        if has_key {
-            if let Err(err) = self.update_global_config(|c| {
+        if has_key
+            && let Err(err) = self.update_global_config(|c| {
                 c.remove("primaryApiKey");
-            }) {
-                log::warn!("Failed to clear primaryApiKey: {err}");
-            }
+            })
+        {
+            log::warn!("Failed to clear primaryApiKey: {err}");
         }
     }
 
@@ -378,10 +378,10 @@ impl CredentialStore {
         lock(&self.state).pinned_to_oauth_file = false;
         self.delete_active_keychain_entry();
         let cred_file = self.credentials_path();
-        if let Err(err) = std::fs::remove_file(&cred_file) {
-            if err.kind() != std::io::ErrorKind::NotFound {
-                log::warn!("Failed to remove credentials file: {err}");
-            }
+        if let Err(err) = std::fs::remove_file(&cred_file)
+            && err.kind() != std::io::ErrorKind::NotFound
+        {
+            log::warn!("Failed to remove credentials file: {err}");
         }
     }
 

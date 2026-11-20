@@ -174,10 +174,10 @@ pub fn fresh_reset_strings_in(
     tz: &TimeZone,
 ) -> Option<(String, String)> {
     let obj = window.as_object()?;
-    if let Some(resets_at) = obj.get("resets_at").filter(|v| super::truthy(v)) {
-        if let Ok(pair) = format_reset_value(resets_at, now, tz) {
-            return Some(pair);
-        }
+    if let Some(resets_at) = obj.get("resets_at").filter(|v| super::truthy(v))
+        && let Ok(pair) = format_reset_value(resets_at, now, tz)
+    {
+        return Some(pair);
     }
     let clock = obj.get("clock")?;
     let countdown = obj.get("countdown").map_or_else(|| "?".to_string(), py_str);

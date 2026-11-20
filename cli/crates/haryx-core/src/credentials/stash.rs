@@ -263,10 +263,10 @@ impl CredentialStore {
     /// Delete a stash entry (bytes + manifest row) after it was adopted. Fails if the manifest cannot be
     /// rewritten; callers retiring an entry swallow and log that.
     pub fn remove_unclaimed_credential(&self, entry_id: &str) -> Result<()> {
-        if let Err(err) = std::fs::remove_file(self.stash_entry_path(entry_id)) {
-            if err.kind() != std::io::ErrorKind::NotFound {
-                log::warn!("Failed to remove unclaimed credential {entry_id}: {err}");
-            }
+        if let Err(err) = std::fs::remove_file(self.stash_entry_path(entry_id))
+            && err.kind() != std::io::ErrorKind::NotFound
+        {
+            log::warn!("Failed to remove unclaimed credential {entry_id}: {err}");
         }
         self.mutate_stash_manifest(|entries| {
             entries.remove(entry_id);

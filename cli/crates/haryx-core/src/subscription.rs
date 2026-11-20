@@ -291,10 +291,11 @@ pub fn is_due_within(record: Option<&Value>, now: f64, ttl: f64) -> bool {
     let Some(record) = record else {
         return true;
     };
-    if let Some(retry_at) = real_number(record.get("retryAt")) {
-        if now < retry_at && retry_at <= now + MAX_RETRY_S {
-            return false;
-        }
+    if let Some(retry_at) = real_number(record.get("retryAt"))
+        && now < retry_at
+        && retry_at <= now + MAX_RETRY_S
+    {
+        return false;
     }
     if !valid_record(record) {
         return true;

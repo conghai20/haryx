@@ -91,10 +91,10 @@ impl FileLock {
 
     /// Release the lock. Safe to call when not held, and more than once.
     pub fn release(&mut self) {
-        if let Some(file) = self.file.take() {
-            if let Err(err) = FileExt::unlock(&file) {
-                log::debug!("unlock of {} failed: {err}", self.lock_path.display());
-            }
+        if let Some(file) = self.file.take()
+            && let Err(err) = FileExt::unlock(&file)
+        {
+            log::debug!("unlock of {} failed: {err}", self.lock_path.display());
         }
     }
 }

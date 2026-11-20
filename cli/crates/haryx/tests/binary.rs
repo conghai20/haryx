@@ -64,11 +64,7 @@ fn bare_haryx_without_a_terminal_is_a_usage_error() {
 
 #[test]
 fn commands_are_not_implemented_yet() {
-    for (argv, name) in [
-        (&["auto", "--once"][..], "auto"),
-        (&["watch"][..], "watch"),
-        (&["upgrade"], "upgrade"),
-    ] {
+    for (argv, name) in [(&["watch"][..], "watch"), (&["upgrade"], "upgrade")] {
         let output = haryx(argv);
         assert_eq!(output.status.code(), Some(2), "{argv:?}");
         assert_eq!(

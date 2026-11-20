@@ -492,3 +492,76 @@ fn import_from_cswap_copies_accounts_and_settings() {
         again.err
     );
 }
+
+fn events(out: &str) -> Vec<Value> {
+    out.lines()
+        .map(|l| serde_json::from_str(l).unwrap_or_else(|e| panic!("{e}: {l}")))
+        .collect()
+}
+
+#[test]
+fn auto_once_without_a_live_login_reports_no_active_account() {
+    let s = Sandbox::new();
+    let run = s.run(&["auto", "--once", "--json"]);
+    assert_eq!(run.code, 2, "{}", run.err);
+    let events = events(&run.out);
+    assert_eq!(events[0]["event"], "poll");
+    assert_eq!(events[0]["schemaVersion"], 1);
+    assert_eq!(events[0]["active"], Value::Null);
+    assert_eq!(events[1]["event"], "no-switch");
+    assert_eq!(events[1]["reason"], "no-active-account");
+    assert!(
+        run.out
+            .starts_with("{\"schemaVersion\": 1, \"event\": \"poll\""),
+        "Python json.dumps separators: {}",
+        run.out
+    );
+}
+
+#[test]
+fn auto_once_counts_unknown_usage_then_fails_over() {
+    let s = Sandbox::new();
+    std::fs::remove_file(s.store().join("sequence.json")).unwrap();
+    login(&s, "a@example.com", "u-a", "at-a");
+    assert_eq!(s.run(&["add"]).code, 0);
+    login(&s, "b@example.com", "u-b", "at-b");
+    assert_eq!(s.run(&["add"]).code, 0);
+
+    for tick in 1..=2 {
+        let run = s.run(&["auto", "--once", "--json"]);
+        assert_eq!(run.code, 2, "{}", run.err);
+        let last = events(&run.out).pop().unwrap();
+        assert_eq!(last["reason"], "active-usage-unknown");
+        assert_eq!(last["detail"], format!("{tick}/3 before failover"));
+    }
+    let state: Value = serde_json::from_str(
+        &std::fs::read_to_string(s.store().join("autoswitch_state.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(state["unhealthyTicks"], 2);
+    assert_eq!(state["healthAccount"], "2");
+
+    // Third unknown tick fails over, but no candidate has readable usage either.
+    let run = s.run(&["auto", "--once", "--json"]);
+    assert_eq!(run.code, 3, "{}", run.out);
+    let last = events(&run.out).pop().unwrap();
+    assert_eq!(last["reason"], "no-comparison");
+    assert_eq!(live_token(&s), "at-b", "nothing switched");
+}
+
+#[test]
+fn auto_once_human_lines_are_timestamped() {
+    let s = Sandbox::new();
+    let run = s.run(&["auto", "--once"]);
+    assert_eq!(run.code, 2);
+    let lines: Vec<&str> = run.out.lines().collect();
+    assert!(
+        lines[0].ends_with("  poll: no active account"),
+        "{}",
+        run.out
+    );
+    assert!(
+        lines[1]
+            .contains("no switch: no-active-account (log in and run 'haryx --add-account' first)")
+    );
+}

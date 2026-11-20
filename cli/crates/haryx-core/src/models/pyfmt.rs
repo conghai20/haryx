@@ -58,6 +58,12 @@ pub fn repr_json(value: &Value) -> String {
 /// Python's `format(x, "g")`: six significant digits, trailing zeros dropped, scientific notation below
 /// 1e-4 and from 1e6 on (`20` → `20`, `99.91` → `99.91`, `1e6` → `1e+06`).
 pub fn format_g(value: f64) -> String {
+    format_g_precision(value, 6)
+}
+
+/// Python's `format(x, ".{precision}g")` (`precision` significant digits, at least 1).
+pub fn format_g_precision(value: f64, precision: usize) -> String {
+    let precision = precision.max(1);
     if value.is_nan() {
         return "nan".to_owned();
     }
@@ -67,16 +73,17 @@ pub fn format_g(value: f64) -> String {
     if value == 0.0 {
         return if value.is_sign_negative() { "-0" } else { "0" }.to_owned();
     }
-    // `{:.5e}` rounds to six significant digits; its exponent decides the notation, as in C's %g.
-    let sci = format!("{value:.5e}");
+    // `{:.(p-1)e}` rounds to `p` significant digits; its exponent decides the notation, as in C's %g.
+    let sci = format!("{value:.prec$e}", prec = precision - 1);
     let (mantissa, exp) = sci.split_once('e').unwrap_or((&sci, "0"));
     let exp: i32 = exp.parse().unwrap_or(0);
-    if !(-4..6).contains(&exp) {
+    let p = i32::try_from(precision).unwrap_or(i32::MAX);
+    if !(-4..p).contains(&exp) {
         let mantissa = strip_fraction_zeros(mantissa);
         let sign = if exp < 0 { '-' } else { '+' };
         return format!("{mantissa}e{sign}{:02}", exp.abs());
     }
-    let decimals = usize::try_from(5 - exp).unwrap_or(0);
+    let decimals = usize::try_from(p - 1 - exp).unwrap_or(0);
     strip_fraction_zeros(&format!("{value:.decimals$}")).to_owned()
 }
 
@@ -94,6 +101,54 @@ pub fn json_dumps_pretty(value: &Value) -> String {
     // serde_json cannot fail to serialize a `Value` (its keys are strings); the fallback is unreachable.
     let pretty = serde_json::to_string_pretty(value).unwrap_or_default();
     ascii_escape(&pretty)
+}
+
+/// Python's `json.dumps(value)`: one line with `", "` / `": "` separators and `ensure_ascii`.
+pub fn json_dumps(value: &Value) -> String {
+    use serde::Serialize;
+    let mut out = Vec::new();
+    let mut ser = serde_json::Serializer::with_formatter(&mut out, PySeparators);
+    // Serializing a `Value` into a Vec cannot fail; the fallback is unreachable.
+    if value.serialize(&mut ser).is_err() {
+        return value.to_string();
+    }
+    ascii_escape(&String::from_utf8_lossy(&out))
+}
+
+/// Compact output with Python's default item and key separators.
+struct PySeparators;
+
+impl serde_json::ser::Formatter for PySeparators {
+    fn begin_array_value<W: ?Sized + std::io::Write>(
+        &mut self,
+        writer: &mut W,
+        first: bool,
+    ) -> std::io::Result<()> {
+        if first {
+            Ok(())
+        } else {
+            writer.write_all(b", ")
+        }
+    }
+
+    fn begin_object_key<W: ?Sized + std::io::Write>(
+        &mut self,
+        writer: &mut W,
+        first: bool,
+    ) -> std::io::Result<()> {
+        if first {
+            Ok(())
+        } else {
+            writer.write_all(b", ")
+        }
+    }
+
+    fn begin_object_value<W: ?Sized + std::io::Write>(
+        &mut self,
+        writer: &mut W,
+    ) -> std::io::Result<()> {
+        writer.write_all(b": ")
+    }
 }
 
 /// Escape non-ASCII characters. Safe on serialized JSON: such characters only occur inside strings.
@@ -158,6 +213,15 @@ mod tests {
         ] {
             assert_eq!(format_g(value), expected, "{value}");
         }
+    }
+
+    #[test]
+    fn json_dumps_uses_python_separators() {
+        let value = json!({"a": [1, 2.5], "b": {"c": null}, "d": "é"});
+        assert_eq!(
+            json_dumps(&value),
+            "{\"a\": [1, 2.5], \"b\": {\"c\": null}, \"d\": \"\\u00e9\"}"
+        );
     }
 
     #[test]

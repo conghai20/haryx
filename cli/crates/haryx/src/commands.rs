@@ -1,6 +1,7 @@
 //! Routes a parsed [`Command`] to its implementation. Commands not ported yet answer "not implemented".
 
 pub(crate) mod accounts;
+mod auto;
 mod config;
 mod guard;
 mod listing;
@@ -82,9 +83,8 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Disable { account } => accounts::set_disabled(&account, true, debug),
         Command::Enable { account } => accounts::set_disabled(&account, false, debug),
         Command::Run(opts) => accounts::run(&opts, debug),
-        Command::Tui | Command::Watch | Command::Upgrade | Command::Auto(_) => {
-            Err(not_implemented(&command))
-        }
+        Command::Auto(opts) => auto::run(&opts, debug),
+        Command::Tui | Command::Watch | Command::Upgrade => Err(not_implemented(&command)),
     }
 }
 

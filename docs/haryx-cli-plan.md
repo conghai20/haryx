@@ -1,6 +1,6 @@
 # `haryx` CLI: Rust rebuild of claude-swap
 
-Status: **in progress**. Working: `config`, `list`, `status`, `switch` (all strategies, `--force`), `add`, `add-token`, `remove`, `enable`/`disable`, `alias`, `threshold`, `priority`, `swap`, `move`, `map`/`unmap`, `unclaimed`, `purge`, `export`, `import` (incl. `--from-cswap`), `import-usage`. Not yet: `run`, `auto`, `tui`/`watch`, `upgrade`.
+Status: **in progress**. Working: `config`, `list`, `status`, `switch` (all strategies, `--force`), `add`, `add-token`, `remove`, `enable`/`disable`, `alias`, `threshold`, `priority`, `swap`, `move`, `map`/`unmap`, `unclaimed`, `purge`, `export`, `import` (incl. `--from-cswap`), `import-usage`, `run`, `auto` (loop, `--once`, `--json`, `--dry-run`, all strategies). Not yet: `tui`/`watch`, `upgrade`.
 
 Source of truth for behaviour: `upstream/claude-swap/` (1.2.0b1, MIT, pinned in `upstream/README.md`). Its `docs/architecture.md` is the module map this port follows.
 

@@ -12,9 +12,7 @@ use crate::error::{Error, Result};
 use crate::paths::HostOs;
 use crate::printer::{accent, dimmed, warning};
 use crate::session;
-
-/// Where history migration parks colliding transcripts (upstream `session.QUARANTINE_DIRNAME`).
-pub const QUARANTINE_DIRNAME: &str = "history-conflicts";
+use crate::session_history::QUARANTINE_DIRNAME;
 
 fn count_files(root: &Path) -> usize {
     let Ok(entries) = std::fs::read_dir(root) else {

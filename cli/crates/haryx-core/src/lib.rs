@@ -30,6 +30,8 @@ pub mod models;
 pub mod oauth;
 pub mod service;
 pub mod session;
+pub mod session_history;
+pub mod session_manager;
 pub mod settings;
 pub mod snapshot;
 pub mod subscription;

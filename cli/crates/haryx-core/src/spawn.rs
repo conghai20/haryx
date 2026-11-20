@@ -35,6 +35,8 @@ pub struct RunOptions {
     pub input: Option<Vec<u8>>,
     /// Kill the child and fail with [`SpawnError::Timeout`] when it runs longer.
     pub timeout: Option<Duration>,
+    /// Inherited variables removed from the child's environment.
+    pub env_remove: Vec<OsString>,
 }
 
 /// A finished run.
@@ -78,7 +80,11 @@ pub fn run<S: AsRef<OsStr>>(argv: &[S], opts: &RunOptions) -> Result<RunOutput, 
     let mut command = Command::new(&executable);
     command
         .args(args)
-        .envs(opts.env.iter().map(|(k, v)| (k, v)))
+        .envs(opts.env.iter().map(|(k, v)| (k, v)));
+    for name in &opts.env_remove {
+        command.env_remove(name);
+    }
+    command
         .stdin(if opts.input.is_some() {
             Stdio::piped()
         } else {

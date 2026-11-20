@@ -82,6 +82,7 @@ fn ps(pid: i32, columns: &[&str]) -> Option<String> {
         env: vec![("LC_ALL".into(), "C".into()), ("TZ".into(), "UTC".into())],
         input: None,
         timeout: Some(PS_TIMEOUT),
+        ..Default::default()
     };
     let out = spawn::run(&["ps", "-o", format.as_str(), "-p", pid.as_str()], &opts).ok()?;
     let text = out.stdout.trim();

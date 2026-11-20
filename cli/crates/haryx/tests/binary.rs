@@ -67,7 +67,7 @@ fn commands_are_not_implemented_yet() {
     for (argv, name) in [
         (&["auto", "--once"][..], "auto"),
         (&["watch"][..], "watch"),
-        (&["run", "2", "--", "--resume"], "run"),
+        (&["upgrade"], "upgrade"),
     ] {
         let output = haryx(argv);
         assert_eq!(output.status.code(), Some(2), "{argv:?}");

@@ -168,6 +168,7 @@ impl Security {
             env: Vec::new(),
             input: input.map(String::into_bytes),
             timeout: Some(timeout),
+            ..Default::default()
         };
         spawn::run(&argv, &opts)
     }

@@ -81,7 +81,8 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Unclaimed { purge } => accounts::unclaimed(purge.as_deref(), debug),
         Command::Disable { account } => accounts::set_disabled(&account, true, debug),
         Command::Enable { account } => accounts::set_disabled(&account, false, debug),
-        Command::Tui | Command::Watch | Command::Upgrade | Command::Run(_) | Command::Auto(_) => {
+        Command::Run(opts) => accounts::run(&opts, debug),
+        Command::Tui | Command::Watch | Command::Upgrade | Command::Auto(_) => {
             Err(not_implemented(&command))
         }
     }

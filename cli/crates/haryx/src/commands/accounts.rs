@@ -14,7 +14,7 @@ use haryx_core::{Error, PROG};
 use serde_json::Value;
 
 use super::{CommandError, guard};
-use crate::cli::{AccountSetting, ImportSource};
+use crate::cli::{AccountSetting, ImportSource, RunOptions};
 
 /// Open the store after the root guard, as every upstream handler does.
 fn open(debug: bool) -> Result<Switcher, CommandError> {
@@ -375,4 +375,42 @@ pub fn offer_cswap_import(switcher: &Switcher, json: bool) {
             haryx_core::printer::error(&format!("Error: {err}"));
         }
     }
+}
+
+/// `run [NUM|EMAIL] [--no-share] [--[no-]share-history] [--require-session] [-- claude args]`.
+pub fn run(opts: &RunOptions, debug: bool) -> Result<(), CommandError> {
+    haryx_core::session_manager::redirect_stdout_until_exec();
+    let switcher = open(debug)?;
+    let mut manager = haryx_core::session_manager::SessionManager::new(&switcher);
+    let request = haryx_core::session_manager::RunRequest {
+        share: !opts.no_share,
+        share_history: opts.share_history,
+        require_session: opts.require_session,
+    };
+    let result = match &opts.account {
+        Some(account) => manager.run(account, &opts.claude_args, &request),
+        None => {
+            let cwd = current_dir()?;
+            match switcher.slot_for_directory(&cwd).map_err(fail)? {
+                (Some(slot), _) => manager.run(&slot, &opts.claude_args, &request),
+                (None, Some(email)) => {
+                    warning(&format!(
+                        "Mapped account {email} no longer exists — launching the default account."
+                    ));
+                    manager.exec_default(&opts.claude_args)
+                }
+                (None, None) => {
+                    println!(
+                        "{}",
+                        dimmed(&format!(
+                            "No account mapped for {} — launching the default account.",
+                            cwd.display()
+                        ))
+                    );
+                    manager.exec_default(&opts.claude_args)
+                }
+            }
+        }
+    };
+    result.map_err(fail)
 }

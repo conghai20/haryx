@@ -167,6 +167,11 @@ impl Switcher {
         self
     }
 
+    /// haryx's own account lock file.
+    pub fn lock_file_path(&self) -> &Path {
+        &self.lock_file
+    }
+
     /// Where Claude Code's files are and where the store is.
     pub fn path_env(&self) -> &PathEnv {
         &self.env

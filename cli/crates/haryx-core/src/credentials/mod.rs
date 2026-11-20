@@ -27,7 +27,7 @@ pub mod namespace;
 mod stash;
 
 #[cfg(test)]
-mod test_support;
+pub(crate) mod test_support;
 #[cfg(test)]
 mod tests_active;
 #[cfg(test)]

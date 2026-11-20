@@ -22,7 +22,7 @@
 //! home; the argument-free forms snapshot the process environment with [`PathEnv::from_process`].
 
 use std::ffi::OsString;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use crate::error::{Error, Result};
 
@@ -317,6 +317,27 @@ pub fn cswap_store_root() -> Result<PathBuf> {
 /// [`cswap_store_candidates_in`] for the process environment.
 pub fn cswap_store_candidates() -> Result<Vec<PathBuf>> {
     Ok(cswap_store_candidates_in(&PathEnv::from_process()?))
+}
+
+/// Python's non-strict `Path.resolve()`: walk the components, resolving symlinks in every prefix that
+/// exists and applying `..` to the resolved prefix; a missing tail is kept as written.
+pub fn resolve_lenient(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                out.pop();
+            }
+            other => {
+                out.push(other);
+                if let Ok(canonical) = std::fs::canonicalize(&out) {
+                    out = canonical;
+                }
+            }
+        }
+    }
+    out
 }
 
 #[cfg(test)]

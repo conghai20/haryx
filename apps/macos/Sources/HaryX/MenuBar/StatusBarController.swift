@@ -61,7 +61,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
                 button.title = title
                 lastTitle = title
             }
-            let tip = store.active.map { "cswap · \($0.displayName)" } ?? "cswap"
+            let tip = store.active.map { "HaryX · \($0.displayName)" } ?? "HaryX"
             if button.toolTip != tip { button.toolTip = tip }
         } onChange: { [weak self] in
             DispatchQueue.main.async { MainActor.assumeIsolated { self?.render() } }

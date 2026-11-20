@@ -31,7 +31,7 @@ struct MenuBarPanel: View {
 
     private var header: some View {
         HStack {
-            Text("cswap").font(.headline)
+            Text("HaryX").font(.headline)
             if let busy = store.busy {
                 ProgressView().controlSize(.mini)
                 Text(busy).font(.caption).foregroundStyle(.secondary)

@@ -161,9 +161,6 @@ struct AccountContextMenu: View {
             NSPasteboard.general.setString(account.email, forType: .string)
         }
         Divider()
-        Button("Show in Dashboard") {
-            DashboardRouter.shared.select(account.number)
-            DashboardWindow.shared.show()
-        }
+        Button("Show in Dashboard") { DashboardRouter.shared.reveal(account.number) }
     }
 }

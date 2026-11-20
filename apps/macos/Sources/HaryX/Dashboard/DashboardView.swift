@@ -39,6 +39,12 @@ final class DashboardRouter {
         section = .accounts
         selectedSlot = slot
     }
+
+    /// Opens the dashboard on this account's detail inspector.
+    func reveal(_ slot: Int) {
+        select(slot)
+        DashboardWindow.shared.show()
+    }
 }
 
 struct DashboardView: View {

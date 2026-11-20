@@ -101,6 +101,9 @@ private struct HeroCard: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassEffect(.regular.tint(.accentColor.opacity(0.08)), in: .rect(cornerRadius: 18))
+        .contentShape(.rect(cornerRadius: 18))
+        .onTapGesture { AccountActionMenu.show(for: account, store: store) }
+        .help("Click for account actions")
         .contextMenu { AccountContextMenu(account: account) }
     }
 }
@@ -140,6 +143,7 @@ struct AccountRow: View {
         .padding(.horizontal, 8).padding(.vertical, 6)
         .background(hovering ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 10))
         .contentShape(.rect)
+        .onTapGesture { AccountActionMenu.show(for: account, store: store) }
         .onHover { hovering = $0 }
         .contextMenu { AccountContextMenu(account: account) }
     }

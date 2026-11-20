@@ -642,7 +642,11 @@ impl Switcher {
         let question = format!(
             "No managed accounts found. Add current account ({email}) to managed list? [Y/n] "
         );
-        let answer = super::add::prompt(&question).unwrap_or_default();
+        // No answer (end of input, no terminal) cancels: never add an account nobody confirmed.
+        let Some(answer) = super::add::prompt(&question) else {
+            println!();
+            return;
+        };
         if answer.to_lowercase() == "n" {
             println!(
                 "{}",

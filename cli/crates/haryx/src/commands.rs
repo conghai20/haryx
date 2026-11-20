@@ -1,6 +1,6 @@
 //! Routes a parsed [`Command`] to its implementation. Commands not ported yet answer "not implemented".
 
-mod accounts;
+pub(crate) mod accounts;
 mod config;
 mod guard;
 mod listing;
@@ -62,6 +62,15 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         }
         Command::Remove { account } => accounts::remove(&account, debug),
         Command::Purge => accounts::purge(debug),
+        Command::Export {
+            path,
+            account,
+            full,
+        } => accounts::export(&path, account.as_deref(), full, debug),
+        Command::Import { source, force } => accounts::import(&source, force, debug),
+        Command::ImportUsage { path, hold_seconds } => {
+            accounts::import_usage(&path, hold_seconds, debug)
+        }
         Command::Alias(setting) => accounts::alias(&setting, debug),
         Command::Threshold(setting) => accounts::threshold(&setting, debug),
         Command::Priority(setting) => accounts::priority(&setting, debug),
@@ -72,14 +81,9 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Unclaimed { purge } => accounts::unclaimed(purge.as_deref(), debug),
         Command::Disable { account } => accounts::set_disabled(&account, true, debug),
         Command::Enable { account } => accounts::set_disabled(&account, false, debug),
-        Command::Tui
-        | Command::Watch
-        | Command::Export { .. }
-        | Command::Import { .. }
-        | Command::ImportUsage { .. }
-        | Command::Upgrade
-        | Command::Run(_)
-        | Command::Auto(_) => Err(not_implemented(&command)),
+        Command::Tui | Command::Watch | Command::Upgrade | Command::Run(_) | Command::Auto(_) => {
+            Err(not_implemented(&command))
+        }
     }
 }
 

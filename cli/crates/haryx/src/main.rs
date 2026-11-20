@@ -6,6 +6,7 @@ use std::process::ExitCode;
 use haryx::{cli, commands, logging};
 
 fn main() -> ExitCode {
+    restore_sigpipe();
     let argv: Vec<String> = std::env::args_os()
         .skip(1)
         .map(|arg| arg.to_string_lossy().into_owned())
@@ -26,5 +27,14 @@ fn main() -> ExitCode {
             }
             ExitCode::from(err.exit_code)
         }
+    }
+}
+
+/// Die quietly on a closed pipe (`haryx list | head`) instead of panicking on the failed write.
+fn restore_sigpipe() {
+    #[cfg(unix)]
+    // SAFETY: resetting SIGPIPE to its default disposition at startup, before any thread exists.
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
     }
 }

@@ -167,6 +167,11 @@ impl Switcher {
         self
     }
 
+    /// Where Claude Code's files are and where the store is.
+    pub fn path_env(&self) -> &PathEnv {
+        &self.env
+    }
+
     pub fn debug(&self) -> bool {
         self.debug
     }

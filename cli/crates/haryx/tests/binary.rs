@@ -65,8 +65,8 @@ fn bare_haryx_without_a_terminal_is_a_usage_error() {
 #[test]
 fn commands_are_not_implemented_yet() {
     for (argv, name) in [
-        (&["export", "x.json"][..], "export"),
-        (&["import-usage", "x.json"][..], "import-usage"),
+        (&["auto", "--once"][..], "auto"),
+        (&["watch"][..], "watch"),
         (&["run", "2", "--", "--resume"], "run"),
     ] {
         let output = haryx(argv);

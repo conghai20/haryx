@@ -432,3 +432,63 @@ fn purge_removes_the_store_but_not_the_live_login() {
     assert!(!s.store().exists());
     assert_eq!(live_token(&s), "at-a");
 }
+
+#[test]
+fn import_from_cswap_copies_accounts_and_settings() {
+    let s = Sandbox::new();
+    // A cswap store has the same on-disk layout; build one at cswap's legacy location.
+    let cswap = s.dir.path().join(".claude-swap-backup");
+    let run_in = |store: &std::path::Path, argv: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_haryx"))
+            .args(argv)
+            .env("HOME", s.dir.path())
+            .env("HARYX_HOME", store)
+            .env("CLAUDE_CONFIG_DIR", s.dir.path().join(".claude"))
+            .env("HARYX_SECURITY_BIN", s.dir.path().join("security"))
+            .env("HARYX_API_BASE", "http://127.0.0.1:9")
+            .env("NO_COLOR", "1")
+            .env_remove("XDG_DATA_HOME")
+            .output()
+            .unwrap()
+    };
+    login(&s, "a@example.com", "u-a", "at-a");
+    run_in(&cswap, &["add", "--alias", "work"]);
+    login(&s, "b@example.com", "u-b", "at-b");
+    run_in(&cswap, &["add"]);
+    std::fs::write(
+        cswap.join("settings.json"),
+        r#"{"schemaVersion":1,"autoswitch":{"threshold":88}}"#,
+    )
+    .unwrap();
+
+    std::fs::remove_file(s.store().join("sequence.json")).unwrap();
+    let out = s.run(&["import", "--from-cswap"]);
+    assert_eq!(out.code, 0, "{}", out.err);
+    assert!(
+        out.err
+            .contains("Done: 2 imported, 0 overwritten, 0 skipped"),
+        "{}",
+        out.err
+    );
+    assert_eq!(s.roster()["accounts"]["1"]["alias"], "work");
+    assert_eq!(
+        s.run(&["config", "get", "autoswitch.threshold"]).out.trim(),
+        "88"
+    );
+    assert!(
+        cswap.join("sequence.json").exists(),
+        "the cswap store is only read"
+    );
+
+    // Round trip through an export file: everything already present is skipped.
+    let file = s.dir.path().join("backup.json");
+    assert_eq!(s.run(&["export", file.to_str().unwrap()]).code, 0);
+    let again = s.run(&["import", file.to_str().unwrap()]);
+    assert!(
+        again
+            .err
+            .contains("Done: 0 imported, 0 overwritten, 2 skipped"),
+        "{}",
+        again.err
+    );
+}

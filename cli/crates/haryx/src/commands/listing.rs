@@ -18,7 +18,10 @@ fn run_json_capable(
     body: impl FnOnce(&Switcher) -> Result<Option<Value>, Error>,
 ) -> Result<(), CommandError> {
     guard::refuse_root()?;
-    let outcome = Switcher::from_process(debug).and_then(|s| body(&s));
+    let outcome = Switcher::from_process(debug).and_then(|s| {
+        super::accounts::offer_cswap_import(&s, json);
+        body(&s)
+    });
     match outcome {
         Ok(Some(payload)) if json => {
             println!("{}", json_dumps_pretty(&payload));

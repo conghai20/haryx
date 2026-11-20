@@ -14,7 +14,7 @@ use haryx_core::{Error, PROG};
 use serde_json::Value;
 
 use super::{CommandError, guard};
-use crate::cli::AccountSetting;
+use crate::cli::{AccountSetting, ImportSource};
 
 /// Open the store after the root guard, as every upstream handler does.
 fn open(debug: bool) -> Result<Switcher, CommandError> {
@@ -318,4 +318,61 @@ pub fn remove(account: &str, debug: bool) -> Result<(), CommandError> {
 pub fn purge(debug: bool) -> Result<(), CommandError> {
     let switcher = open(debug)?;
     switcher.purge().map_err(fail)
+}
+
+pub fn export(
+    path: &str,
+    account: Option<&str>,
+    full: bool,
+    debug: bool,
+) -> Result<(), CommandError> {
+    let switcher = open(debug)?;
+    haryx_core::transfer::export_accounts(&switcher, path, account, full).map_err(fail)
+}
+
+pub fn import(source: &ImportSource, force: bool, debug: bool) -> Result<(), CommandError> {
+    let switcher = open(debug)?;
+    match source {
+        ImportSource::File(path) => haryx_core::transfer::import_accounts(&switcher, path, force),
+        ImportSource::Cswap => haryx_core::transfer::import_from_cswap(&switcher, force),
+    }
+    .map_err(fail)
+}
+
+pub fn import_usage(path: &str, hold: Option<f64>, debug: bool) -> Result<(), CommandError> {
+    let switcher = open(debug)?;
+    haryx_core::transfer::import_usage(&switcher, path, hold).map_err(fail)
+}
+
+/// First run with an empty haryx store and an existing cswap store: offer the import at a terminal,
+/// or print a one-line hint on stderr. Never touches stdout, so `--json` output stays pure.
+pub fn offer_cswap_import(switcher: &Switcher, json: bool) {
+    use std::io::IsTerminal;
+    if switcher.sequence_file().exists() {
+        return;
+    }
+    let Some(ns) = haryx_core::transfer::find_cswap_store(switcher) else {
+        return;
+    };
+    let interactive = !json && std::io::stdin().is_terminal() && std::io::stderr().is_terminal();
+    if !interactive {
+        eprintln!(
+            "{}",
+            muted(&format!(
+                "Found a cswap store at {}; copy its accounts with: {PROG} import --from-cswap",
+                ns.store_root.display()
+            ))
+        );
+        return;
+    }
+    eprint!(
+        "Found a cswap store at {}. Copy its accounts into haryx (cswap is left untouched)? [y/N] ",
+        ns.store_root.display()
+    );
+    let mut answer = String::new();
+    if std::io::stdin().read_line(&mut answer).is_ok() && answer.trim().eq_ignore_ascii_case("y") {
+        if let Err(err) = haryx_core::transfer::import_from_cswap(switcher, false) {
+            haryx_core::printer::error(&format!("Error: {err}"));
+        }
+    }
 }

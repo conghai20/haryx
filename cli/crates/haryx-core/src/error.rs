@@ -44,7 +44,10 @@ pub enum Error {
 
 impl Error {
     pub fn is_credential(&self) -> bool {
-        matches!(self, Error::Credential(_) | Error::CredentialRead(_) | Error::CredentialWrite(_))
+        matches!(
+            self,
+            Error::Credential(_) | Error::CredentialRead(_) | Error::CredentialWrite(_)
+        )
     }
 
     pub fn is_lock(&self) -> bool {

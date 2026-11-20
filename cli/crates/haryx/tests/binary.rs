@@ -63,10 +63,15 @@ fn bare_haryx_without_a_terminal_is_a_usage_error() {
 }
 
 #[test]
-fn watch_is_not_implemented_yet() {
+fn watch_without_a_terminal_points_at_list() {
+    // Test stdout is a pipe, never a terminal: the dashboard refuses before touching any store.
     let output = haryx(&["watch"]);
-    assert_eq!(output.status.code(), Some(2));
-    assert_eq!(stderr(&output).trim(), "haryx watch: not implemented yet");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        stderr(&output).contains("the dashboard needs a terminal"),
+        "{}",
+        stderr(&output)
+    );
 }
 
 #[test]

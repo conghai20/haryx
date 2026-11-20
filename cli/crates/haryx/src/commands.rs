@@ -1,4 +1,4 @@
-//! Routes a parsed [`Command`] to its implementation. Commands not ported yet answer "not implemented".
+//! Routes a parsed [`Command`] to its implementation.
 
 pub(crate) mod accounts;
 mod auto;
@@ -12,9 +12,6 @@ use std::fmt;
 use haryx_core::PROG;
 
 use crate::cli::Command;
-
-/// Exit code of a command that is not implemented yet (argparse's usage-error code).
-pub const NOT_IMPLEMENTED_EXIT: u8 = 2;
 
 /// A command that could not complete: the message for stderr and the process exit code.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,13 +83,32 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Run(opts) => accounts::run(&opts, debug),
         Command::Auto(opts) => auto::run(&opts, debug),
         Command::Upgrade => upgrade::run(),
-        Command::Tui | Command::Watch => Err(not_implemented(&command)),
+        Command::Tui => tui(false, debug),
+        Command::Watch => tui(true, debug),
     }
 }
 
-fn not_implemented(command: &Command) -> CommandError {
-    CommandError {
-        message: format!("{PROG} {}: not implemented yet", command.name()),
-        exit_code: NOT_IMPLEMENTED_EXIT,
+/// `tui` / `watch`: the interactive dashboard over a real terminal.
+fn tui(start_watch: bool, debug: bool) -> Result<(), CommandError> {
+    use std::io::IsTerminal;
+    guard::refuse_root()?;
+    if !std::io::stdout().is_terminal() {
+        return Err(CommandError {
+            message: format!("{PROG}: the dashboard needs a terminal; try '{PROG} list'"),
+            exit_code: 1,
+        });
     }
+    let switcher = open_switcher(debug)?;
+    accounts::offer_cswap_import(&switcher, false);
+    crate::tui::run(&switcher, start_watch).map_err(|e| CommandError {
+        message: format!("{PROG}: terminal error: {e}"),
+        exit_code: 1,
+    })
+}
+
+fn open_switcher(debug: bool) -> Result<haryx_core::switcher::Switcher, CommandError> {
+    haryx_core::switcher::Switcher::from_process(debug).map_err(|err| {
+        haryx_core::printer::error(&format!("Error: {err}"));
+        CommandError::silent(1)
+    })
 }

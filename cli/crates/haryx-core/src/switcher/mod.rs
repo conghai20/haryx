@@ -53,6 +53,7 @@ use crate::printer;
 use crate::session::{self, ProfileKeychain};
 use crate::usage_store::UsageStore;
 
+pub use listing::{error_note, last_seen_note, sentinel_note};
 pub use perform::{Provenance, SwitchOp};
 pub use sequence::LineageKey;
 pub use usage::AccountInfo;

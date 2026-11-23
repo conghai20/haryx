@@ -14,7 +14,8 @@
 //!   otherwise.
 //!
 //! The store root is haryx's own (not shared with cswap): macOS `~/Library/Application Support/HaryX`, Linux
-//! `$XDG_DATA_HOME/haryx` (default `~/.local/share/haryx`), and `HARYX_HOME` overrides it on any OS. Upstream's
+//! `$XDG_DATA_HOME/haryx` (default `~/.local/share/haryx`), Windows `%LOCALAPPDATA%\haryx`, and `HARYX_HOME`
+//! overrides it on any OS. Upstream's
 //! legacy-to-XDG migration is dropped (haryx has no legacy layout); [`cswap_store_root`] and
 //! [`cswap_store_candidates`] keep upstream's resolution for `import --from-cswap`.
 //!
@@ -34,6 +35,8 @@ pub const CSWAP_XDG_DIRNAME: &str = "claude-swap";
 pub const HARYX_XDG_DIRNAME: &str = "haryx";
 /// haryx's directory name under `~/Library/Application Support` (macOS).
 pub const HARYX_MACOS_DIRNAME: &str = "HaryX";
+/// haryx's directory name under `%LOCALAPPDATA%` (Windows).
+pub const HARYX_WINDOWS_DIRNAME: &str = "haryx";
 
 /// The operating system family the path rules branch on (upstream `models.Platform`, reduced to what the
 /// path rules distinguish: WSL resolves exactly like Linux).
@@ -72,6 +75,8 @@ pub struct PathEnv {
     pub secure_storage_dir: Option<OsString>,
     pub xdg_data_home: Option<OsString>,
     pub haryx_home: Option<OsString>,
+    /// `LOCALAPPDATA` (Windows): the per-machine, per-user data folder that holds the store.
+    pub local_app_data: Option<OsString>,
     pub os: HostOs,
 }
 
@@ -84,6 +89,7 @@ impl PathEnv {
             secure_storage_dir: None,
             xdg_data_home: None,
             haryx_home: None,
+            local_app_data: None,
             os: HostOs::current(),
         }
     }
@@ -97,6 +103,7 @@ impl PathEnv {
             secure_storage_dir: std::env::var_os("CLAUDE_SECURESTORAGE_CONFIG_DIR"),
             xdg_data_home: std::env::var_os("XDG_DATA_HOME"),
             haryx_home: std::env::var_os("HARYX_HOME"),
+            local_app_data: std::env::var_os("LOCALAPPDATA"),
             os: HostOs::current(),
         })
     }
@@ -227,10 +234,19 @@ fn xdg_data_dir(env: &PathEnv, name: &str) -> PathBuf {
     env.home.join(".local").join("share").join(name)
 }
 
+/// `%LOCALAPPDATA%` when set to an absolute path, else its usual place, `~\AppData\Local`.
+fn local_app_data_dir(env: &PathEnv) -> PathBuf {
+    non_empty(env.local_app_data.as_ref())
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute())
+        .unwrap_or_else(|| env.home.join("AppData").join("Local"))
+}
+
 /// haryx's own store root.
 ///
 /// `HARYX_HOME` (non-empty, `~` expanded) on any OS; else macOS `~/Library/Application Support/HaryX`, Linux
-/// (and other Unix) `$XDG_DATA_HOME/haryx`. Windows has no default yet.
+/// (and other Unix) `$XDG_DATA_HOME/haryx`, Windows `%LOCALAPPDATA%\haryx`. The Windows store holds
+/// per-machine credentials, so it lives in the local, not the roaming, profile.
 pub fn store_root_in(env: &PathEnv) -> Result<PathBuf> {
     if let Some(home) = non_empty(env.haryx_home.as_ref()) {
         return Ok(env.expand_tilde(home));
@@ -242,10 +258,7 @@ pub fn store_root_in(env: &PathEnv) -> Result<PathBuf> {
             .join("Application Support")
             .join(HARYX_MACOS_DIRNAME)),
         HostOs::Linux | HostOs::Other => Ok(xdg_data_dir(env, HARYX_XDG_DIRNAME)),
-        // TODO(windows): pick a store root (upstream `get_backup_root` used ~/.claude-swap-backup).
-        HostOs::Windows => Err(Error::General(
-            "haryx does not support Windows yet; set HARYX_HOME to choose a store".into(),
-        )),
+        HostOs::Windows => Ok(local_app_data_dir(env).join(HARYX_WINDOWS_DIRNAME)),
     }
 }
 
@@ -582,7 +595,39 @@ mod tests {
             env.haryx_home = Some("~/s".into());
             assert_eq!(store_root_in(&env).unwrap(), PathBuf::from("/h/s"));
             env.haryx_home = Some("".into());
-            assert_eq!(store_root_in(&env).is_ok(), os != HostOs::Windows);
+            assert!(store_root_in(&env).is_ok());
+        }
+    }
+
+    #[test]
+    fn windows_store_root_is_under_local_app_data() {
+        let env = PathEnv {
+            os: HostOs::Windows,
+            local_app_data: Some("/h/AppData/Local".into()),
+            ..env_at(Path::new("/h"))
+        };
+        assert_eq!(
+            store_root_in(&env).unwrap(),
+            PathBuf::from("/h/AppData/Local/haryx")
+        );
+    }
+
+    #[test]
+    fn windows_store_root_falls_back_when_local_app_data_is_missing_or_relative() {
+        for value in [None, Some(""), Some("relative/dir")] {
+            let env = PathEnv {
+                os: HostOs::Windows,
+                local_app_data: value.map(Into::into),
+                ..env_at(Path::new("/h"))
+            };
+            assert_eq!(
+                store_root_in(&env).unwrap(),
+                PathBuf::from("/h")
+                    .join("AppData")
+                    .join("Local")
+                    .join("haryx"),
+                "LOCALAPPDATA = {value:?}"
+            );
         }
     }
 

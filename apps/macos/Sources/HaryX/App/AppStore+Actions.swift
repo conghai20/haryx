@@ -141,6 +141,10 @@ extension AppStore {
         await perform(on ? "Wake on" : "Wake off", ["ai", "wake", on ? "on" : "off", ref(a)], extras: true)
     }
 
+    func setWakeAll(_ on: Bool) async {
+        await perform(on ? "Wake on for all" : "Wake off for all", ["ai", "wake", on ? "on" : "off", "all"], extras: true)
+    }
+
     func setWakeAgent(installed: Bool) async {
         await perform(installed ? "Installing wake agent" : "Removing wake agent",
                       ["ai", "wake", installed ? "install" : "uninstall"], extras: true)

@@ -177,18 +177,25 @@ struct TideStaff: View {
     }
 }
 
-/// Time left in a window drawn as exact length: full width is the whole window.
-struct TimeLeftRule: View {
-    let resetsAt: Date?
-    let windowSeconds: TimeInterval
+/// The weekly window under a 5-hour reading: "Week 79%", its reset, and a thin staff with the pace tick.
+struct WeekStaff: View {
+    let window: UsageWindow?
 
     var body: some View {
-        let left = resetsAt.map { max(0, min(1, $0.timeIntervalSinceNow / windowSeconds)) } ?? 0
-        GeometryReader { geo in
-            Rectangle().fill(Brand.cyan.opacity(0.55)).frame(width: geo.size.width * left, height: 1)
+        let week = window?.withPace(windowSeconds: UsageWindow.sevenDaySeconds)
+        let high = (week?.pct ?? 0) >= 85
+        VStack(alignment: .leading, spacing: 1) {
+            HStack {
+                Text("Week \(week?.pct.map { "\(Int($0))%" } ?? "—")")
+                    .foregroundStyle(high ? AnyShapeStyle(Brand.usageFill(week)) : AnyShapeStyle(.secondary))
+                Spacer()
+                if let c = week?.countdown { Text("resets in \(c)").foregroundStyle(.secondary) }
+            }
+            .font(.caption.monospacedDigit())
+            TideStaff(window: week, height: 3)
         }
-        .frame(height: 1)
-        .accessibilityHidden(true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Weekly usage \(week?.pct.map { "\(Int($0)) percent" } ?? "unknown")\(week?.countdown.map { ", resets in \($0)" } ?? "")")
     }
 }
 
@@ -204,6 +211,7 @@ extension UsageWindow {
     }
 
     static let fiveHourSeconds: TimeInterval = 5 * 3600
+    static let sevenDaySeconds: TimeInterval = 7 * 24 * 3600
 
     /// Points ahead (+) or behind (−) the expected pace, when both are known.
     /// Ahead by at least ``UsageWindow/paceThreshold`` points, else the CLI's own verdict.

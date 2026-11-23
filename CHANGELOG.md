@@ -22,6 +22,10 @@ cannot be released without one. Sections, in this order, only when they have ent
 - macOS app: the menu bar panel's Dashboard button has a dropdown that opens the dashboard on any
   section (AI: Accounts, Auto-Switch, Wake, Folder Mappings, Setup Profiles, CLI Settings, Backup &
   Maintenance; HaryX: App Preferences).
+- macOS app: an "All accounts" switch at the top of the Wake page's account list turns wake on or
+  off for every account at once (`haryx ai wake on all` / `off all`) and shows how many are on.
+- macOS app: a weekly bar (Week %, its reset and a pace tick) under the 5-hour reading on every
+  dashboard card and on the active account in the menu bar panel.
 
 ### Changed
 
@@ -41,7 +45,11 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 - macOS app: opening the dashboard while it is minimized brings it back.
 - macOS app: the hover highlight in the menu bar panel's "Next in line" table covers the whole row,
-  and a click anywhere on the row opens the account's menu.
+  and a click anywhere on the row opens the account's menu. Rows have a small side inset, and each
+  one shows a visible "Use" button instead of a hover-only text link.
+- macOS app: the dashboard title bar keeps one height in every section, so the window buttons and
+  content no longer shift when you change sections.
+- macOS app: the thin cyan time-left line under the 5-hour bar is gone from the panel and the cards.
 - macOS app: the menu bar panel closes when you click another app, switch apps (⌘-Tab, Dock) or
   bring the dashboard forward, like system menu bar panels.
 - macOS app: the whole account card is clickable, including its edges and empty space.

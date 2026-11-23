@@ -128,14 +128,8 @@ private struct ActiveTide: View {
                 }
                 .accessibilityElement(children: .combine)
                 TideStaff(window: five)
-                HStack {
-                    paceLine(five)
-                    Spacer()
-                    Text("7d \(account.usage?.sevenDay?.pct.map { "\(Int($0))%" } ?? "—")")
-                        .monospacedDigit().foregroundStyle(.secondary)
-                }
-                .font(.caption)
-                TimeLeftRule(resetsAt: five?.resetsAt, windowSeconds: UsageWindow.fiveHourSeconds)
+                paceLine(five).font(.caption)
+                WeekStaff(window: account.usage?.sevenDay).padding(.top, 2)
             } else if let note = account.statusNote {
                 Text(note).font(.callout).foregroundStyle(Brand.warn)
             }
@@ -166,6 +160,8 @@ private struct NextInLine: View {
     let accounts: [Account]
     private static let rowHeight: CGFloat = 30
     static let space = "nextInLine"
+    /// Rows sit inside the hover fill, not flush with its edges.
+    private static let rowInset: CGFloat = 8
     /// Modifiers on a GridRow apply to each cell, so a per-row hover fill leaves the column gaps
     /// bare. The grid draws one full-width fill instead, from each row's measured band.
     @State private var rowBands: [Int: CGRect] = [:]
@@ -190,9 +186,10 @@ private struct NextInLine: View {
                 .padding(.bottom, 2)
                 .accessibilityHidden(true)
                 ForEach(accounts) { a in
-                    AccountRow(account: a, hovering: hoveredSlot == a.number) { band in rowBands[a.number] = band }
+                    AccountRow(account: a) { band in rowBands[a.number] = band }
                 }
             }
+            .padding(.horizontal, Self.rowInset)
             .coordinateSpace(.named(Self.space))
             .background(alignment: .topLeading) { hoverFill }
             .contentShape(.rect)
@@ -225,7 +222,6 @@ private struct NextInLine: View {
 struct AccountRow: View {
     @Environment(AppStore.self) private var store
     let account: Account
-    let hovering: Bool
     /// Reports the row's vertical band (from its tallest cell) in the grid's coordinate space.
     let onBand: (CGRect) -> Void
 
@@ -272,9 +268,9 @@ struct AccountRow: View {
             SignInAgainButton(account: account, prominent: false).controlSize(.mini)
         } else {
             Button("Use") { Task { await store.switchTo(account) } }
-                .buttonStyle(.borderless)
-                .font(.caption.weight(.medium))
-                .opacity(hovering ? 1 : 0)
+                .buttonStyle(.glassProminent)
+                .controlSize(.mini)
+                .font(.caption.weight(.semibold))
                 .disabled(store.busy != nil || account.isDisabled)
                 .help("Switch to \(account.displayName)")
         }

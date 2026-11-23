@@ -15,6 +15,9 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ### Added
 
+- `scripts/install.sh`: installs or updates the macOS app with one `curl … | sh` command. It checks the
+  DMG's SHA-256, replaces an older copy safely and opens the app without the Privacy & Security
+  approval a browser download needs.
 - `haryx ai wake`: starts an account's next 5-hour window right after the last one resets, with one
   1-output-token request. Opt in per account (`on`/`off`, or `all`), set quiet hours and a weekly cap
   (`config`), and install a LaunchAgent that checks every minute (`install`). Checks with nothing due

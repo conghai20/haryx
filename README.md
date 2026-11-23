@@ -44,8 +44,21 @@ HaryX is an independent project. It is not made, endorsed or supported by Anthro
 
 ## Install
 
-**macOS app (includes the CLI).** Download `HaryX-<version>.dmg` from
-[GitHub Releases](https://github.com/conghai20/haryx/releases), drag HaryX to Applications and open it.
+**macOS app (includes the CLI).** Run:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/conghai20/haryx/main/scripts/install.sh | sh
+```
+
+It downloads the latest DMG, checks its SHA-256, installs `HaryX.app` in `/Applications` (replacing an
+older copy) and opens it. Run it again to update. A download through `curl` is not marked as coming
+from the internet, so macOS opens the app without asking for approval in Privacy & Security.
+Options: `HARYX_VERSION=0.1.2` pins a version, `HARYX_INSTALL_DIR=~/Applications` changes the folder.
+
+Or download `HaryX-<version>.dmg` from [GitHub Releases](https://github.com/conghai20/haryx/releases)
+and drag HaryX to Applications. The DMG is not notarized yet, so on first open macOS blocks it: open
+System Settings › Privacy & Security and click Open Anyway.
+
 On first launch it offers to install the `haryx` command in `/usr/local/bin` (asks for your
 password) or `~/.local/bin`; Preferences › Terminal command does the same later. The command is a
 link into the app, so updating the app updates the command.

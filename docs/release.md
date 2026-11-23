@@ -57,6 +57,7 @@ scripts/release/package.sh aarch64-apple-darwin cli/target/release/haryx   # rel
 (cd packaging/pypi && uvx maturin build --release)         # wheel
 (cd packaging/npm && npm pack)                             # npm tarball
 apps/macos/scripts/package-dmg.sh                          # DMG (SIGN_IDENTITY / NOTARY_PROFILE optional)
+scripts/test-install.sh                                    # offline tests for the curl installer
 ```
 
 `haryx`'s own update check stays off until releases exist (`update_check::RELEASES_URL`).

@@ -133,6 +133,7 @@ struct AccountsPane: View {
                         Button(mode.title) { Task { await store.switchNext(mode) } }
                     }
                 } label: { Label("Switch", systemImage: "arrow.left.arrow.right") }
+                Menu { SignInMenuSection() } label: { Label("Sign In", systemImage: "person.badge.key") }
                 Button { Task { await store.refresh(); await store.loadExtras() } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
             }
         }

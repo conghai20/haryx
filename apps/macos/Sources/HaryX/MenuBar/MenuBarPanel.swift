@@ -212,6 +212,7 @@ private struct QuickActions: View {
                         }
                     }
                 }
+                SignInMenuSection()
             } label: {
                 Label("Terminal", systemImage: "terminal")
             } primaryAction: {
@@ -224,5 +225,33 @@ private struct QuickActions: View {
         .labelStyle(.titleAndIcon)
         .controlSize(.regular)
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// Sign-in entries for a dropdown: accounts that need a re-login first, then every other
+/// account that has a login to renew, then a new account.
+struct SignInMenuSection: View {
+    @Environment(AppStore.self) private var store
+
+    var body: some View {
+        let renewable = store.accounts.filter(\.canRelogin)
+        let needed = renewable.filter(\.offersSignIn)
+        Section("Sign in") {
+            ForEach(needed) { a in
+                Button("Sign In Again: \(a.number): \(a.displayName)\(a.needsRelogin ? " — re-login needed" : " — login expiring")") {
+                    store.signInAgain(a)
+                }
+                .disabled(store.loginPending(for: a))
+            }
+            Menu("Sign In Again…") {
+                ForEach(renewable) { a in
+                    Button("\(a.number): \(a.displayName)") { store.signInAgain(a) }
+                        .disabled(store.loginPending(for: a))
+                }
+            }
+            .disabled(renewable.isEmpty)
+            Button("Sign In New Account…") { store.signInNew() }
+                .disabled(store.addLoginPending)
+        }
     }
 }

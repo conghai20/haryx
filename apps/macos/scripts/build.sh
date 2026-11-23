@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Build HaryX.app (release) with the brand icon, ad-hoc sign, and optionally install.
 #   scripts/build.sh            → apps/macos/build/HaryX.app
-#   scripts/build.sh --install  → also copy to ~/Applications and launch
+#   scripts/build.sh --install  → also copy to /Applications and launch
 set -euo pipefail
 
 ROOT=${0:A:h:h}            # apps/macos
@@ -9,7 +9,7 @@ REPO=${ROOT:h:h}           # repository root
 BRAND_ICON="$REPO/assets/brand/png/haryx-app-icon-1024.png"
 BUILD="$ROOT/build"
 APP="$BUILD/HaryX.app"
-VERSION="0.1.1"
+VERSION="0.1.2"
 BUNDLE_ID="dev.haryx.app"
 
 cd "$ROOT"
@@ -62,11 +62,12 @@ codesign --force --deep --sign - --timestamp=none "$APP"
 echo "Built $APP"
 
 if [[ "${1:-}" == "--install" ]]; then
-  DEST="$HOME/Applications/HaryX.app"
-  mkdir -p "$HOME/Applications"
+  # Same place the release DMG installs to, so a dev build replaces it instead of sitting
+  # beside it as a second copy with the same bundle ID.
+  DEST="/Applications/HaryX.app"
   pkill -x HaryX 2>/dev/null || true
   pkill -x cswapui 2>/dev/null || true  # the pre-rename build
-  rm -rf "$DEST"
+  rm -rf "$DEST" "$HOME/Applications/HaryX.app"  # the latter: where older builds installed
   cp -R "$APP" "$DEST"
   open "$DEST"
   echo "Installed and launched $DEST"

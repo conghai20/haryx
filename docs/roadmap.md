@@ -9,6 +9,10 @@ prompts and `--json` shapes, verified against `packages/contracts/`. Port from `
 `haryx ai profile`: list, save, export, import and apply a Claude Code setup (skills, hooks, MCPs, plugins)
 across machines through one file. Plan: [ai-profile-plan.md](ai-profile-plan.md).
 
+## Claude Desktop follows Use
+Pressing Use in the macOS app also moves Claude Desktop to that account, through a per-account Desktop data folder.
+Blocked on one sign-in test. Plan: [desktop-follow-plan.md](desktop-follow-plan.md).
+
 ## Distribution
 Homebrew (formula + cask), crates.io, Developer ID signed and notarized DMG on GitHub releases, and pip/npm wrapper
 packages for the CLI on macOS, Linux and Windows.

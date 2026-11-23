@@ -260,7 +260,6 @@ private struct CardTide: View {
                 }
             }
             TideStaff(window: five, height: 5)
-            TimeLeftRule(resetsAt: five?.resetsAt, windowSeconds: UsageWindow.fiveHourSeconds)
             HStack {
                 if let d = five?.paceDelta, abs(d) >= UsageWindow.paceThreshold {
                     Text(d > 0 ? "\(d) pts ahead of pace" : "\(-d) pts under pace")
@@ -269,12 +268,7 @@ private struct CardTide: View {
                 Spacer()
             }
             .font(.caption)
-            HStack {
-                Text("Week \(account.usage?.sevenDay?.pct.map { "\(Int($0))%" } ?? "—")")
-                Spacer()
-                if let c = account.usage?.sevenDay?.countdown { Text("resets in \(c)") }
-            }
-            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            WeekStaff(window: account.usage?.sevenDay)
         }
         .accessibilityElement(children: .combine)
     }

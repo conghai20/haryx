@@ -68,6 +68,13 @@ struct WakePane: View {
 
     private func accountsSection(_ wake: WakeStatus) -> some View {
         Section("Accounts") {
+            let onCount = store.accounts.filter { wake.account($0.number)?.on == true }.count
+            Toggle(isOn: Binding(get: { !store.accounts.isEmpty && onCount == store.accounts.count },
+                                 set: { on in Task { await store.setWakeAll(on) } })) {
+                Text("All accounts").fontWeight(.medium)
+                Text("\(onCount) of \(store.accounts.count) on")
+            }
+            .disabled(store.accounts.isEmpty || store.busy != nil)
             ForEach(store.accounts) { a in
                 let row = wake.account(a.number)
                 Toggle(isOn: Binding(get: { row?.on ?? false }, set: { on in Task { await store.setWake(a, on) } })) {

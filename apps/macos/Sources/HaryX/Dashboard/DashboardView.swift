@@ -113,6 +113,15 @@ struct DashboardView: View {
                 }
             }
             .navigationTitle((router.section ?? .accounts).title)
+            // Keep the window toolbar in every section. SwiftUI drops it when the visible section has
+            // no toolbar items, shrinking the title bar and moving the window buttons on switch, so
+            // one invisible item is always present.
+            .toolbar {
+                ToolbarItem(placement: .navigation) {
+                    Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
+                }
+                .sharedBackgroundVisibility(.hidden)
+            }
         }
         .overlay(alignment: .bottom) {
             if let banner = store.banner {

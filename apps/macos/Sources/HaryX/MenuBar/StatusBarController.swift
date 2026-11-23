@@ -128,6 +128,10 @@ final class DashboardWindow: NSObject, NSWindowDelegate {
             let w = NSWindow(contentViewController: host)
             w.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
             w.title = "HaryX"
+            // A toolbar from the start, so sections without toolbar items keep the same title bar
+            // height as those with them (otherwise the traffic lights and content jump on switch).
+            w.toolbar = NSToolbar(identifier: "haryx.dashboard")
+            w.toolbarStyle = .unified
             w.setContentSize(NSSize(width: 1080, height: 700))
             w.isReleasedWhenClosed = false
             w.delegate = self

@@ -171,6 +171,10 @@ private struct NextInLine: View {
     /// bare. The grid draws one full-width fill instead, from each row's measured band.
     @State private var rowBands: [Int: CGRect] = [:]
     @State private var pointer: CGPoint?
+    /// Where the button column starts, so the hovered row's email stops short of it.
+    @State private var buttonColumnX: CGFloat?
+    /// The row mascot (18 pt) plus its spacing: where a row's name text starts.
+    private static let nameOffset: CGFloat = 24
 
     private var hoveredSlot: Int? {
         guard let pointer else { return nil }
@@ -186,17 +190,21 @@ private struct NextInLine: View {
                     Text("7d").gridColumnAlignment(.trailing)
                     Text("Resets").gridColumnAlignment(.trailing)
                     Color.clear.frame(width: 1, height: 1)
+                        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(Self.space)).minX } action: {
+                            buttonColumnX = $0
+                        }
                 }
                 .font(.caption2.weight(.medium)).foregroundStyle(.tertiary)
                 .padding(.bottom, 2)
                 .accessibilityHidden(true)
                 ForEach(accounts) { a in
-                    AccountRow(account: a) { band in rowBands[a.number] = band }
+                    AccountRow(account: a, isHovered: hoveredSlot == a.number) { band in rowBands[a.number] = band }
                 }
             }
             .padding(.horizontal, Self.rowInset)
             .coordinateSpace(.named(Self.space))
             .background(alignment: .topLeading) { hoverFill }
+            .overlay(alignment: .topLeading) { hoveredEmail }
             .contentShape(.rect)
             .onContinuousHover(coordinateSpace: .named(Self.space)) { phase in
                 if case .active(let p) = phase { pointer = p } else { pointer = nil }
@@ -222,11 +230,31 @@ private struct NextInLine: View {
                 .allowsHitTesting(false)
         }
     }
+
+    /// The hovered row's full email, drawn over its name and usage cells (which it hides) so the
+    /// grid's column widths never change.
+    @ViewBuilder private var hoveredEmail: some View {
+        if let slot = hoveredSlot, let band = rowBands[slot], let end = buttonColumnX,
+           let account = accounts.first(where: { $0.number == slot }) {
+            let start = band.minX + Self.nameOffset
+            Text(account.email)
+                .font(.callout)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(width: max(end - 10 - start, 0), height: band.height, alignment: .leading)
+                .offset(x: start, y: band.minY)
+                .opacity(account.isDisabled ? 0.5 : 1)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+    }
 }
 
 struct AccountRow: View {
     @Environment(AppStore.self) private var store
     let account: Account
+    /// The hovered row hides its name and usage; `NextInLine` draws the full email over them.
+    let isHovered: Bool
     /// Reports the row's vertical band (from its tallest cell) in the grid's coordinate space.
     let onBand: (CGRect) -> Void
 
@@ -235,26 +263,16 @@ struct AccountRow: View {
             HStack(spacing: 6) {
                 MascotView(style: store.style(for: account), mood: store.mood(for: account), size: 18,
                            phase: store.phase(for: account))
-                Text(account.displayName).lineLimit(1).truncationMode(.middle)
-                if let plan = account.plan?.label { Text(plan).font(.caption2).foregroundStyle(.tertiary) }
+                Group {
+                    Text(account.displayName).lineLimit(1).truncationMode(.middle)
+                    if let plan = account.plan?.label { Text(plan).font(.caption2).foregroundStyle(.tertiary) }
+                }
+                .opacity(shown)
             }
-            // The name is middle-truncated to fit the column; hovering shows the whole login.
-            .help(account.fullIdentity)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 5)
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(NextInLine.space)) } action: { onBand($0) }
-            if account.usage != nil {
-                pct(account.usage?.fiveHour)
-                pct(account.usage?.sevenDay)
-                Text(account.usage?.fiveHour?.clock ?? (account.usage?.fiveHour?.pct == 0 ? "not started" : "—"))
-                    .foregroundStyle(.secondary)
-                    .gridColumnAlignment(.trailing)
-            } else {
-                Text(account.isDisabled ? "disabled" : (account.statusNote ?? "—"))
-                    .foregroundStyle(account.needsRelogin ? Brand.warn : .secondary)
-                    .lineLimit(1)
-                    .gridCellColumns(3)
-            }
+            usageCells
             trailing
         }
         .font(.callout.monospacedDigit())
@@ -263,6 +281,27 @@ struct AccountRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
     }
+
+    /// The 5h, 7d and reset columns, or the account's status across them.
+    @ViewBuilder private var usageCells: some View {
+        if account.usage != nil {
+            pct(account.usage?.fiveHour).opacity(shown)
+            pct(account.usage?.sevenDay).opacity(shown)
+            Text(account.usage?.fiveHour?.clock ?? (account.usage?.fiveHour?.pct == 0 ? "not started" : "—"))
+                .foregroundStyle(.secondary)
+                .opacity(shown)
+                .gridColumnAlignment(.trailing)
+        } else {
+            Text(account.isDisabled ? "disabled" : (account.statusNote ?? "—"))
+                .foregroundStyle(account.needsRelogin ? Brand.warn : .secondary)
+                .lineLimit(1)
+                .opacity(shown)
+                .gridCellColumns(3)
+        }
+    }
+
+    /// Hidden while hovered, under the full email.
+    private var shown: Double { isHovered ? 0 : 1 }
 
     private func pct(_ w: UsageWindow?) -> some View {
         Text(w?.pct.map { "\(Int($0))%" } ?? "—")

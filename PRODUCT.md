@@ -7,11 +7,11 @@
 
 ## Platform
 
-macos
+ios
 
 Two parts:
 - **HaryX app:** native macOS (SwiftUI, macOS 26+, Liquid Glass), menu bar status item plus dashboard window.
-  Native macOS conventions apply. *(Platform value is outside the web/ios/android/adaptive set; recorded as-is.)*
+  Native macOS conventions apply. *(Recorded as `ios`, the closest native value the design tooling accepts, so Apple HIG checks apply; the app itself is macOS.)*
 - **`haryx` CLI:** Rust, cross-platform (macOS and Linux first, Windows on the roadmap). The terminal is its interface.
 - **Future:** a server (Go), a web dashboard, and native iOS and Android apps. The CLI keeps
   credentials on the device; the server receives metadata only. Layout: `docs/architecture.md`.

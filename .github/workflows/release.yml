@@ -35,7 +35,7 @@ jobs:
         run: ${{ matrix.tool }} build --release --locked -p haryx --target ${{ matrix.target }}
       - name: Package
         run: scripts/release/package.sh ${{ matrix.target }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: bin-${{ matrix.target }}
           path: dist/*
@@ -58,7 +58,7 @@ jobs:
           target: ${{ matrix.target }}
           manylinux: musllinux_1_2
           args: --release --locked --out dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: wheel-${{ matrix.target }}
           path: packaging/pypi/dist/*.whl
@@ -100,7 +100,7 @@ jobs:
         env:
           SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
         run: apps/macos/scripts/package-dmg.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: dmg
           path: apps/macos/build/HaryX-*.dmg*
@@ -118,7 +118,7 @@ jobs:
           [[ "${GITHUB_REF_NAME}" == "v$VERSION" ]] || { echo "tag $GITHUB_REF_NAME != v$VERSION"; exit 1; }
           NPM=$(node -p 'require("./packaging/npm/package.json").version')
           [[ "$NPM" == "$VERSION" ]] || { echo "packaging/npm version $NPM != $VERSION"; exit 1; }
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           path: dist
           merge-multiple: true

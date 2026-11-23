@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "profile": "default",
+  "items": [
+    {
+      "category": "memory",
+      "id": "CLAUDE.md",
+      "kind": "file",
+      "size": 9,
+      "files": 1,
+      "status": "ok",
+      "detail": []
+    },
+    {
+      "category": "skills",
+      "id": "skills/review",
+      "kind": "folder",
+      "size": 9,
+      "files": 1,
+      "status": "ok",
+      "detail": []
+    },
+    {
+      "category": "settings",
+      "id": "settings.json#model",
+      "kind": "key",
+      "size": 0,
+      "files": 0,
+      "status": "ok",
+      "detail": []
+    },
+    {
+      "category": "hooks",
+      "id": "settings.json#hooks",
+      "kind": "key",
+      "size": 0,
+      "files": 0,
+      "status": "ok",
+      "detail": [
+        "hook: jq -r ."
+      ]
+    },
+    {
+      "category": "mcps",
+      "id": "mcp:github",
+      "kind": "mcp",
+      "size": 0,
+      "files": 0,
+      "status": "broken",
+      "detail": [
+        "npx -y @modelcontextprotocol/server-github",
+        "holds a secret in plain text",
+        "missing: npx"
+      ]
+    },
+    {
+      "category": "history",
+      "id": "history.jsonl",
+      "kind": "folder",
+      "size": 31,
+      "files": 1,
+      "status": "ok",
+      "detail": []
+    }
+  ]
+}

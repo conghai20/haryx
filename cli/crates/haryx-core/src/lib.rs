@@ -28,6 +28,7 @@ pub mod json_output;
 pub mod mappings;
 pub mod models;
 pub mod oauth;
+pub mod profile;
 pub mod service;
 pub mod session;
 pub mod session_history;

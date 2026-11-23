@@ -1,6 +1,6 @@
 # Plan: `haryx ai profile` — move a Claude Code setup between machines
 
-Status: planned. Branch base: `feat/ai-namespace`.
+Status: CLI built (phases 1-4) on `feat/ai-profile`; macOS app section in progress.
 
 ## Problem
 
@@ -137,7 +137,7 @@ carries.
 - **`requires`**: executables found in hook and MCP commands. Import reports the ones missing on `PATH`.
 - **Secrets, redact**: detected values in MCP `env`/`headers`, settings `env`, and included files are
   replaced by `${HARYX_SECRET_<NAME>}`. On apply, values come from the environment variable of the same
-  name, then a prompt; with `--yes` and no value a new item is written with the placeholder (Claude Code
+  name (no interactive prompt per secret); with no value a new item is written with the placeholder (Claude Code
   expands `${VAR}` in MCP config, so exporting the variable later works) and marked `needs-secret`, and
   an existing local item keeps its local value.
 - **Secrets, encrypt**: files carry the same placeholders, and the values go into `secrets.age` inside

@@ -23,10 +23,12 @@
 
 pub mod help;
 mod main_parser;
+mod profile_parser;
 mod subparsers;
 mod top;
 
 pub use clap::Error;
+pub use profile_parser::{PartFlags, PluginsChoice, ProfileAction, SecretsChoice};
 
 /// One parsed invocation: the action plus the options every parser shares.
 #[derive(Debug, Clone, PartialEq)]
@@ -121,6 +123,8 @@ pub enum Command {
     Move { account: String, slot: String },
     /// `login [NUM|EMAIL|ALIAS] [--slot N] [--alias NAME] [--sso]`.
     Login(LoginOptions),
+    /// `profile [list|show|save|export|import|apply|diff|delete|rollback]`.
+    Profile(ProfileAction),
 }
 
 /// Options of `login`.
@@ -235,6 +239,7 @@ impl Command {
             Self::Swap { .. } => "swap",
             Self::Move { .. } => "move",
             Self::Login(_) => "login",
+            Self::Profile(_) => "profile",
         }
     }
 }
@@ -291,7 +296,7 @@ pub const AI_SECTION: &str = "ai";
 
 /// Commands that work only inside the `ai` section: their top-level names are kept for HaryX itself
 /// (`haryx login` will sign in to a HaryX account).
-pub const AI_ONLY: &[&str] = &["login"];
+pub const AI_ONLY: &[&str] = &["login", "profile"];
 
 /// Top-level help requests, answered with the section overview instead of the `ai` command list.
 const TOP_HELP: &[&str] = &["help", "--help", "-h"];
@@ -320,6 +325,11 @@ pub fn parse(argv: &[String], interactive: bool) -> Result<Invocation, Error> {
 /// Parse the arguments of the `ai` section (after `haryx ai`, or after a bare `haryx` for the
 /// commands that predate the sections).
 fn parse_ai(argv: &[String], interactive: bool) -> Result<Invocation, Error> {
+    if let Some((first, rest)) = argv.split_first()
+        && first == "profile"
+    {
+        return profile_parser::parse(rest);
+    }
     if let Some((first, rest)) = argv.split_first()
         && let Some(parsed) = subparsers::parse(first, rest)
     {

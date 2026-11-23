@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "left": "work",
+  "right": "default",
+  "items": [
+    {
+      "category": "memory",
+      "id": "CLAUDE.md",
+      "state": "same"
+    },
+    {
+      "category": "history",
+      "id": "history.jsonl",
+      "state": "same"
+    },
+    {
+      "category": "skills",
+      "id": "skills/review",
+      "state": "differs"
+    },
+    {
+      "category": "settings",
+      "id": "settings.json#model",
+      "state": "same"
+    },
+    {
+      "category": "hooks",
+      "id": "settings.json#hooks",
+      "state": "same"
+    },
+    {
+      "category": "mcps",
+      "id": "mcp:github",
+      "state": "same"
+    }
+  ]
+}

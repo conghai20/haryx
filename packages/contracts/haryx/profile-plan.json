@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "profile": "work",
+  "prune": false,
+  "entries": [
+    {
+      "category": "memory",
+      "id": "CLAUDE.md",
+      "action": "same",
+      "note": null,
+      "needs_secret": []
+    },
+    {
+      "category": "history",
+      "id": "history.jsonl",
+      "action": "same",
+      "note": null,
+      "needs_secret": []
+    },
+    {
+      "category": "skills",
+      "id": "skills/review",
+      "action": "update",
+      "note": null,
+      "needs_secret": []
+    },
+    {
+      "category": "settings",
+      "id": "settings.json#model",
+      "action": "same",
+      "note": null,
+      "needs_secret": []
+    },
+    {
+      "category": "hooks",
+      "id": "settings.json#hooks",
+      "action": "same",
+      "note": null,
+      "needs_secret": []
+    },
+    {
+      "category": "mcps",
+      "id": "mcp:github",
+      "action": "same",
+      "note": null,
+      "needs_secret": []
+    }
+  ],
+  "runs_code": [],
+  "missing_requires": [
+    "npx"
+  ],
+  "warnings": []
+}

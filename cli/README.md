@@ -51,14 +51,15 @@ haryx ai login 3              # sign account 3 in again ("re-login needed")
 haryx ai profile show         # your Claude Code setup: skills, hooks, MCPs, plugins, history
 haryx ai profile export f.haryx-profile        # move it to another machine...
 haryx ai profile import work f.haryx-profile --apply   # ...and apply it there (backup first)
+haryx ai wake on 1 && haryx ai wake install    # start account 1's next 5h window right after each reset
 haryx ai help                 # every AI-account command
 haryx help                    # the sections
 ```
 
 Account, usage and session commands live in the `ai` section. The cswap spellings without it
-(`haryx list`, `haryx switch 2`, `haryx --list`) keep working; `login` and `profile` are the exceptions,
+(`haryx list`, `haryx switch 2`, `haryx --list`) keep working; `login`, `profile` and `wake` are the exceptions,
 since their top-level names are kept for HaryX itself. Profiles are described in
-[docs/ai-profile-plan.md](../docs/ai-profile-plan.md).
+[docs/ai-profile-plan.md](../docs/ai-profile-plan.md), wake in [docs/ai-wake-plan.md](../docs/ai-wake-plan.md).
 
 Data lives in `~/Library/Application Support/HaryX` on macOS and `$XDG_DATA_HOME/haryx` on Linux;
 set `HARYX_HOME` to choose another folder. Windows is on the roadmap.

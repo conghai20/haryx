@@ -8,6 +8,7 @@ mod listing;
 mod profile;
 mod profile_view;
 mod upgrade;
+mod wake;
 
 use std::fmt;
 
@@ -79,6 +80,7 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Move { account, slot } => accounts::move_account(&account, &slot, debug),
         Command::Login(opts) => accounts::login(&opts, debug),
         Command::Profile(action) => profile::run(&action, debug),
+        Command::Wake(action) => wake::run(&action, debug),
         Command::Map { account, path } => accounts::map(account.as_deref(), path.as_deref(), debug),
         Command::Unmap { path } => accounts::unmap(path.as_deref(), debug),
         Command::Unclaimed { purge } => accounts::unclaimed(purge.as_deref(), debug),

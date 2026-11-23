@@ -11,6 +11,13 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+### Added
+
+- `haryx ai wake`: starts an account's next 5-hour window right after the last one resets, with one
+  1-output-token request. Opt in per account (`on`/`off`, or `all`), set quiet hours and a weekly cap
+  (`config`), and install a LaunchAgent that checks every minute (`install`). Checks with nothing due
+  read local files only; a failed login sends one macOS notification.
+
 ### Fixed
 
 - macOS app: the menu bar panel closes when you click another app, switch apps (⌘-Tab, Dock) or

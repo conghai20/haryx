@@ -26,9 +26,11 @@ mod main_parser;
 mod profile_parser;
 mod subparsers;
 mod top;
+mod wake_parser;
 
 pub use clap::Error;
 pub use profile_parser::{PartFlags, PluginsChoice, ProfileAction, SecretsChoice};
+pub use wake_parser::WakeAction;
 
 /// One parsed invocation: the action plus the options every parser shares.
 #[derive(Debug, Clone, PartialEq)]
@@ -125,6 +127,8 @@ pub enum Command {
     Login(LoginOptions),
     /// `profile [list|show|save|export|import|apply|diff|delete|rollback]`.
     Profile(ProfileAction),
+    /// `wake [status|on|off|config|run|install|uninstall]`.
+    Wake(WakeAction),
 }
 
 /// Options of `login`.
@@ -240,6 +244,7 @@ impl Command {
             Self::Move { .. } => "move",
             Self::Login(_) => "login",
             Self::Profile(_) => "profile",
+            Self::Wake(_) => "wake",
         }
     }
 }
@@ -296,7 +301,7 @@ pub const AI_SECTION: &str = "ai";
 
 /// Commands that work only inside the `ai` section: their top-level names are kept for HaryX itself
 /// (`haryx login` will sign in to a HaryX account).
-pub const AI_ONLY: &[&str] = &["login", "profile"];
+pub const AI_ONLY: &[&str] = &["login", "profile", "wake"];
 
 /// Top-level help requests, answered with the section overview instead of the `ai` command list.
 const TOP_HELP: &[&str] = &["help", "--help", "-h"];
@@ -329,6 +334,11 @@ fn parse_ai(argv: &[String], interactive: bool) -> Result<Invocation, Error> {
         && first == "profile"
     {
         return profile_parser::parse(rest);
+    }
+    if let Some((first, rest)) = argv.split_first()
+        && first == "wake"
+    {
+        return wake_parser::parse(rest);
     }
     if let Some((first, rest)) = argv.split_first()
         && let Some(parsed) = subparsers::parse(first, rest)

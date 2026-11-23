@@ -13,3 +13,7 @@ keeps decoding haryx output as well as cswap's (`../cswap`).
   (`add`, `update`, `merge`, `remove`, `same`, `skip`), plus `runs_code`, `missing_requires`, `warnings`.
 - `profile-diff.json` — `haryx ai profile diff NAME --json`: `state` per item (`only-left`, `only-right`,
   `differs`, `same`).
+- `wake-status.json` — `haryx ai wake status --json` (synthetic accounts): settings (`accounts` opted in by
+  number, `quietHours`, `weeklyCapPct`), `agentInstalled`, one row per account (`on`, `lastWakeAt`,
+  `lastCheckAt`, `nextDue`, `lastResult`: `woke`, `not-due`, `skip:<reason>`, `failed:<kind>`) and the last
+  `events`.

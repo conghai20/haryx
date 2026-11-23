@@ -40,6 +40,7 @@ pub mod switcher;
 pub mod transfer;
 pub mod update_check;
 pub mod usage_store;
+pub mod wake;
 
 pub use error::{Error, Result};
 

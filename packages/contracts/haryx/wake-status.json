@@ -1,0 +1,41 @@
+{
+  "accounts": [
+    {
+      "lastWakeAt": "2026-11-24T05:00:12Z",
+      "lastCheckAt": "2026-11-24T06:41:03Z",
+      "nextDue": "2026-11-24T10:00:05Z",
+      "lastResult": "not-due",
+      "number": 1,
+      "email": "work@example.com",
+      "alias": "work",
+      "on": true
+    },
+    {
+      "lastWakeAt": null,
+      "lastCheckAt": "2026-11-24T06:41:03Z",
+      "nextDue": null,
+      "lastResult": "skip:weekly-cap",
+      "number": 2,
+      "email": "personal@example.com",
+      "alias": "",
+      "on": true
+    },
+    {
+      "lastWakeAt": null,
+      "lastCheckAt": null,
+      "nextDue": null,
+      "lastResult": null,
+      "number": 3,
+      "email": "lab@example.com",
+      "alias": "lab",
+      "on": false
+    }
+  ],
+  "quietHours": "01:00-06:00",
+  "weeklyCapPct": 90.0,
+  "agentInstalled": true,
+  "events": [
+    {"at": 1795496412.0, "account": "1", "result": "woke"},
+    {"at": 1795502463.0, "account": "2", "result": "skip:weekly-cap"}
+  ]
+}

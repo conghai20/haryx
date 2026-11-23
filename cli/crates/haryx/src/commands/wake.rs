@@ -85,31 +85,33 @@ fn set(
     accounts: &[String],
     on: bool,
 ) -> Result<(), CommandError> {
-    let (config, _) = store.load().map_err(fail)?;
     let numbers = resolve(switcher, accounts)?;
     let all = accounts
         .first()
         .is_some_and(|a| a.eq_ignore_ascii_case(wake::ALL));
-    let next: Vec<String> = if on {
-        config.accounts.iter().chain(&numbers).cloned().collect()
-    } else if all {
-        Vec::new()
-    } else {
-        config
-            .accounts
-            .iter()
-            .filter(|n| !numbers.contains(n))
-            .cloned()
-            .collect()
-    };
-    let mut sorted = next;
-    sorted.sort_by_key(|n| n.parse::<i64>().unwrap_or(i64::MAX));
-    sorted.dedup();
-    let updated = WakeConfig {
-        accounts: sorted,
-        ..config
-    };
-    store.save_config(&updated).map_err(fail)?;
+    store
+        .update_config(|config| {
+            let next: Vec<String> = if on {
+                config.accounts.iter().chain(&numbers).cloned().collect()
+            } else if all {
+                Vec::new()
+            } else {
+                config
+                    .accounts
+                    .iter()
+                    .filter(|n| !numbers.contains(n))
+                    .cloned()
+                    .collect()
+            };
+            let mut sorted = next;
+            sorted.sort_by_key(|n| n.parse::<i64>().unwrap_or(i64::MAX));
+            sorted.dedup();
+            Ok(WakeConfig {
+                accounts: sorted,
+                ..config.clone()
+            })
+        })
+        .map_err(fail)?;
     let changed = if numbers.is_empty() {
         "none".to_string()
     } else {
@@ -132,24 +134,23 @@ fn configure(
     weekly_cap: Option<f64>,
     json: bool,
 ) -> Result<(), CommandError> {
-    let (config, _) = store.load().map_err(fail)?;
-    let quiet_hours = match (quiet, no_quiet) {
-        (Some(q), _) => Some(QuietHours::parse(q).map_err(fail)?),
-        (None, true) => None,
-        (None, false) => config.quiet_hours,
-    };
-    let weekly_cap_pct = match weekly_cap {
-        Some(v) => parse_weekly_cap(v).map_err(fail)?,
-        None => config.weekly_cap_pct,
-    };
-    let updated = WakeConfig {
-        quiet_hours,
-        weekly_cap_pct,
-        ..config.clone()
-    };
-    if updated != config {
-        store.save_config(&updated).map_err(fail)?;
-    }
+    // Validate before taking the lock.
+    let parsed_quiet = quiet.map(QuietHours::parse).transpose().map_err(fail)?;
+    let parsed_cap = weekly_cap.map(parse_weekly_cap).transpose().map_err(fail)?;
+    let updated = store
+        .update_config(|config| {
+            let quiet_hours = match (parsed_quiet, no_quiet) {
+                (Some(q), _) => Some(q),
+                (None, true) => None,
+                (None, false) => config.quiet_hours,
+            };
+            Ok(WakeConfig {
+                quiet_hours,
+                weekly_cap_pct: parsed_cap.unwrap_or(config.weekly_cap_pct),
+                ..config.clone()
+            })
+        })
+        .map_err(fail)?;
     if json {
         print_json(&config_json(&updated));
     } else {
@@ -277,12 +278,18 @@ fn notify(outcome: &Outcome) {
             outcome.number, outcome.result
         )
     };
-    let script = format!(
-        "display notification {:?} with title \"HaryX\"",
-        text.replace('"', "'")
-    );
+    // The text travels as an argument, never as script source.
     if let Err(e) = std::process::Command::new("/usr/bin/osascript")
-        .args(["-e", &script])
+        .args([
+            "-e",
+            "on run argv",
+            "-e",
+            "display notification (item 1 of argv) with title \"HaryX\"",
+            "-e",
+            "end run",
+            "--",
+            &text,
+        ])
         .output()
     {
         log::warn!("wake: cannot send notification: {e}");

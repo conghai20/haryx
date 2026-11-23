@@ -17,8 +17,13 @@ pub fn plist_path(home: &Path) -> PathBuf {
         .join(format!("{LABEL}.plist"))
 }
 
+/// XML-escape element text, dropping characters XML 1.0 cannot carry (they would make launchd
+/// reject the plist).
 fn escape(text: &str) -> String {
-    text.replace('&', "&amp;")
+    text.chars()
+        .filter(|c| !c.is_control() || matches!(c, '\t' | '\n' | '\r'))
+        .collect::<String>()
+        .replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
 }
@@ -162,7 +167,7 @@ mod tests {
     #[test]
     fn plist_escapes_and_carries_env() {
         let env = vec![("HARYX_HOME".to_string(), "/a&b".to_string())];
-        let text = plist(Path::new("/x<y>"), Path::new("/l"), &env);
+        let text = plist(Path::new("/x<y>\u{1}"), Path::new("/l"), &env);
         assert!(text.contains("/x&lt;y&gt;"));
         assert!(text.contains("<key>HARYX_HOME</key><string>/a&amp;b</string>"));
     }

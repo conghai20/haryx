@@ -11,10 +11,13 @@ use serde_json::Value;
 use super::config::{ConfigDoc, WakeConfig};
 use crate::error::{Error, Result};
 use crate::fsutil::{WriteOptions, atomic_write_text};
+use crate::locking::FileLock;
 
 pub const STATE_FILE: &str = "wake.json";
 pub const EVENTS_FILE: &str = "wake-events.jsonl";
 pub const LOCK_FILE: &str = "wake.lock";
+/// How long a settings change waits for a running tick.
+const UPDATE_LOCK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 /// The event log is trimmed to this many lines once it grows past twice that.
 const EVENTS_KEEP: usize = 500;
 
@@ -112,12 +115,34 @@ impl WakeStore {
         })
     }
 
-    /// Replace the per-account state, keeping the settings as they are on disk.
+    /// Change the settings under the wake lock, so a running tick finishes first and an update
+    /// is never lost to a concurrent one. Returns the saved settings.
+    pub fn update_config(
+        &self,
+        change: impl FnOnce(&WakeConfig) -> Result<WakeConfig>,
+    ) -> Result<WakeConfig> {
+        let _lock = FileLock::lock(self.lock_path(), UPDATE_LOCK_TIMEOUT)?;
+        let (config, _) = self.load()?;
+        let updated = change(&config)?;
+        if updated != config {
+            self.save_config(&updated)?;
+        }
+        Ok(updated)
+    }
+
+    /// Replace the per-account state, keeping the settings as they are on disk and dropping
+    /// state for accounts no longer opted in there.
     pub fn save_state(&self, state: &BTreeMap<String, AccountState>) -> Result<()> {
         let doc = self.read_doc()?;
+        let opted = doc.config.to_config().accounts;
+        let state = state
+            .iter()
+            .filter(|(num, _)| opted.contains(num))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
         self.write_doc(&Doc {
             config: doc.config,
-            state: state.clone(),
+            state,
         })
     }
 
@@ -131,7 +156,14 @@ impl WakeStore {
     fn try_append(&self, event: &Value) -> std::io::Result<()> {
         std::fs::create_dir_all(&self.dir)?;
         let path = self.events_path();
-        let mut file = OpenOptions::new().create(true).append(true).open(&path)?;
+        let mut options = OpenOptions::new();
+        options.create(true).append(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+        }
+        let mut file = options.open(&path)?;
         writeln!(file, "{event}")?;
         drop(file);
         let text = std::fs::read_to_string(&path)?;
@@ -218,6 +250,26 @@ mod tests {
             .unwrap();
         let (_, s) = store.load().unwrap();
         assert_eq!(s.keys().collect::<Vec<_>>(), vec!["2"]);
+    }
+
+    #[test]
+    fn save_state_keeps_only_opted_in_accounts() {
+        let (_d, store) = temp_store();
+        store
+            .update_config(|c| {
+                Ok(WakeConfig {
+                    accounts: vec!["1".into()],
+                    ..c.clone()
+                })
+            })
+            .unwrap();
+        let state: BTreeMap<_, _> = ["1", "2"]
+            .into_iter()
+            .map(|n| (n.to_string(), AccountState::default()))
+            .collect();
+        store.save_state(&state).unwrap();
+        let (_, s) = store.load().unwrap();
+        assert_eq!(s.keys().collect::<Vec<_>>(), vec!["1"]);
     }
 
     #[test]

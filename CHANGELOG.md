@@ -11,6 +11,12 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+### Added
+
+- macOS app: a "Not saved" notice in the bottom-right corner of the Config and Auto-switch panes
+  while a typed setting has not been saved with Return, so a value like the auto-switch threshold
+  is no longer silently lost. Esc puts the field back to the stored value.
+
 ## [0.1.2] - 2026-11-24
 
 ### Added

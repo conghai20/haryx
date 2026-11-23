@@ -5,6 +5,8 @@ import SwiftUI
 struct ConfigRow: View {
     @Environment(AppStore.self) private var store
     let entry: ConfigEntry
+    /// Told whenever the text field starts or stops holding an edit that is not saved yet.
+    var onUnsavedChange: (Bool) -> Void = { _ in }
     @State private var text = ""
 
     static let choices: [String: [String]] = [
@@ -45,6 +47,7 @@ struct ConfigRow: View {
         }
         .onAppear { text = entry.value.description }
         .onChange(of: entry) { text = entry.value.description }
+        .onChange(of: hasUnsavedEdit) { _, unsaved in onUnsavedChange(unsaved) }
     }
 
     @ViewBuilder private var editor: some View {
@@ -61,7 +64,14 @@ struct ConfigRow: View {
                 .frame(width: 140)
                 .multilineTextAlignment(.trailing)
                 .onSubmit { Task { await commit() } }
+                .onExitCommand { text = entry.value.description }
         }
+    }
+
+    /// The field differs from the stored value: an edit that `commit()` would send but hasn't yet.
+    private var hasUnsavedEdit: Bool {
+        let value = text.trimmingCharacters(in: .whitespaces)
+        return value.isEmpty ? entry.isSet : value != entry.value.description
     }
 
     private func commit() async {
@@ -71,16 +81,51 @@ struct ConfigRow: View {
     }
 }
 
+/// A form section of config rows that records which keys hold an unsaved text edit in `unsaved`.
+struct ConfigSection: View {
+    let title: String
+    let entries: [ConfigEntry]
+    @Binding var unsaved: Set<String>
+
+    var body: some View {
+        Section(title) {
+            ForEach(entries) { entry in
+                ConfigRow(entry: entry) { isUnsaved in
+                    unsaved = isUnsaved ? unsaved.union([entry.key]) : unsaved.subtracting([entry.key])
+                }
+            }
+        }
+    }
+}
+
+/// Bottom-right notice listing settings typed but not saved yet; hidden while there are none.
+struct UnsavedConfigNotice: View {
+    let keys: Set<String>
+
+    var body: some View {
+        if !keys.isEmpty {
+            Label("Not saved: \(keys.sorted().joined(separator: ", ")). Press Return to save, Esc to discard.",
+                  systemImage: "exclamationmark.triangle.fill")
+                .font(.callout)
+                .foregroundStyle(.orange)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .glassEffect(.regular, in: .capsule)
+                .padding(16)
+                .transition(.opacity)
+        }
+    }
+}
+
 struct ConfigPane: View {
     @Environment(AppStore.self) private var store
+    @State private var unsaved: Set<String> = []
 
     var body: some View {
         Form {
             let groups = Dictionary(grouping: store.config) { String($0.key.split(separator: ".").first ?? "") }
             ForEach(groups.keys.sorted(), id: \.self) { group in
-                Section(group.capitalized) {
-                    ForEach(groups[group] ?? []) { ConfigRow(entry: $0) }
-                }
+                ConfigSection(title: group.capitalized, entries: groups[group] ?? [], unsaved: $unsaved)
             }
             Section {
                 LabeledContent("File", value: store.configPath)
@@ -91,6 +136,8 @@ struct ConfigPane: View {
             }
         }
         .formStyle(.grouped)
+        .overlay(alignment: .bottomTrailing) { UnsavedConfigNotice(keys: unsaved) }
+        .animation(.default, value: unsaved)
     }
 }
 
@@ -98,6 +145,7 @@ struct AutoSwitchPane: View {
     @Environment(AppStore.self) private var store
     @AppStorage(Prefs.autoDryRun) private var dryRun = false
     @AppStorage(Prefs.autoOnLaunch) private var onLaunch = false
+    @State private var unsaved: Set<String> = []
 
     var body: some View {
         HSplitView {
@@ -128,9 +176,8 @@ struct AutoSwitchPane: View {
                 } footer: {
                     Text("Runs `haryx auto --json` inside HaryX. When the active account reaches your threshold it moves to another of your own accounts, and every decision appears in the log. Plan limits are set by Anthropic; use only accounts you hold yourself.")
                 }
-                Section("Rules") {
-                    ForEach(store.config.filter { $0.key.hasPrefix("autoswitch.") }) { ConfigRow(entry: $0) }
-                }
+                ConfigSection(title: "Rules", entries: store.config.filter { $0.key.hasPrefix("autoswitch.") },
+                              unsaved: $unsaved)
             }
             .formStyle(.grouped)
             .frame(minWidth: 380)
@@ -147,6 +194,8 @@ struct AutoSwitchPane: View {
             .overlay { if store.auto.events.isEmpty { ContentUnavailableView("No events yet", systemImage: "list.bullet.rectangle") } }
             .frame(minWidth: 300)
         }
+        .overlay(alignment: .bottomTrailing) { UnsavedConfigNotice(keys: unsaved) }
+        .animation(.default, value: unsaved)
     }
 
     private func icon(_ e: AutoEvent) -> String {

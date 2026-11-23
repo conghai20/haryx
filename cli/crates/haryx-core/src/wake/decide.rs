@@ -78,6 +78,14 @@ pub fn decide(read: &WindowRead, now: Now, config: &WakeConfig, state: &AccountS
             next: resets + GRACE_S,
         };
     }
+    // The usage endpoint can report a window a wake just started as 0% with no reset time; the
+    // wake's own reply gave that reset, so trust it until then instead of waking again.
+    if let Some(next) = state
+        .next_due
+        .filter(|next| read.five_hour_resets_at.is_none() && now.epoch < *next)
+    {
+        return Decision::NotDue { next };
+    }
     if config
         .quiet_hours
         .is_some_and(|q| q.contains(now.local_minute))
@@ -166,6 +174,27 @@ mod tests {
             &cfg(),
             &AccountState::default(),
         );
+        assert_eq!(d, Decision::Wake);
+    }
+
+    #[test]
+    fn window_from_the_wake_reply_holds_when_the_reading_has_none() {
+        let state = AccountState {
+            last_wake_at: Some(T - RETRY_AFTER_S - 1.0),
+            next_due: Some(T + 3600.0),
+            ..AccountState::default()
+        };
+        let d = decide(&WindowRead::default(), now(T, 600), &cfg(), &state);
+        assert_eq!(d, Decision::NotDue { next: T + 3600.0 });
+    }
+
+    #[test]
+    fn past_next_due_without_a_reading_wakes() {
+        let state = AccountState {
+            next_due: Some(T - 1.0),
+            ..AccountState::default()
+        };
+        let d = decide(&WindowRead::default(), now(T, 600), &cfg(), &state);
         assert_eq!(d, Decision::Wake);
     }
 

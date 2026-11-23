@@ -57,6 +57,11 @@ cannot be released without one. Sections, in this order, only when they have ent
 - macOS app: the dashboard title bar keeps one height in every section, so the window buttons and
   content no longer shift when you change sections.
 - macOS app: the thin cyan time-left line under the 5-hour bar is gone from the panel and the cards.
+- `haryx ai wake`: an account whose wake started a window is not woken again every 15 minutes
+  while the usage reading still shows 0% with no reset time; the reset from the wake's reply is
+  kept until it passes. Turning wake off and on again no longer skips the 15-minute retry wait.
+- macOS app: the menu bar panel's Resets column shows the reset of a window a wake just started
+  instead of "not started".
 - macOS app: the menu bar panel closes when you click another app, switch apps (⌘-Tab, Dock) or
   bring the dashboard forward, like system menu bar panels.
 - macOS app: the whole account card is clickable, including its edges and empty space.

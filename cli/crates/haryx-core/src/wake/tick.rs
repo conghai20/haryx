@@ -201,9 +201,14 @@ fn send_wake(credentials: &str, dry_run: bool, send: SendFn<'_>) -> (String, Opt
     match send(token) {
         Ok(reading) if reading.contains_key("rejected") => ("failed:rejected".into(), None),
         Ok(reading) => {
-            let next = window_read(Some(&Value::Object(reading)))
+            let reading = Value::Object(reading);
+            let next = window_read(Some(&reading))
                 .five_hour_resets_at
                 .map(|r| r + super::decide::GRACE_S);
+            if next.is_none() {
+                // The request was served but reported no running 5-hour window.
+                log::warn!("wake: served without a 5-hour window; reading {reading}");
+            }
             ("woke".into(), next)
         }
         Err(kind) => (format!("failed:{kind}"), None),
@@ -237,11 +242,9 @@ fn record(
                 previous.last_wake_at
             },
             last_check_at: Some(now.epoch),
-            next_due: next_due.or(if result == "not-due" {
-                previous.next_due
-            } else {
-                None
-            }),
+            // A known reset still ahead survives skips (a recent wake's reply may be the only
+            // source of it while the usage reading shows no window).
+            next_due: next_due.or(previous.next_due.filter(|next| *next > now.epoch)),
             last_result: Some(result.clone()),
             notified_at: if notify {
                 Some(now.epoch)
@@ -371,5 +374,22 @@ mod tests {
         assert_eq!(state["1"].last_wake_at, Some(50.0));
         assert_eq!(state["1"].next_due, Some(99.0));
         assert_eq!(store.recent_events(10).len(), 2);
+    }
+
+    #[test]
+    fn a_future_reset_survives_a_skip_and_a_past_one_does_not() {
+        let mut state = BTreeMap::new();
+        let at = |epoch| Now {
+            epoch,
+            local_minute: 0,
+        };
+        let woke = BTreeMap::from([("1".to_string(), ("woke".to_string(), Some(99.0)))]);
+        record(None, &mut state, woke, at(50.0));
+        let skip =
+            || BTreeMap::from([("1".to_string(), ("skip:recently-woken".to_string(), None))]);
+        record(None, &mut state, skip(), at(60.0));
+        assert_eq!(state["1"].next_due, Some(99.0));
+        record(None, &mut state, skip(), at(100.0));
+        assert_eq!(state["1"].next_due, None);
     }
 }

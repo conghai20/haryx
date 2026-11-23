@@ -49,6 +49,28 @@ struct Doc {
     state: BTreeMap<String, AccountState>,
 }
 
+/// The state worth keeping: everything for opted-in accounts, and only the last wake time for the
+/// others, so opting an account out and back in cannot skip the retry wait and wake it twice.
+fn kept_state(
+    state: &BTreeMap<String, AccountState>,
+    opted: &[String],
+) -> BTreeMap<String, AccountState> {
+    state
+        .iter()
+        .filter_map(|(num, s)| {
+            let kept = if opted.contains(num) {
+                s.clone()
+            } else {
+                AccountState {
+                    last_wake_at: Some(s.last_wake_at?),
+                    ..AccountState::default()
+                }
+            };
+            Some((num.clone(), kept))
+        })
+        .collect()
+}
+
 /// The wake files under the haryx store directory.
 #[derive(Debug, Clone)]
 pub struct WakeStore {
@@ -101,17 +123,12 @@ impl WakeStore {
         Ok((doc.config.to_config(), doc.state))
     }
 
-    /// Replace the settings, keeping state only for accounts still opted in.
+    /// Replace the settings, keeping state for accounts still opted in (see [`kept_state`]).
     pub fn save_config(&self, config: &WakeConfig) -> Result<()> {
         let doc = self.read_doc()?;
-        let state = doc
-            .state
-            .into_iter()
-            .filter(|(num, _)| config.accounts.contains(num))
-            .collect();
         self.write_doc(&Doc {
             config: ConfigDoc::from_config(config),
-            state,
+            state: kept_state(&doc.state, &config.accounts),
         })
     }
 
@@ -130,19 +147,14 @@ impl WakeStore {
         Ok(updated)
     }
 
-    /// Replace the per-account state, keeping the settings as they are on disk and dropping
-    /// state for accounts no longer opted in there.
+    /// Replace the per-account state, keeping the settings as they are on disk (see
+    /// [`kept_state`] for accounts no longer opted in there).
     pub fn save_state(&self, state: &BTreeMap<String, AccountState>) -> Result<()> {
         let doc = self.read_doc()?;
         let opted = doc.config.to_config().accounts;
-        let state = state
-            .iter()
-            .filter(|(num, _)| opted.contains(num))
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
         self.write_doc(&Doc {
+            state: kept_state(state, &opted),
             config: doc.config,
-            state,
         })
     }
 
@@ -270,6 +282,33 @@ mod tests {
         store.save_state(&state).unwrap();
         let (_, s) = store.load().unwrap();
         assert_eq!(s.keys().collect::<Vec<_>>(), vec!["1"]);
+    }
+
+    #[test]
+    fn opting_out_keeps_only_the_last_wake_time() {
+        let (_d, store) = temp_store();
+        let one = |accounts: &[&str]| WakeConfig {
+            accounts: accounts.iter().map(|a| a.to_string()).collect(),
+            ..WakeConfig::default()
+        };
+        store.save_config(&one(&["1"])).unwrap();
+        let woken = AccountState {
+            last_wake_at: Some(10.0),
+            last_check_at: Some(11.0),
+            last_result: Some("woke".into()),
+            ..AccountState::default()
+        };
+        store
+            .save_state(&BTreeMap::from([("1".to_string(), woken)]))
+            .unwrap();
+        store.save_config(&one(&[])).unwrap();
+        store.save_config(&one(&["1"])).unwrap();
+        let (_, s) = store.load().unwrap();
+        let expected = AccountState {
+            last_wake_at: Some(10.0),
+            ..AccountState::default()
+        };
+        assert_eq!(s.get("1"), Some(&expected));
     }
 
     #[test]

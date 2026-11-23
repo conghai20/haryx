@@ -460,6 +460,30 @@ fn import_from_cswap_copies_accounts_and_settings() {
         r#"{"schemaVersion":1,"autoswitch":{"threshold":88}}"#,
     )
     .unwrap();
+    // cswap's last reading for b (its slot 2) and b's plan: both carry over by identity.
+    let fetched = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs_f64()
+        - 600.0;
+    std::fs::create_dir_all(cswap.join("cache")).unwrap();
+    std::fs::write(
+        cswap.join("cache/usage.json"),
+        json!({"schemaVersion": 2, "accounts": {"2": {
+            "email": "b@example.com", "organizationUuid": "", "fetchedAt": fetched,
+            "lastGood": {"five_hour": {"pct": 94.0, "resets_at": null},
+                         "seven_day": {"pct": 90.0, "resets_at": null}}}}})
+        .to_string(),
+    )
+    .unwrap();
+    std::fs::write(
+        cswap.join("cache/subscription_plans.json"),
+        json!({"b@example.com\n": {"plan": {"tier": "default_claude_max_5x",
+            "organizationType": "claude_max", "billingType": "stripe_subscription",
+            "subscriptionStatus": "active", "planDisplayName": null}, "fetchedAt": fetched}})
+        .to_string(),
+    )
+    .unwrap();
 
     std::fs::remove_file(s.store().join("sequence.json")).unwrap();
     let out = s.run(&["import", "--from-cswap"]);
@@ -471,6 +495,15 @@ fn import_from_cswap_copies_accounts_and_settings() {
         out.err
     );
     assert_eq!(s.roster()["accounts"]["1"]["alias"], "work");
+    assert!(
+        out.err
+            .contains("Carried over cswap's last usage for 1 account(s) and 1 plan record(s)"),
+        "{}",
+        out.err
+    );
+    let listed = s.run(&["list"]);
+    assert!(listed.out.contains("· Max 5x"), "{}", listed.out);
+    assert!(listed.out.contains("5h:  94%"), "{}", listed.out);
     assert_eq!(
         s.run(&["config", "get", "autoswitch.threshold"]).out.trim(),
         "88"

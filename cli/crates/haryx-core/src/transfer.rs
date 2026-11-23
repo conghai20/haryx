@@ -827,6 +827,63 @@ pub fn import_from_cswap(switcher: &Switcher, force: bool) -> Result<()> {
     for file in ["settings.json", "mappings.json"] {
         copy_if_absent(&ns.store_root.join(file), &switcher.backup_dir().join(file))?;
     }
+    adopt_cswap_history(switcher, &ns.store_root)?;
+    Ok(())
+}
+
+/// Carry cswap's last usage readings and subscription plans across, so a freshly imported account
+/// shows its "last seen" usage and plan before haryx's first fetch. Read-only on the cswap side;
+/// readings are matched to haryx slots by email and organization (slot numbers may differ) and
+/// only replace older ones, plans merge by identity key.
+fn adopt_cswap_history(switcher: &Switcher, cswap_root: &Path) -> Result<()> {
+    let cache = cswap_root.join("cache");
+    let cswap_roster =
+        crate::switcher::read_json(&cswap_root.join("sequence.json"), false)?.unwrap_or_default();
+    let cswap_ids: Identities = crate::switcher::accounts(&cswap_roster)
+        .into_iter()
+        .flatten()
+        .filter_map(|(num, record)| {
+            let email = record.get("email")?.as_str()?.to_owned();
+            let org = record
+                .get("organizationUuid")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_owned();
+            Some((num.clone(), (email, org)))
+        })
+        .collect();
+    let local = switcher.get_sequence_data_migrated()?.unwrap_or_default();
+    let mut readings: BTreeMap<String, (Value, f64)> = BTreeMap::new();
+    let mut identities: Identities = BTreeMap::new();
+    let cswap_usage = crate::usage_store::UsageStore::new(&cache);
+    for (num, entry) in cswap_usage.entries(&cswap_ids, &[]) {
+        let (Some(usage), Some(age)) = (entry.last_good, entry.age_s) else {
+            continue;
+        };
+        let (email, org) = &cswap_ids[&num];
+        if let Some(slot) = Switcher::find_account_slot(&local, email, org) {
+            readings.insert(slot.clone(), (usage, age));
+            identities.insert(slot, (email.clone(), org.clone()));
+        }
+    }
+    let adopted = switcher.usage_store.adopt(&readings, &identities, None)?;
+
+    let cswap_plans =
+        crate::subscription::PlanStore::new(&cache.join(crate::subscription::PLAN_FILENAME)).load();
+    let plans: Map<String, Value> = cswap_plans
+        .into_iter()
+        .filter(|(_, record)| crate::subscription::valid_record(record))
+        .collect();
+    if !plans.is_empty() {
+        switcher.subscription_store().save(&plans)?;
+    }
+    if !adopted.is_empty() || !plans.is_empty() {
+        eprint(&format!(
+            "Carried over cswap's last usage for {} account(s) and {} plan record(s)",
+            adopted.len(),
+            plans.len()
+        ));
+    }
     Ok(())
 }
 

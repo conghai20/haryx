@@ -671,7 +671,7 @@ impl Switcher {
             .collect()
     }
 
-    fn subscription_store(&self) -> PlanStore {
+    pub(crate) fn subscription_store(&self) -> PlanStore {
         PlanStore::with_clock(
             &self
                 .backup_dir

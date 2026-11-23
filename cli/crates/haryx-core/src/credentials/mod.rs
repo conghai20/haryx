@@ -24,6 +24,7 @@ mod backup;
 pub mod claude_keychain;
 mod kind;
 pub mod namespace;
+pub mod sealed;
 mod stash;
 
 #[cfg(test)]

@@ -1,9 +1,9 @@
 //! Per-slot BACKUP credentials, in haryx's own namespace.
 //!
-//! Two backends: base64 `.enc` files under `credentials_dir` and the macOS Keychain (the host's
-//! `backup_service`). On macOS reads are `.enc`-wins: a fallback `.enc` (written while the Keychain was
-//! unusable) is authoritative over a possibly-stale Keychain copy, so a Keychain that recovers cannot shadow
-//! a newer file. A successful Keychain write therefore reconciles the `.enc` away (correctness-critical).
+//! Two backends: `.enc` files under `credentials_dir` (base64, DPAPI-sealed on Windows, see [`sealed`])
+//! and the macOS Keychain (the host's `backup_service`). On macOS reads are `.enc`-wins: a fallback `.enc`
+//! (written while the Keychain was unusable) is authoritative over a possibly-stale Keychain copy, so a
+//! Keychain that recovers cannot shadow a newer file. A successful Keychain write therefore reconciles the `.enc` away (correctness-critical).
 //!
 //! One retained previous generation per slot (`.prev`), routed like the backup itself, so retention never
 //! weakens the storage posture (a Keychain-backed Mac does not grow a plaintext copy). Best-effort: it is
@@ -13,14 +13,11 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use base64::Engine as _;
-use base64::engine::general_purpose::STANDARD;
-
 use super::namespace::{
     backup_enc_filename, backup_keychain_account, prev_backup_enc_filename,
     prev_backup_keychain_account,
 };
-use super::{CredentialStore, lock};
+use super::{CredentialStore, lock, sealed};
 use crate::fsutil::{self, WriteOptions};
 use crate::keychain::KeychainError;
 use crate::{Error, Result};
@@ -46,11 +43,10 @@ pub(super) enum KcReadError {
     Failed(KeychainError),
 }
 
+/// Strict like Python's `validate=True`: non-alphabet junk is rejected, not discarded, so a corrupt
+/// `.enc` cannot shadow a valid Keychain copy. Opens a DPAPI-sealed file on Windows ([`sealed`]).
 fn decode_b64_text(encoded: &[u8]) -> std::result::Result<String, String> {
-    // STANDARD is strict like Python's `validate=True`: non-alphabet junk is rejected, not discarded, so a
-    // corrupt `.enc` cannot shadow a valid Keychain copy.
-    let bytes = STANDARD.decode(encoded).map_err(|e| e.to_string())?;
-    String::from_utf8(bytes).map_err(|e| e.to_string())
+    sealed::unseal(encoded)
 }
 
 impl CredentialStore {
@@ -180,10 +176,11 @@ impl CredentialStore {
         }
     }
 
-    /// Atomically write a base64-encoded credential file (0600), creating `credentials_dir`.
+    /// Atomically write a credential file (0600), creating `credentials_dir`: base64, or DPAPI-sealed on
+    /// Windows ([`sealed::seal`]).
     fn atomic_b64_write(&self, target: &Path, credentials: &str) -> std::io::Result<()> {
         std::fs::create_dir_all(&self.host.credentials_dir)?;
-        let encoded = STANDARD.encode(credentials.as_bytes());
+        let encoded = sealed::seal(credentials)?;
         fsutil::atomic_write_text(target, &encoded, WriteOptions::default())
     }
 

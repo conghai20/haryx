@@ -11,8 +11,6 @@
 
 use std::path::PathBuf;
 
-use base64::Engine as _;
-use base64::engine::general_purpose::STANDARD;
 use rand::RngCore as _;
 use serde_json::{Map, Value, json};
 use sha2::{Digest, Sha256};
@@ -189,7 +187,7 @@ impl CredentialStore {
             &digest_hex[..12]
         );
         std::fs::create_dir_all(&self.host.credentials_dir)?;
-        let encoded = STANDARD.encode(credentials.as_bytes());
+        let encoded = super::sealed::seal(credentials)?;
         fsutil::atomic_write_text(
             &self.stash_entry_path(&entry_id),
             &encoded,
@@ -247,10 +245,7 @@ impl CredentialStore {
                 return (String::new(), true);
             }
         };
-        let decoded = STANDARD
-            .decode(encoded.trim_ascii())
-            .map_err(|e| e.to_string())
-            .and_then(|bytes| String::from_utf8(bytes).map_err(|e| e.to_string()));
+        let decoded = super::sealed::unseal(&encoded);
         match decoded {
             Ok(value) => (value, false),
             Err(err) => {

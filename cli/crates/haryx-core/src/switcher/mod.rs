@@ -11,6 +11,7 @@ mod accounts;
 mod add;
 mod grant;
 mod listing;
+mod login;
 mod perform;
 mod policy;
 mod purge;
@@ -54,6 +55,7 @@ use crate::session::{self, ProfileKeychain};
 use crate::usage_store::UsageStore;
 
 pub use listing::{error_note, last_seen_note, sentinel_note};
+pub use login::{LoginOutcome, LoginRequest};
 pub use perform::{Provenance, SwitchOp};
 pub use sequence::LineageKey;
 pub use usage::AccountInfo;

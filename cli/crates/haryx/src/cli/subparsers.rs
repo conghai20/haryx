@@ -8,7 +8,8 @@ use haryx_core::PROG;
 
 use super::help::{self, p, sub_bin};
 use super::{
-    AccountSetting, AutoOptions, AutoStrategy, Command, ConfigAction, Error, Invocation, RunOptions,
+    AccountSetting, AutoOptions, AutoStrategy, Command, ConfigAction, Error, Invocation,
+    LoginOptions, RunOptions,
 };
 
 /// Parse `rest` with the pre-dispatched parser named by `first`, or `None` when `first` is not one.
@@ -37,6 +38,7 @@ pub(super) fn parse(first: &str, rest: &[String]) -> Option<Result<Invocation, E
                 },
             )
         }),
+        "login" => run_parser::<LoginArgs>(rest).and_then(LoginArgs::into_invocation),
         "move" => run_parser::<MoveArgs>(rest).map(|a| {
             invocation(
                 a.debug,
@@ -451,6 +453,59 @@ struct MoveArgs {
     /// Enable debug logging
     #[arg(long)]
     debug: bool,
+}
+
+// -------------------------------------------------------------------------------------------- login
+
+#[derive(Parser, Debug)]
+#[command(
+    name = "login",
+    bin_name = sub_bin("login"),
+    about = p("Sign in through Claude Code's own login and store the result. With an account, signs \
+               that account in again (the fix for \"re-login needed\"); without one, adds a new \
+               account. The active login is only touched when the account given is the active one."),
+    after_help = help::login_epilog(),
+    help_template = help::HELP_TEMPLATE,
+    args_override_self = true,
+    infer_long_args = true,
+)]
+struct LoginArgs {
+    /// Account to sign in again (omit to add a new account)
+    #[arg(value_name = "NUM|EMAIL|ALIAS")]
+    account: Option<String>,
+
+    /// Slot for a new account (asks before replacing another account)
+    #[arg(long, value_name = "NUM")]
+    slot: Option<i64>,
+
+    /// Short display alias for a new account
+    #[arg(long, value_name = "NAME")]
+    alias: Option<String>,
+
+    /// Sign in with your organization's single sign-on
+    #[arg(long)]
+    sso: bool,
+
+    /// Enable debug logging
+    #[arg(long)]
+    debug: bool,
+}
+
+impl LoginArgs {
+    fn into_invocation(self) -> Result<Invocation, Error> {
+        if self.account.is_some() && (self.slot.is_some() || self.alias.is_some()) {
+            return Err(usage_error::<Self>(
+                "--slot and --alias are only for a new account (omit the account)",
+            ));
+        }
+        let options = LoginOptions {
+            account: self.account,
+            slot: self.slot,
+            alias: self.alias,
+            sso: self.sso,
+        };
+        Ok(invocation(self.debug, Command::Login(options)))
+    }
 }
 
 // ---------------------------------------------------------------------- alias / threshold / priority

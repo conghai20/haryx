@@ -75,6 +75,7 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Priority(setting) => accounts::priority(&setting, debug),
         Command::Swap { first, second } => accounts::swap(&first, &second, debug),
         Command::Move { account, slot } => accounts::move_account(&account, &slot, debug),
+        Command::Login(opts) => accounts::login(&opts, debug),
         Command::Map { account, path } => accounts::map(account.as_deref(), path.as_deref(), debug),
         Command::Unmap { path } => accounts::unmap(path.as_deref(), debug),
         Command::Unclaimed { purge } => accounts::unclaimed(purge.as_deref(), debug),

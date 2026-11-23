@@ -119,7 +119,7 @@ impl<'a> SessionManager<'a> {
         self.switcher.backup_dir()
     }
 
-    fn claude_bin() -> Result<PathBuf> {
+    pub(crate) fn claude_bin() -> Result<PathBuf> {
         spawn::resolve(
             std::ffi::OsStr::new("claude"),
             std::env::var_os("PATH").as_deref(),

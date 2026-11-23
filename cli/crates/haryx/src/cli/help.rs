@@ -55,6 +55,7 @@ Commands:
   {prog} switch                     rotate to the next account
   {prog} switch <num|email>         switch to a specific account
   {prog} add                        add the current account
+  {prog} login [num|email]          sign an account in again, or add a new one
   {prog} add-token [TOKEN|-]        register a setup-token or API key
   {prog} remove <num|email>         remove an account
   {prog} disable <num|email>        hold an account out of auto-rotation
@@ -128,6 +129,16 @@ pub fn swap_epilog() -> String {
     p("Examples:
   {prog} swap 1 2
   {prog} swap dev user@example.com")
+}
+
+pub fn login_epilog() -> String {
+    p("Examples:
+  {prog} login 3                   fix \"re-login needed\" on account 3
+  {prog} login                     add a new account (the active login stays)
+  {prog} login --slot 5 --alias w  add a new account into slot 5 as 'w'
+  {prog} login 3 --sso             sign in with single sign-on
+
+Claude Code (`claude auth login`) does the sign-in in your browser; {prog} only stores the login.")
 }
 
 pub fn move_epilog() -> String {

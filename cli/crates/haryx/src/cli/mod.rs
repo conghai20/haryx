@@ -8,7 +8,7 @@
 //!
 //! A few commands are dispatched *before* the main parser, each with a parser of its own
 //! ([`subparsers`]): `run`, `auto`, `config`, `map`, `unmap`, `unclaimed`, `alias`, `threshold`,
-//! `priority`, `swap`, `move`. As upstream, they must be the first argument (`haryx --debug run 2` is a
+//! `priority`, `swap`, `move`, `login`. As upstream, they must be the first argument (`haryx --debug run 2` is a
 //! usage error; `haryx run 2 --debug` works).
 //!
 //! Dropped from upstream: `menubar` and its flags (`--install-service`, `--uninstall-service`,
@@ -114,6 +114,18 @@ pub enum Command {
     Swap { first: String, second: String },
     /// `move ACCOUNT SLOT`.
     Move { account: String, slot: String },
+    /// `login [NUM|EMAIL|ALIAS] [--slot N] [--alias NAME] [--sso]`.
+    Login(LoginOptions),
+}
+
+/// Options of `login`.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct LoginOptions {
+    /// A managed account to sign in again; `None` adds a new account.
+    pub account: Option<String>,
+    pub slot: Option<i64>,
+    pub alias: Option<String>,
+    pub sso: bool,
 }
 
 /// `switch --strategy`.
@@ -217,6 +229,7 @@ impl Command {
             Self::Priority(_) => "priority",
             Self::Swap { .. } => "swap",
             Self::Move { .. } => "move",
+            Self::Login(_) => "login",
         }
     }
 }

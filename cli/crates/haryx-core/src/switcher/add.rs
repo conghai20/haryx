@@ -100,11 +100,11 @@ fn confirm_overwrite(slot: i64) -> bool {
     }
 }
 
-fn account<'a>(data: &'a JsonObject, num: &str) -> Option<&'a JsonObject> {
+pub(super) fn account<'a>(data: &'a JsonObject, num: &str) -> Option<&'a JsonObject> {
     data.get("accounts")?.get(num)?.as_object()
 }
 
-fn text(record: Option<&JsonObject>, key: &str) -> String {
+pub(super) fn text(record: Option<&JsonObject>, key: &str) -> String {
     record
         .and_then(|r| r.get(key))
         .and_then(Value::as_str)
@@ -119,7 +119,7 @@ fn sequence_remove(data: &mut JsonObject, num: &str) {
     }
 }
 
-fn sequence_insert_sorted(data: &mut JsonObject, num: &str) {
+pub(super) fn sequence_insert_sorted(data: &mut JsonObject, num: &str) {
     let n: i64 = num.parse().unwrap_or(0);
     let seq = data
         .entry("sequence")
@@ -134,28 +134,28 @@ fn sequence_insert_sorted(data: &mut JsonObject, num: &str) {
 }
 
 /// Where a capture lands: `(slot, slot to displace, slot to migrate from, carried settings)`.
-struct Placement {
-    num: String,
+pub(super) struct Placement {
+    pub(super) num: String,
     displace: Option<(String, String, String)>,
     migrate_from: Option<String>,
-    carried: JsonObject,
+    pub(super) carried: JsonObject,
 }
 
 impl Switcher {
-    fn prepare_store(&self) -> Result<()> {
+    pub(super) fn prepare_store(&self) -> Result<()> {
         self.refuse_session_shell()?;
         self.setup_directories()?;
         self.init_sequence_file()?;
         self.migrate_org_fields()
     }
 
-    fn sequence(&self) -> Result<JsonObject> {
+    pub(super) fn sequence(&self) -> Result<JsonObject> {
         Ok(self.get_sequence_data()?.unwrap_or_default())
     }
 
     /// Resolve where an add lands for an explicit `slot` (or the next free number), asking before it
     /// displaces another account. `Ok(None)`: the person cancelled.
-    fn place(
+    pub(super) fn place(
         &self,
         slot: Option<i64>,
         email: &str,
@@ -221,7 +221,7 @@ impl Switcher {
     }
 
     /// Drop a displaced or migrated slot's files and roster row.
-    fn vacate(&self, placement: &Placement) -> Result<()> {
+    pub(super) fn vacate(&self, placement: &Placement) -> Result<()> {
         if let Some((d_num, d_email, d_org)) = &placement.displace {
             self.delete_account_files(d_num, d_email)?;
             let mut data = self.sequence()?;
@@ -245,7 +245,7 @@ impl Switcher {
         Ok(())
     }
 
-    fn clear_dead(&self, num: &str, email: &str, org_uuid: &str) {
+    pub(super) fn clear_dead(&self, num: &str, email: &str, org_uuid: &str) {
         let ident: Identities = [(num.to_owned(), (email.to_owned(), org_uuid.to_owned()))].into();
         if let Err(err) = self.usage_store.clear_dead_token(&[num.to_owned()], &ident) {
             log::debug!("clear_dead_token failed for {num}: {err}");

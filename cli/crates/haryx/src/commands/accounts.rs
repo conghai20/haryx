@@ -298,6 +298,18 @@ pub fn add(slot: Option<i64>, alias: Option<&str>, debug: bool) -> Result<(), Co
     switcher.add_account(slot, alias, false).map_err(fail)
 }
 
+pub fn login(opts: &crate::cli::LoginOptions, debug: bool) -> Result<(), CommandError> {
+    let switcher = open(debug)?;
+    let request = haryx_core::switcher::LoginRequest {
+        target: opts.account.clone(),
+        slot: opts.slot,
+        alias: opts.alias.clone(),
+        sso: opts.sso,
+        assume_yes: false,
+    };
+    switcher.login_account(&request).map(|_| ()).map_err(fail)
+}
+
 pub fn add_token(
     token: Option<&str>,
     email: Option<&str>,

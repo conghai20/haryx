@@ -15,6 +15,7 @@ struct MenuBarPanel: View {
                 } else if let error = store.refreshError {
                     ErrorCard(message: error)
                 }
+                if let line = store.desktopLine { DesktopStatusLine(line: line).padding(.top, 8) }
                 let queue = store.nextInLine
                 if !queue.isEmpty {
                     Hairline().padding(.vertical, 10)
@@ -36,6 +37,7 @@ struct MenuBarPanel: View {
         .onChange(of: store.panelVisible) { _, shown in
             guard shown else { return }
             Task { await store.reloadWake() }
+            Task { await store.reloadDesktop() }
             if (store.lastRefresh?.timeIntervalSinceNow ?? -999) < -15 { Task { await store.refresh() } }
         }
     }
@@ -328,6 +330,31 @@ struct AccountRow: View {
                 .disabled(store.busy != nil || account.isDisabled)
                 .help("Switch to \(account.displayName)")
         }
+    }
+}
+
+/// Which account Claude Desktop is on, with one button when it is not on the active account.
+private struct DesktopStatusLine: View {
+    @Environment(AppStore.self) private var store
+    let line: DesktopLine
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "macwindow").accessibilityHidden(true)
+            Text(line.text).lineLimit(1).truncationMode(.middle)
+            Spacer(minLength: 4)
+            if let action = line.action {
+                Button(action.title) { Task { await store.openDesktopAsActive() } }
+                    .buttonStyle(.glass)
+                    .controlSize(.mini)
+                    .disabled(store.busy != nil)
+                    .help(action == .setUp
+                        ? "Open Claude Desktop on a new folder for the active account, to sign in once"
+                        : "Open Claude Desktop as the active account")
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 }
 

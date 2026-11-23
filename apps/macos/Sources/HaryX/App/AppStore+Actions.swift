@@ -48,16 +48,19 @@ extension AppStore {
 
     // MARK: switching
 
+    /// A manual switch. The only path that moves Claude Desktop (when that setting is on).
     func switchTo(_ a: Account, force: Bool = false) async {
-        await runSwitch("Switching", ["switch", ref(a), "--json"] + (force ? ["--force"] : []))
+        guard await runSwitch("Switching", ["switch", ref(a), "--json"] + (force ? ["--force"] : [])) else { return }
+        await followDesktop(to: active ?? a)
     }
 
     func switchNext(_ mode: SwitchMode) async {
         await runSwitch(mode.title, mode.args)
     }
 
-    private func runSwitch(_ label: String, _ args: [String]) async {
-        guard let cli else { return flash(CLIError.notFound.localizedDescription, error: true) }
+    @discardableResult
+    private func runSwitch(_ label: String, _ args: [String]) async -> Bool {
+        guard let cli else { flash(CLIError.notFound.localizedDescription, error: true); return false }
         busy = label
         defer { busy = nil }
         do {
@@ -68,8 +71,10 @@ extension AppStore {
             } else {
                 flash("Already on the best account — no switch needed")
             }
+            return true
         } catch {
             flash(error.localizedDescription, error: true)
+            return false
         }
     }
 

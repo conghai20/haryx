@@ -59,7 +59,7 @@ public enum ProcessScanner {
     }
 
     /// KERN_PROCARGS2 layout: argc (Int32) · exec path · NUL padding · argv[argc] · env strings.
-    static func procArgs(_ pid: Int32) -> ([String], [String: String])? {
+    public static func procArgs(_ pid: Int32) -> ([String], [String: String])? {
         var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
         var size = 0
         guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > MemoryLayout<Int32>.size else { return nil }

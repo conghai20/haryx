@@ -14,6 +14,9 @@ enum Prefs {
     static let menuBarMascot = "menuBarMascot"
     static let mascotStyles = "mascotStyles"
     static let cliInstallOffered = "cliInstallOffered"
+    /// "Claude Desktop follows Use" (off by default) and its confirm's "Don't ask again".
+    static let desktopFollows = "desktopFollows"
+    static let desktopSkipConfirm = "desktopSkipConfirm"
     static let sessionMinSeconds = 60.0
 
     static func notifyKey(_ c: Notice.Category) -> String { "notify.\(c.rawValue)" }
@@ -21,7 +24,7 @@ enum Prefs {
     static func register() {
         var defaults: [String: Any] = [
             refreshSeconds: 60.0, terminal: TerminalApp.terminal.rawValue, shell: "",
-            claudeFolder: CSwapCLI.home, autoOnLaunch: false, autoDryRun: false, menuBarPercent: true, menuBarMascot: false,
+            claudeFolder: CSwapCLI.home, autoOnLaunch: false, autoDryRun: false, desktopFollows: false, desktopSkipConfirm: false, menuBarPercent: true, menuBarMascot: false,
         ]
         for c in Notice.Category.allCases { defaults[notifyKey(c)] = true }
         UserDefaults.standard.register(defaults: defaults)

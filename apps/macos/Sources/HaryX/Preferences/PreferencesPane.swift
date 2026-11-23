@@ -10,6 +10,8 @@ struct PreferencesPane: View {
     @AppStorage(Prefs.shell) private var shell = ""
     @AppStorage(Prefs.claudeFolder) private var claudeFolder = CSwapCLI.home
     @AppStorage(Prefs.menuBarPercent) private var menuBarPercent = true
+    @AppStorage(Prefs.desktopFollows) private var desktopFollows = false
+    @AppStorage(Prefs.desktopSkipConfirm) private var desktopSkipConfirm = false
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var showNotifyDenied = false
 
@@ -48,6 +50,16 @@ struct PreferencesPane: View {
                     Text("Warp opens through a launch configuration in ~/.warp/launch_configurations/ and uses its own shell setting (the Shell choice above doesn't apply).")
                         .font(.caption).foregroundStyle(.secondary)
                 }
+            }
+
+            Section {
+                Toggle("Claude Desktop follows Use", isOn: $desktopFollows)
+                    .onChange(of: desktopFollows) { Task { await store.reloadDesktop() } }
+                Toggle("Ask before quitting Claude Desktop", isOn: Binding(
+                    get: { !desktopSkipConfirm }, set: { desktopSkipConfirm = !$0 }))
+                    .disabled(!desktopFollows)
+            } header: { Text("Claude Desktop") } footer: {
+                Text("When you press Use, a running Claude Desktop quits and reopens on that account's own Desktop folder, so it signs in as the same account. Each account signs in to Desktop once, with Set Up Desktop in the menu bar. Auto-switch and AI Wake never quit Desktop. Each folder takes about 750 MB.")
             }
 
             Section("Notifications") {

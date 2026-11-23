@@ -34,6 +34,10 @@ final class AppStore {
     private(set) var wake: WakeStatus?
     /// Why wake status could not be read (an older haryx without `ai wake`), when it could not.
     private(set) var wakeError: String?
+    /// `haryx ai desktop status`; nil while "Claude Desktop follows Use" is off.
+    private(set) var desktop: DesktopStatus?
+    /// Whether Claude Desktop runs, and on which folder; read when the panel opens.
+    private(set) var desktopRun: DesktopRun = .notRunning
     private(set) var cli: CSwapCLI?
 
     // UI state
@@ -237,6 +241,7 @@ final class AppStore {
         if let v = await ver { version = v.trimmingCharacters(in: .whitespacesAndNewlines) }
         apply(await wakeStatus)
         loadMappings()
+        await reloadDesktop()
     }
 
     /// Re-read `haryx ai wake status` alone (local files only), so the panel shows what the
@@ -252,6 +257,11 @@ final class AppStore {
         case .failure(let e)?: wake = nil; wakeError = e.localizedDescription
         case nil: wake = nil; wakeError = nil
         }
+    }
+
+    func setDesktop(_ status: DesktopStatus?, run: DesktopRun) {
+        desktop = status
+        desktopRun = run
     }
 
     func loadMappings() {

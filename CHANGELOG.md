@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-23
+
 ### Changed
 
 - Account, usage and session commands now live in the `ai` section: `haryx ai list`,
@@ -17,6 +19,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   accounts under an **AI** section; the sidebar's app preferences sit under **HaryX**.
 
 ### Added
+
+- `haryx ai profile` moves a Claude Code setup between machines: `list`, `show`, `save`, `export`,
+  `import`, `apply`, `diff`, `delete`, `rollback`. A profile carries skills, hooks, MCP servers,
+  plugins (`--plugins ref|bundle`), memory files, other `~/.claude` entries and history
+  (`--no-history` to leave it out); credentials, signed files, the whole `~/.claude.json` and caches
+  are opt-in. Home paths are made portable, secrets are redacted or encrypted with a passphrase
+  (`--secrets redact|encrypt`), imported files are checked entry by entry, everything that can run
+  code is listed for confirmation, `--prune` removes local extras (never history), and every apply
+  is backed up for `rollback`.
+- macOS app: **Setup Profiles** section to browse, save, export, import and apply profiles, with
+  the dry-run plan shown before applying.
+- macOS app: the DMG build offers on first launch to install the bundled `haryx` command in
+  `/usr/local/bin` or `~/.local/bin` (Preferences › Terminal command later).
 
 - `haryx ai login [NUM|EMAIL|ALIAS] [--slot N] [--alias NAME] [--sso]`: signs a managed account in
   again (fixes "re-login needed") or adds a new account, by running Claude Code's own
@@ -38,5 +53,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 First release: the `haryx` CLI (a Rust port of claude-swap, drop-in compatible with `cswap`) and
 the HaryX macOS menu bar app.
 
-[Unreleased]: https://github.com/conghai20/haryx/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/conghai20/haryx/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/conghai20/haryx/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/conghai20/haryx/releases/tag/v0.1.0

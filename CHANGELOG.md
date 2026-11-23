@@ -26,8 +26,9 @@ cannot be released without one. Sections, in this order, only when they have ent
   Maintenance; HaryX: App Preferences).
 - macOS app: refresh buttons (menu bar, Accounts, Setup Profiles) spin and disable themselves while
   a refresh runs; Reduce Motion pulses instead.
-- macOS app: hovering a "Next in line" row in the menu bar panel shows its full email in place of
-  the shortened name and usage; hovering the active account shows its email (and alias) as help.
+- macOS app: hovering a "Next in line" row in the menu bar panel shows its full email at once in a
+  small label under the row (above it for the last row); hovering the active account shows its
+  email (and alias) as help.
 - macOS app: an "All accounts" switch at the top of the Wake page's account list turns wake on or
   off for every account at once (`haryx ai wake on all` / `off all`) and shows how many are on.
 - macOS app: a weekly bar (Week %, its reset and a pace tick) under the 5-hour reading on every

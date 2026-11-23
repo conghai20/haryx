@@ -1,6 +1,6 @@
 # Claude Desktop follows the Use button
 
-Status: planned (2026-11-24). Blocked on the Phase 0 sign-in test. No code yet.
+Status: Phase 0 passed and Phase 1 built (2026-11-24). Phase 2 in progress on branch `feat/desktop-follow`.
 
 ## Goal
 
@@ -45,23 +45,35 @@ Failed:
   ClaudeHarbor's re-signed app copy or an expired login; telling them apart would mean decrypting the
   login, which this feature must never do. So folders are created in place and never moved or copied.
 
-Still unproven (gate for Phase 1):
-1. Sign into Desktop in an empty folder with the real app; the browser must return to the app through
-   the `claude://` link.
-2. Quit and reopen on the same folder: Desktop must still be signed in, with the same UUID.
-3. The updater and the single-running-copy check behave normally with a custom folder.
+Gate for Phase 1, passed on Claude Desktop 5.11492.5 (2026-11-24):
+1. Signing into Desktop in an empty folder with the real app works; the browser returns to the app.
+   `lastKnownAccountUuid` then equals Claude Code's `oauthAccount.accountUuid`.
+2. After a normal quit (about 1 second) and a reopen on the same folder, Desktop is still signed in
+   with the same UUID (log: `[startup-sign-in] sign_in_cookie_present: true`,
+   `[oauth-v2] loaded token cache`).
+3. The updater starts normally with a custom folder (`[updater] App is installed, enabling initial
+   check and auto-updates`). Desktop records its pid in the folder's `config.json`
+   (`updaterRunningInstance`).
 
-If any of these fails, stop and rethink before writing code.
+Found during the gate, and it shapes Phase 2: while Desktop runs, `open -a … --args
+--user-data-dir=<other>` only brings the running Desktop to the front. The folder argument is
+silently ignored. So the relaunch must wait until the old process has exited, and the status line
+must read the folder from the running process's arguments, never assume it.
 
-## Phase 1: CLI core (Rust, `haryx-core/src/desktop/`)
+Still unverified: whether an auto-update relaunch keeps `--user-data-dir`. If it does not, Desktop
+comes back on the default folder; the status line shows that instead of a wrong account.
+
+Logs go to the shared `~/Library/Logs/Claude/`, not into the data folder.
+
+## Phase 1: CLI core (Rust, `haryx-core/src/desktop.rs`)
 
 - Folder location: `~/Library/Application Support/HaryX/desktop/<accountUuid>/`. Keyed by UUID, not
   email or account number, because numbers can be reassigned.
 - `signed_in_uuid(folder)`: reads `config.json`; a missing file, missing key or bad JSON is "unknown".
 - Commands:
-  - `haryx desktop status --json`: per account, whether a folder exists, its signed-in UUID, and
+  - `haryx ai desktop status --json`: per account, whether a folder exists, its signed-in UUID, and
     whether that UUID mismatches the account.
-  - `haryx desktop path <account>`: the folder the app should launch with.
+  - `haryx ai desktop path <account>`: the folder the app should launch with.
 - Tests first: config parsing, unknown vs mismatch, path keying.
 
 ## Phase 2: macOS app

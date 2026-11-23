@@ -96,6 +96,7 @@ private struct HeroCard: View {
                 } else if let note = account.statusNote {
                     Text(note).font(.caption).foregroundStyle(.orange)
                 }
+                if account.offersSignIn { SignInAgainButton(account: account, prominent: account.needsRelogin).controlSize(.small) }
             }
         }
         .padding(12)
@@ -133,12 +134,16 @@ struct AccountRow: View {
                 }
             }
             Spacer(minLength: 0)
-            Button("Use") { Task { await store.switchTo(account) } }
-                .buttonStyle(.glass)
-                .controlSize(.small)
-                .opacity(hovering ? 1 : 0.55)
-                .disabled(store.busy != nil)
-                .help("Switch to \(account.displayName)")
+            if account.needsRelogin && account.canRelogin {
+                SignInAgainButton(account: account).controlSize(.small)
+            } else {
+                Button("Use") { Task { await store.switchTo(account) } }
+                    .buttonStyle(.glass)
+                    .controlSize(.small)
+                    .opacity(hovering ? 1 : 0.55)
+                    .disabled(store.busy != nil)
+                    .help("Switch to \(account.displayName)")
+            }
         }
         .padding(.horizontal, 8).padding(.vertical, 6)
         .background(hovering ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 10))

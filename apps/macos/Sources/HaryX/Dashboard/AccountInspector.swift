@@ -174,6 +174,7 @@ private struct UsageSection: View {
                 }
             }
             if let note = account.statusNote { Text(note).foregroundStyle(.orange) }
+            if account.offersSignIn { SignInAgainButton(account: account, prominent: account.needsRelogin) }
             if let err = account.usageError { Text(err).font(.caption).foregroundStyle(.secondary) }
             if let exp = account.loginExpiresAt {
                 LabeledContent("Login expires", value: exp.formatted(date: .abbreviated, time: .shortened))
@@ -206,7 +207,7 @@ private struct SessionsSection: View {
 }
 
 struct AddAccountSheet: View {
-    enum Mode: String, Identifiable { case current, token; var id: String { rawValue } }
+    enum Mode: String, Identifiable { case login, current, token; var id: String { rawValue } }
 
     @Environment(AppStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -221,10 +222,8 @@ struct AddAccountSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(mode == .current ? "Add Current Claude Login" : "Add Setup Token or API Key").font(.title3.bold())
-            Text(mode == .current
-                 ? "Captures the account Claude Code is logged into right now. Log in with `claude` first, and don't /logout the previous account or its token may be revoked. Re-adding an existing account refreshes its credentials."
-                 : "Registers an `sk-ant-oat01-…` setup token or an `sk-ant-api03-…` API key without a browser login. The token is passed over stdin and never appears in process arguments.")
+            Text(title).font(.title3.bold())
+            Text(explanation)
                 .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Form {
                 if mode == .token {
@@ -236,16 +235,18 @@ struct AddAccountSheet: View {
                 Toggle("Choose slot", isOn: $useSlot)
                 if useSlot {
                     Stepper("Slot \(slot)", value: $slot, in: 1...99)
-                    Toggle("Overwrite if the slot is taken", isOn: $overwrite)
+                    if mode != .login { Toggle("Overwrite if the slot is taken", isOn: $overwrite) }
                 }
             }
             .formStyle(.grouped)
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }
-                Button("Add") {
+                Button(mode == .login ? "Sign In" : "Add") {
                     Task {
-                        if mode == .current {
+                        if mode == .login {
+                            store.signInNew(slot: useSlot ? slot : nil, alias: alias)
+                        } else if mode == .current {
                             await store.addCurrent(slot: useSlot ? slot : nil, alias: alias, overwrite: overwrite)
                         } else {
                             await store.addToken(token, slot: useSlot ? slot : nil, email: email, overwrite: overwrite)
@@ -260,5 +261,24 @@ struct AddAccountSheet: View {
         }
         .padding(20)
         .frame(width: 460)
+    }
+
+    private var title: String {
+        switch mode {
+        case .login: "Sign In New Account"
+        case .current: "Add Current Claude Login"
+        case .token: "Add Setup Token or API Key"
+        }
+    }
+
+    private var explanation: String {
+        switch mode {
+        case .login:
+            "Opens Claude Code's sign-in in a terminal and your browser. Sign in with your own account; it is added without changing the account in use. If the slot is taken, the terminal asks before replacing it."
+        case .current:
+            "Captures the account Claude Code is logged into right now. Log in with `claude` first, and don't /logout the previous account or its token may be revoked. Re-adding an existing account refreshes its credentials."
+        case .token:
+            "Registers an `sk-ant-oat01-…` setup token or an `sk-ant-api03-…` API key without a browser login. The token is passed over stdin and never appears in process arguments."
+        }
     }
 }

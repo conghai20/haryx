@@ -31,6 +31,13 @@ public struct Account: Decodable, Sendable, Identifiable, Hashable {
     public var isDisabled: Bool { disabled ?? false }
     public var isAPIKey: Bool { usageStatus == "api_key" }
     public var needsRelogin: Bool { ["relogin_required", "no_credentials", "foreign_credential"].contains(usageStatus) }
+    /// Token and API-key slots (`add-token`) hold no Claude login, so `login` cannot renew them.
+    public var canRelogin: Bool { !isAPIKey && !email.hasSuffix("@token.local") }
+    /// The stored login expires within `window` (default: the CLI's 7-day notice).
+    public func loginDue(now: Date = Date(), window: TimeInterval = 7 * 86_400) -> Bool {
+        guard let exp = loginExpiresAt else { return false }
+        return exp.timeIntervalSince(now) < window
+    }
 
     /// Highest utilisation across the 5h and 7d windows (nil if unknown).
     public var peakPct: Double? {
@@ -43,9 +50,9 @@ public struct Account: Decodable, Sendable, Identifiable, Hashable {
         case "token_expired": "Token expired — refreshes automatically"
         case "api_key": "API key (no quota)"
         case "keychain_unavailable": "Keychain locked or busy"
-        case "relogin_required": "Re-login needed: log in with Claude Code, then Add current login"
+        case "relogin_required": "Re-login needed: use Sign In Again"
         case "foreign_credential": "Credential belongs to another account"
-        case "no_credentials": "No stored credentials"
+        case "no_credentials": "No stored credentials: use Sign In Again"
         default: "Usage unavailable"
         }
     }

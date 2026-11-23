@@ -92,8 +92,11 @@ struct AccountsPane: View {
                 ContentUnavailableView {
                     Label("No accounts yet", systemImage: "person.crop.circle.badge.plus")
                 } description: {
-                    Text(store.refreshError ?? "Log in with Claude Code, then add the current login.")
+                    Text(store.refreshError ?? "Sign in with your Claude account to add it.")
                 } actions: {
+                    Button("Sign In…") { store.signInNew() }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(store.addLoginPending)
                     if store.canImportFromCswap {
                         Button("Import Accounts from cswap") { Task { await store.importFromCswap() } }
                             .buttonStyle(.borderedProminent)
@@ -121,6 +124,7 @@ struct AccountsPane: View {
         .toolbar {
             ToolbarItemGroup {
                 Menu {
+                    Button("Sign In New Account…") { addSheet = .login }
                     Button("Add Current Claude Login…") { addSheet = .current }
                     Button("Add Setup Token / API Key…") { addSheet = .token }
                 } label: { Label("Add", systemImage: "plus") }
@@ -161,7 +165,9 @@ struct AccountCard: View {
             }
             if let note = account.statusNote { Text(note).font(.caption).foregroundStyle(.orange) }
             HStack {
-                if account.active {
+                if account.offersSignIn {
+                    SignInAgainButton(account: account, prominent: account.needsRelogin)
+                } else if account.active {
                     Label("In use", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(.tint)
                 } else {
                     Button("Switch") { Task { await store.switchTo(account) } }.buttonStyle(.glassProminent)

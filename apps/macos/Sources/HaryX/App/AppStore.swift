@@ -31,6 +31,8 @@ final class AppStore {
     // UI state
     var busy: String?
     var banner: Banner?
+    /// `haryx login` runs the app started in a terminal and is waiting to see land.
+    private(set) var pendingLogins: [PendingLogin] = []
     /// slot → live Claude processes using it
     private(set) var sessions: [Int: [ClaudeProcess]] = [:]
     private(set) var menuBarTick = 0
@@ -126,6 +128,30 @@ final class AppStore {
         return MascotCache.menuBarImage(style(for: a), pose: pose)
     }
 
+    // MARK: sign-in
+
+    func loginPending(for a: Account) -> Bool { pendingLogins.contains { $0.targets(a) } }
+    var addLoginPending: Bool { pendingLogins.contains { if case .add = $0.kind { true } else { false } } }
+
+    func trackLogin(_ pending: PendingLogin) { pendingLogins.append(pending) }
+
+    /// Report and drop pending sign-ins that landed in the list or ran out of time.
+    private func settlePendingLogins(now: Date = Date()) {
+        guard !pendingLogins.isEmpty else { return }
+        pendingLogins = pendingLogins.filter { pending in
+            switch pending.resolve(in: accounts, now: now) {
+            case .waiting:
+                return true
+            case .done(let account):
+                flash(pending.targets(account) ? "Signed in again: \(account.displayName)" : "Added \(account.displayName)")
+                return false
+            case .timedOut:
+                flash("Sign-in was not finished. Try again from the account's menu.", error: true)
+                return false
+            }
+        }
+    }
+
     // MARK: refresh
 
     /// Serialised, never dropped: a caller arriving mid-refresh waits, then runs its own, so
@@ -153,6 +179,7 @@ final class AppStore {
             refreshError = nil
             seenSequenceMTime = Self.sequenceMTime()
             notifier.handle(NotificationRules.evaluate(previous: previous, current: list.accounts))
+            settlePendingLogins()
         } catch {
             refreshError = error.localizedDescription
         }

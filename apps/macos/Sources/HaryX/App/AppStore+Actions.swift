@@ -82,6 +82,38 @@ extension AppStore {
         await perform("Adding", args, stdin: overwrite ? "y\n" : "n\n", extras: true)
     }
 
+    /// Sign an account in again through `haryx login`, which runs Claude Code's own browser sign-in
+    /// in a terminal (it may ask to paste a code). The list watcher sees the result land.
+    func signInAgain(_ a: Account, app: TerminalApp = .preferred) {
+        guard a.canRelogin else {
+            return flash("\(a.displayName) is a token, not a login. Replace it with Sign In New Account.", error: true)
+        }
+        guard startLogin(["login", ref(a)], app: app) else { return }
+        trackLogin(.relogin(a))
+        flash("Finish signing in to \(a.email) in your browser")
+    }
+
+    /// Add a new account through `haryx login` without changing the active login.
+    func signInNew(slot: Int? = nil, alias: String? = nil, app: TerminalApp = .preferred) {
+        var args = ["login"]
+        if let slot { args += ["--slot", String(slot)] }
+        if let alias, !alias.isEmpty { args += ["--alias", alias] }
+        guard startLogin(args, app: app) else { return }
+        trackLogin(.add(existing: accounts))
+        flash("Finish signing in in your browser")
+    }
+
+    private func startLogin(_ args: [String], app: TerminalApp) -> Bool {
+        guard let cli else { flash(CLIError.notFound.localizedDescription, error: true); return false }
+        guard cli.flavor == .haryx else {
+            flash("Signing in from the app needs the haryx backend.", error: true)
+            return false
+        }
+        let command = ([cli.executable.path] + args).map(shellQuote).joined(separator: " ")
+        openTerminal(app, command: command)
+        return true
+    }
+
     /// The token travels on stdin (`add-token -`), never in argv where `ps` could see it.
     func addToken(_ token: String, slot: Int?, email: String?, overwrite: Bool) async {
         var args = ["add-token", "-"]

@@ -138,6 +138,36 @@ struct TerminalMenuItems: View {
 }
 
 /// Per-account context menu, shared by the menu bar rows and dashboard cards.
+/// "Sign In Again" for an account that needs it, or a spinner while its sign-in is pending.
+struct SignInAgainButton: View {
+    @Environment(AppStore.self) private var store
+    let account: Account
+    var prominent = true
+
+    var body: some View {
+        if store.loginPending(for: account) {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.mini)
+                Text("Waiting for sign-in…").font(.caption).foregroundStyle(.secondary)
+            }
+            .help("Finish the sign-in in your browser and terminal")
+        } else if prominent {
+            Button("Sign In Again") { store.signInAgain(account) }
+                .buttonStyle(.glassProminent).tint(.orange)
+                .help("Open Claude Code's sign-in for \(account.email)")
+        } else {
+            Button("Sign In Again") { store.signInAgain(account) }
+                .buttonStyle(.glass)
+                .help("Renew \(account.email)'s login before it expires")
+        }
+    }
+}
+
+extension Account {
+    /// Whether the UI should offer "Sign In Again" now.
+    var offersSignIn: Bool { canRelogin && (needsRelogin || loginDue()) }
+}
+
 struct AccountContextMenu: View {
     @Environment(AppStore.self) private var store
     let account: Account
@@ -151,6 +181,10 @@ struct AccountContextMenu: View {
         }
         Button("Run Claude in Folder…") {
             if let dir = AppStore.chooseFolder(prompt: "Run Claude Here") { store.runClaude(as: account, folder: dir) }
+        }
+        if account.canRelogin {
+            Button("Sign In Again…") { store.signInAgain(account) }
+                .disabled(store.loginPending(for: account))
         }
         Divider()
         Button(account.isDisabled ? "Enable in Rotation" : "Disable in Rotation") {

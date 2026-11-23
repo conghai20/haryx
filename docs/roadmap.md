@@ -30,3 +30,6 @@ The Rust CLI targets macOS, Linux and Windows, but these parts are macOS/Linux-s
 - **Terminal launch (`run`, quick actions):** map to Windows Terminal, PowerShell and cmd.
 - **Paths:** `~/.claude-swap-backup` and `~/.claude` locations under `%USERPROFILE%`.
 - **Packaging:** Windows builds of the prebuilt binaries for the pip/npm wrappers.
+
+The design for each item, and the Windows tray app (Tauri) built on top, is in
+[windows-app-plan.md](windows-app-plan.md).

@@ -63,8 +63,40 @@ pub fn is_pid_alive(pid: i64) -> bool {
     rc == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
 }
 
-// TODO(windows): OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION) (upstream `_is_pid_alive_windows`).
-#[cfg(not(unix))]
+/// Whether a process with `pid` is running (upstream `_is_pid_alive_windows`): it opens for a limited
+/// query and has not exited. Access denied means it exists but belongs to someone else.
+#[cfg(windows)]
+pub fn is_pid_alive(pid: i64) -> bool {
+    use windows_sys::Win32::Foundation::{
+        CloseHandle, ERROR_ACCESS_DENIED, GetLastError, STILL_ACTIVE,
+    };
+    use windows_sys::Win32::System::Threading::{
+        GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+
+    // 0 is the idle process and 4 the kernel; neither is ever a recorded claude.
+    if pid <= 4 {
+        return false;
+    }
+    let Ok(pid) = u32::try_from(pid) else {
+        return false;
+    };
+    // SAFETY: OpenProcess takes plain values and returns a handle or null; the handle is closed below.
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if handle.is_null() {
+        // SAFETY: reads this thread's last-error value; no preconditions.
+        return unsafe { GetLastError() } == ERROR_ACCESS_DENIED;
+    }
+    let mut code = 0_u32;
+    // SAFETY: `handle` is a live process handle opened with query rights; `code` outlives the call.
+    let ok = unsafe { GetExitCodeProcess(handle, &mut code) };
+    // SAFETY: `handle` came from OpenProcess and is closed exactly once.
+    unsafe { CloseHandle(handle) };
+    // A process that exits with code 259 (STILL_ACTIVE) reads as alive: the same ambiguity upstream has.
+    ok != 0 && code == STILL_ACTIVE as u32
+}
+
+#[cfg(not(any(unix, windows)))]
 pub fn is_pid_alive(_pid: i64) -> bool {
     false
 }

@@ -1104,6 +1104,7 @@ dependencies = [
  "tiny_http",
  "unicode-normalization",
  "ureq",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

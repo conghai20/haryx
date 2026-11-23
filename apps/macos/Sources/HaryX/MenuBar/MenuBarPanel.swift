@@ -142,7 +142,7 @@ private struct ActiveTide: View {
         }
         .contentShape(.rect)
         .onTapGesture { AccountActionMenu.show(for: account, store: store) }
-        .help("Click for account actions")
+        .help("\(account.fullIdentity)\nClick for account actions")
         .contextMenu { AccountContextMenu(account: account) }
     }
 
@@ -238,6 +238,8 @@ struct AccountRow: View {
                 Text(account.displayName).lineLimit(1).truncationMode(.middle)
                 if let plan = account.plan?.label { Text(plan).font(.caption2).foregroundStyle(.tertiary) }
             }
+            // The name is middle-truncated to fit the column; hovering shows the whole login.
+            .help(account.fullIdentity)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 5)
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(NextInLine.space)) } action: { onBand($0) }
@@ -394,4 +396,9 @@ struct SignInMenuSection: View {
                 .disabled(store.addLoginPending)
         }
     }
+}
+
+private extension Account {
+    /// The alias and email together (or just the email), for hover help where names are cut short.
+    var fullIdentity: String { alias.map { "\($0) — \(email)" } ?? email }
 }

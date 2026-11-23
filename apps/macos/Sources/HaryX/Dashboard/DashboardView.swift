@@ -192,11 +192,14 @@ struct AccountCard: View {
                 }
                 Spacer(minLength: 0)
             }
-            if account.usage != nil {
-                if account.usage?.fiveHour != nil { UsageBar(label: "5-HOUR", window: account.usage?.fiveHour) }
-                UsageBar(label: "WEEKLY", window: account.usage?.sevenDay)
-            }
-            if let note = account.statusNote { Text(note).font(.caption).foregroundStyle(.orange) }
+            // Same layout for every card (usage unknown shows "—"), so cards needing a re-login are
+            // as tall as the others.
+            UsageBar(label: "5-HOUR", window: account.usage?.fiveHour)
+            UsageBar(label: "WEEKLY", window: account.usage?.sevenDay)
+            Text(account.statusNote ?? " ")
+                .font(.caption).foregroundStyle(.orange)
+                .lineLimit(1).truncationMode(.tail)
+                .help(account.statusNote ?? "")
             HStack {
                 if account.offersSignIn {
                     SignInAgainButton(account: account, prominent: account.needsRelogin)
@@ -217,6 +220,7 @@ struct AccountCard: View {
             .controlSize(.small)
         }
         .padding(14)
+        .frame(maxHeight: .infinity, alignment: .top)
         .glassEffect(.regular.tint(selected ? Color.accentColor.opacity(0.18) : .clear).interactive(), in: .rect(cornerRadius: 20))
         .overlay { if selected { RoundedRectangle(cornerRadius: 20).strokeBorder(.tint, lineWidth: 1.5) } }
         // The whole rounded card is clickable, padding and empty space included (not only its views).

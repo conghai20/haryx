@@ -126,7 +126,7 @@ struct AutoSwitchPane: View {
                     Toggle("Start when HaryX launches", isOn: $onLaunch)
                     Button("Check Once Now") { Task { await store.runAutoOnce() } }
                 } footer: {
-                    Text("Runs `haryx auto --json` inside HaryX. It switches the active account when a quota window nears its threshold, and every decision appears in the log.")
+                    Text("Runs `haryx auto --json` inside HaryX. When the active account reaches your threshold it moves to another of your own accounts, and every decision appears in the log. Plan limits are set by Anthropic; use only accounts you hold yourself.")
                 }
                 Section("Rules") {
                     ForEach(store.config.filter { $0.key.hasPrefix("autoswitch.") }) { ConfigRow(entry: $0) }

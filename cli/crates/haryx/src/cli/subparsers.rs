@@ -144,8 +144,9 @@ struct RunArgs {
 #[command(
     name = "auto",
     bin_name = sub_bin("auto"),
-    about = "Automatically switch accounts when the active one nears its 5h/7d rate limit. Runs a \
-             foreground polling loop; use --once for a single tick (cron-friendly).",
+    about = "Move to another of your own accounts when the active one reaches your switch threshold \
+             (5h/7d usage). Runs a foreground polling loop; use --once for a single tick \
+             (cron-friendly). Plan limits are Anthropic's: use only your own accounts.",
     after_help = help::auto_epilog(),
     help_template = help::HELP_TEMPLATE,
     args_override_self = true,

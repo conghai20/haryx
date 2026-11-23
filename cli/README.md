@@ -26,14 +26,15 @@ for how you use your accounts. Don't use `haryx ai auto` to get more out of a pl
 
 ## Install
 
+Download `haryx-v<version>-<target>.tar.gz` from
+[GitHub Releases](https://github.com/conghai20/haryx/releases), or the macOS app's DMG, which bundles
+`haryx` and offers to put it on your PATH. To build it:
+
 ```sh
-brew install conghai20/tap/haryx     # macOS, Linux
-cargo install --locked haryx         # from source
-pipx install haryx                   # or: uv tool install haryx
-npm install --global haryx
+cargo install --locked --git https://github.com/conghai20/haryx haryx
 ```
 
-The HaryX menu bar app for macOS bundles the same binary.
+Homebrew, crates.io, PyPI and npm packages are coming.
 
 ## Use
 

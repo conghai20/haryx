@@ -11,13 +11,15 @@
 A unified control center for AI coding accounts, usage and sessions.
 
 HaryX helps one person who keeps several of their own Claude subscriptions manage them in one place:
-see each account's 5-hour and weekly usage, choose which account Claude Code is logged in as, and run
-Claude as a given account per folder or terminal. It ships as:
+see each account's 5-hour and weekly usage, choose which account Claude Code is logged in as, sign
+accounts in again, run Claude as a given account per folder or terminal, and carry your Claude Code
+setup (skills, hooks, MCP servers, plugins, history) from one machine to another. It ships as:
 
-- **`haryx`**, a command-line tool in Rust (`cli/`): a drop-in port of
-  [claude-swap](https://github.com/realiti4/claude-swap) (`cswap`) with the same commands, flags and
+- **`haryx`**, a command-line tool in Rust (`cli/`). Everything about AI coding accounts lives in the
+  `ai` section (`haryx ai list`). It started as a drop-in port of
+  [claude-swap](https://github.com/realiti4/claude-swap) (`cswap`) and keeps its commands, flags and
   `--json` output, plus an interactive dashboard (`haryx ai tui`).
-- **HaryX for macOS**, a native menu bar app (`apps/macos/`) that drives `haryx` (or `cswap`).
+- **HaryX for macOS**, a native menu bar app (`apps/macos/`) that drives `haryx` and bundles it.
 
 A server, a web dashboard and native mobile apps are on the [roadmap](docs/roadmap.md).
 
@@ -42,16 +44,56 @@ HaryX is an independent project. It is not made, endorsed or supported by Anthro
 
 ## Install
 
+**macOS app (includes the CLI).** Download `HaryX-<version>.dmg` from
+[GitHub Releases](https://github.com/conghai20/haryx/releases), drag HaryX to Applications and open it.
+On first launch it offers to install the `haryx` command in `/usr/local/bin` (asks for your
+password) or `~/.local/bin`; Preferences › Terminal command does the same later. The command is a
+link into the app, so updating the app updates the command.
+
+**CLI only.** Each release also has `haryx-v<version>-<target>.tar.gz` for macOS and Linux
+(Apple silicon, Intel, ARM64, x86_64). Or build it:
+
 ```sh
-brew install conghai20/tap/haryx     # macOS, Linux
-cargo install --locked haryx         # from source
-pipx install haryx                   # or: uv tool install haryx
-npm install --global haryx
+cargo install --locked --git https://github.com/conghai20/haryx haryx
 ```
 
-The macOS app's DMG bundles the same `haryx` and offers to put it on your PATH on first launch
-(Preferences › Terminal command later). Publishing is set up but not yet live; see
-[docs/release.md](docs/release.md). Until then, build from source (below).
+Homebrew (formula and cask), crates.io, PyPI (`pipx install haryx`) and npm (`npm i -g haryx`) are
+coming; see [docs/release.md](docs/release.md).
+
+> **Run one account switcher only.** Claude's refresh tokens rotate: if cswap and haryx (or two
+> machines) both hold the same login, one renewal signs the other out ("re-login needed"). Move your
+> accounts with `haryx ai import --from-cswap`, then stop using cswap.
+
+## Quick start
+
+```sh
+haryx ai add                  # store the current Claude Code login
+haryx ai login                # sign in another account (browser), the active login stays
+haryx ai list                 # every account with its 5-hour and weekly usage
+haryx ai switch 2             # make account 2 the Claude Code login (number, email or alias)
+haryx ai switch --strategy best   # the account with the most quota left
+haryx ai run 2 -- --resume    # run Claude as account 2 in this terminal only
+haryx ai map 2                # always run as account 2 in this folder
+haryx ai login 3              # fix "re-login needed" on account 3
+haryx ai auto                 # opt-in: move to another of your accounts at your threshold
+haryx ai tui                  # interactive dashboard (bare `haryx` in a terminal)
+haryx ai help                 # every command
+```
+
+### Move your Claude Code setup to another machine
+
+```sh
+haryx ai profile show                              # what ~/.claude holds, with problems flagged
+haryx ai profile export work.haryx-profile         # secrets redacted; --secrets encrypt to keep them
+haryx ai profile import work work.haryx-profile --dry-run   # on the other machine: what would change
+haryx ai profile import work work.haryx-profile --apply     # apply it (backup first)
+haryx ai profile rollback                          # undo the last apply
+```
+
+A profile carries settings, hooks, skills, agents, commands, rules, plugins, MCP servers, memory
+files, other `~/.claude` files and history (`--no-history` leaves it out). Logins, signed files, the
+whole `~/.claude.json` and caches are opt-in. Everything that can run code is listed for
+confirmation before it is applied. Details: [docs/ai-profile-plan.md](docs/ai-profile-plan.md).
 
 ## Repository
 
@@ -70,7 +112,7 @@ The macOS app's DMG bundles the same `haryx` and offers to put it on your PATH o
 ```sh
 cd cli
 cargo test --workspace      # tests
-cargo run -p haryx -- list  # run from source
+cargo run -p haryx -- ai list  # run from source
 cargo install --path crates/haryx   # → ~/.cargo/bin/haryx
 ```
 
@@ -80,8 +122,8 @@ See [cli/README.md](cli/README.md) for the commands. haryx keeps its own data fo
 
 ## macOS app
 
-Requirements: macOS 26+, Xcode 26+ toolchain, and `haryx` (or `cswap` ≥ 1.1) on one of the usual paths.
-The app uses `haryx` when it finds one and falls back to `cswap`.
+Requirements: macOS 26+. Building needs the Xcode 26+ toolchain. The app uses an installed `haryx`
+first, then the one bundled in the DMG build, and falls back to `cswap` ≥ 1.1.
 
 ```sh
 cd apps/macos
@@ -93,25 +135,32 @@ scripts/package-dmg.sh      # → apps/macos/build/HaryX-<version>.dmg with hary
 
 ### What it does
 - **Menu bar**: active account's mascot plus its 5-hour %. The mascot walks while a Claude session is using that account.
-  Click it to open a glass panel with all accounts, usage bars, Switch (best / next / next-available), Auto-switch, and
-  terminal quick actions.
+  Click it to open a glass panel with an **AI** section: all accounts, usage bars, Switch (best / next / next-available),
+  Auto-switch, Refresh, **+** to sign in a new account, and terminal quick actions.
+- **Sign in**: **Sign In Again** on accounts that need a re-login and **Sign In New Account**. Sign-in runs in the
+  background in its own window with the sign-in link (Open / Copy), a field for the code, and the outcome.
 - **Dashboard**: account cards plus an inspector with every CLI control: switch / force switch, alias,
   enable/disable, threshold, priority, move, swap, remove, run Claude as the account, live sessions, mascot species
   and colour. Also panes for auto-switch (live event log), folder mappings, every `config` key,
   export/import/import-usage, unclaimed credentials, upgrade and purge.
+- **Setup Profiles**: browse the live `~/.claude` and saved profiles with status badges (broken hook, plain secret,
+  missing secret), save snapshots, export with redacted or encrypted secrets, import a file, review the dry-run plan
+  and the code it installs, apply, delete, and undo the last apply.
+- **Terminal command**: installs the bundled `haryx` on your PATH (first launch, or Preferences).
 - **Mascot moods**: idle (breathe + blink) · running (walk) · tired (≥90% quota, sweat) · sleeping (disabled) · error (re-login needed).
 - **Terminals**: Terminal, iTerm2, Warp, Ghostty, kitty, WezTerm, Alacritty (installed ones are listed), plus shell choice.
-  "Run Claude as account N" uses `haryx run N` (session mode, that terminal only).
+  "Run Claude as account N" uses `haryx ai run N` (session mode, that terminal only).
 - **Notifications**: account switched, usage 80/95% or projected run-out, re-login / expiring login / expired plan,
   quota reset, Claude session finished (≥1 min), auto-switch quarantine / all exhausted / errors. Each can be toggled.
 
 ### How it works
 | | |
 |---|---|
-| Data | `haryx list --json`, polled (default 60 s), when the panel opens, and when `sequence.json` in the data folder changes |
+| Data | `haryx ai list --json`, polled (default 60 s), when the panel opens, and when `sequence.json` in the data folder changes |
 | Running sessions | native process scan (libproc + `KERN_PROCARGS2`): a `claude` process's `CLAUDE_CONFIG_DIR` gives its slot |
-| Auto-switch | `haryx auto --json` as a child process, only when you turn it on; stopped on quit |
-| Prompts | the app confirms first, then answers the CLI's y/N on stdin; tokens go via stdin (`add-token -`) |
+| Auto-switch | `haryx ai auto --json` as a child process, only when you turn it on; stopped on quit |
+| Prompts | the app confirms first, then answers the CLI's y/N on stdin; tokens go via stdin (`add-token -`), profile passphrases via the environment |
+| Profiles | `haryx ai profile … --json` (contracts in `packages/contracts/haryx/profile-*.json`) |
 
 ### Performance
 CPU is ~0.3% idle and ~4% while the menu bar mascot walks; that cost comes from AppKit re-snapshotting the status

@@ -11,7 +11,6 @@ struct MenuBarPanel: View {
                 header
                 aiSection
                 if let banner = store.banner { BannerView(banner: banner) }
-                footer
             }
             .padding(12)
         }
@@ -35,10 +34,15 @@ struct MenuBarPanel: View {
                 Label("Auto", systemImage: "arrow.triangle.2.circlepath")
                     .font(.caption2.weight(.semibold)).foregroundStyle(.green)
             }
-            Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") }
-                .buttonStyle(.borderless).help("Refresh")
-                .keyboardShortcut("r")
+            Group {
+                Button("Dashboard") { DashboardWindow.shared.show() }
+                    .keyboardShortcut("d")
+                Button("Quit") { NSApp.terminate(nil) }
+                    .keyboardShortcut("q")
+            }
+            .font(.caption)
         }
+        .buttonStyle(.borderless)
     }
 
     /// Everything about AI coding accounts (the `haryx ai` commands), under one heading whose "+"
@@ -46,6 +50,14 @@ struct MenuBarPanel: View {
     private var aiSection: some View {
         VStack(spacing: 8) {
             PanelSectionHeader(title: "AI", systemImage: "sparkles") {
+                if let t = store.lastRefresh {
+                    Text(t, format: .relative(presentation: .numeric)).font(.caption2).foregroundStyle(.tertiary)
+                }
+                Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") }
+                    .buttonStyle(.borderless)
+                    .help("Refresh")
+                    .keyboardShortcut("r")
+                    .accessibilityLabel("Refresh")
                 Button { store.signInNew() } label: { Image(systemName: "plus") }
                     .buttonStyle(.borderless)
                     .disabled(store.addLoginPending)
@@ -72,20 +84,6 @@ struct MenuBarPanel: View {
         .frame(maxHeight: min(CGFloat(max(store.accounts.count - 1, 0)) * 64, 360))
     }
 
-    private var footer: some View {
-        HStack {
-            Button("Dashboard") { DashboardWindow.shared.show() }
-            .keyboardShortcut("d")
-            Spacer()
-            if let t = store.lastRefresh {
-                Text(t, format: .relative(presentation: .numeric)).font(.caption2).foregroundStyle(.tertiary)
-            }
-            Spacer()
-            Button("Quit") { NSApp.terminate(nil) }.keyboardShortcut("q")
-        }
-        .buttonStyle(.borderless)
-        .font(.caption)
-    }
 }
 
 private struct HeroCard: View {

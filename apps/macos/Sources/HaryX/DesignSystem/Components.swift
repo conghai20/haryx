@@ -1,6 +1,25 @@
 import HaryXCore
 import SwiftUI
 
+extension View {
+    /// Spins the view's SF Symbols while `active`, finishing the current turn when it stops.
+    /// Reduce Motion swaps the spin for a gentle pulse.
+    func spinning(_ active: Bool) -> some View { modifier(SpinningSymbol(active: active)) }
+}
+
+private struct SpinningSymbol: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let active: Bool
+
+    func body(content: Content) -> some View {
+        if reduceMotion {
+            content.symbolEffect(.pulse, options: .repeat(.continuous), isActive: active)
+        } else {
+            content.symbolEffect(.rotate.clockwise, options: .repeat(.continuous), isActive: active)
+        }
+    }
+}
+
 extension Color {
     /// Green → amber → red as a quota fills.
     static func usage(_ pct: Double?) -> Color {

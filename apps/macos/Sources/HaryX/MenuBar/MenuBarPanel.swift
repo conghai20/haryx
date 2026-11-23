@@ -53,9 +53,12 @@ struct MenuBarPanel: View {
                 if let t = store.lastRefresh {
                     Text(t, format: .relative(presentation: .numeric)).font(.caption2).foregroundStyle(.tertiary)
                 }
-                Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") }
+                Button { Task { await store.refresh() } } label: {
+                    Image(systemName: "arrow.clockwise").spinning(store.isRefreshing)
+                }
                     .buttonStyle(.borderless)
-                    .help("Refresh")
+                    .disabled(store.isRefreshing)
+                    .help(store.isRefreshing ? "Refreshing…" : "Refresh")
                     .keyboardShortcut("r")
                     .accessibilityLabel("Refresh")
                 Button { store.signInNew() } label: { Image(systemName: "plus") }

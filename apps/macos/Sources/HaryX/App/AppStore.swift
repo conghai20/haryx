@@ -20,6 +20,8 @@ final class AppStore {
     private(set) var accounts: [Account] = []
     private(set) var lastRefresh: Date?
     private(set) var refreshError: String?
+    /// True while an accounts fetch runs; drives the spinning refresh icons.
+    private(set) var isRefreshing = false
     private(set) var config: [ConfigEntry] = []
     private(set) var configPath = ""
     private(set) var mappings: [DirectoryMapping] = []
@@ -159,7 +161,9 @@ final class AppStore {
         // The task clears itself *before* completing, so a woken waiter never sees a finished
         // task still installed (which would make it spin on an already-completed `value`).
         let task = Task {
+            self.isRefreshing = true
             await self.fetchAccounts()
+            self.isRefreshing = false
             self.refreshTask = nil
         }
         refreshTask = task

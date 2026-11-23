@@ -25,12 +25,15 @@ replaces a `haryx` installed another way. A future cask's `binary` stanza links 
 
 ## Steps
 
-1. Bump the version in `cli/Cargo.toml` (`[workspace.package]`) and `packaging/npm/package.json`
+1. Move the `## [Unreleased]` entries of `CHANGELOG.md` under `## [<version>] - <date>` (Breaking
+   changes first) and add its compare link. The release notes are that section
+   (`scripts/release/notes.sh <version>`); the release fails without it.
+2. Bump the version in `cli/Cargo.toml` (`[workspace.package]`) and `packaging/npm/package.json`
    (CI refuses a mismatch); bump `VERSION` in `apps/macos/scripts/build.sh` for an app release.
-2. `git tag v<version> && git push origin v<version>`.
-3. Wait for `Release`; review the draft release and its assets.
-4. Publish the draft. `Publish` then runs the registries that are switched on.
-5. Copy `haryx.rb` from the release into the tap repo (`conghai20/homebrew-tap`, `Formula/haryx.rb`).
+3. `git tag v<version> && git push origin v<version>`.
+4. Wait for `Release`; review the draft release and its assets.
+5. Publish the draft. `Publish` then runs the registries that are switched on.
+6. Copy `haryx.rb` from the release into the tap repo (`conghai20/homebrew-tap`, `Formula/haryx.rb`).
 
 ## One-time setup
 

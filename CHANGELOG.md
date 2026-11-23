@@ -4,7 +4,19 @@ All notable changes to HaryX (the `haryx` CLI and the macOS app) are recorded he
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+Each version's section becomes its GitHub release notes (`scripts/release/notes.sh`), so a tag
+cannot be released without one. Sections, in this order, only when they have entries:
+**Breaking changes** (what you must change, and how), **Added**, **Changed**, **Deprecated**,
+**Removed**, **Fixed**, **Security**.
+
 ## [Unreleased]
+
+### Fixed
+
+- macOS app: the menu bar panel closes when you click another app, switch apps (⌘-Tab, Dock) or
+  bring the dashboard forward, like system menu bar panels.
+- macOS app: the whole account card is clickable, including its edges and empty space.
+- macOS app: account cards keep one height when an account needs a re-login.
 
 ## [0.1.1] - 2026-11-23
 

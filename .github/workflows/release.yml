@@ -118,6 +118,8 @@ jobs:
           [[ "${GITHUB_REF_NAME}" == "v$VERSION" ]] || { echo "tag $GITHUB_REF_NAME != v$VERSION"; exit 1; }
           NPM=$(node -p 'require("./packaging/npm/package.json").version')
           [[ "$NPM" == "$VERSION" ]] || { echo "packaging/npm version $NPM != $VERSION"; exit 1; }
+      - name: Release notes from CHANGELOG.md
+        run: scripts/release/notes.sh "$GITHUB_REF_NAME" > release-notes.md
       - uses: actions/download-artifact@v5
         with:
           path: dist
@@ -127,5 +129,5 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --title "HaryX $GITHUB_REF_NAME" --generate-notes --draft
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "HaryX $GITHUB_REF_NAME" --notes-file release-notes.md --draft
 

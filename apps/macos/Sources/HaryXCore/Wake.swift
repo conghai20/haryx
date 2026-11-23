@@ -29,6 +29,16 @@ public struct WakeAccount: Decodable, Sendable, Hashable {
         self.number = number; self.on = on; self.lastWakeAt = lastWakeAt; self.nextDue = nextDue; self.lastResult = lastResult
     }
 
+    /// Seconds the CLI adds after a window's reset before it counts the account as due.
+    static let dueGraceSeconds: TimeInterval = 5
+
+    /// When the 5-hour window the last check knows about resets, if still ahead. The usage
+    /// endpoint can report a window a wake just started as 0% with no reset time; this fills in.
+    public func windowReset(now: Date = Date()) -> Date? {
+        guard on, let next = nextDue, next > now else { return nil }
+        return next.addingTimeInterval(-Self.dueGraceSeconds)
+    }
+
     /// A short line for the UI: "wakes 14:05", "woke 09:00", "skipped: weekly cap".
     public func summary(now: Date = Date()) -> String? {
         guard on else { return nil }

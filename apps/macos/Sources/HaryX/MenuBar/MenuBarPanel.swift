@@ -287,7 +287,7 @@ struct AccountRow: View {
         if account.usage != nil {
             pct(account.usage?.fiveHour)
             pct(account.usage?.sevenDay)
-            Text(account.usage?.fiveHour?.clock ?? (account.usage?.fiveHour?.pct == 0 ? "not started" : "—"))
+            Text(resetText)
                 .foregroundStyle(.secondary)
                 .gridColumnAlignment(.trailing)
         } else {
@@ -296,6 +296,17 @@ struct AccountRow: View {
                 .lineLimit(1)
                 .gridCellColumns(3)
         }
+    }
+
+    /// The 5-hour reset clock; a window a wake started can read 0% with no reset, so the wake's
+    /// own reset fills in before falling back to "not started".
+    private var resetText: String {
+        let five = account.usage?.fiveHour
+        if let clock = five?.clock { return clock }
+        if let reset = store.wake?.account(account.number)?.windowReset() {
+            return reset.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
+        }
+        return five?.pct == 0 ? "not started" : "—"
     }
 
     private func pct(_ w: UsageWindow?) -> some View {

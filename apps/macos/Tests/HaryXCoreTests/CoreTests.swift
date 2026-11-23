@@ -234,3 +234,13 @@ func profileFixture<T: Decodable>(_ type: T.Type, _ name: String) throws -> T {
     let due = WakeAccount(number: 1, on: true, lastWakeAt: nil, nextDue: Date(timeIntervalSince1970: 5_000), lastResult: "not-due")
     #expect(due.summary(now: now)?.hasPrefix("wakes ") == true)
 }
+
+@Test func wakeWindowResetIsNextDueLessGraceWhileAhead() {
+    let now = Date(timeIntervalSince1970: 1_000)
+    let next = Date(timeIntervalSince1970: 5_005)
+    let woken = WakeAccount(number: 4, on: true, lastWakeAt: now, nextDue: next, lastResult: "woke")
+    #expect(woken.windowReset(now: now) == Date(timeIntervalSince1970: 5_000))
+    #expect(woken.windowReset(now: Date(timeIntervalSince1970: 6_000)) == nil)
+    let off = WakeAccount(number: 4, on: false, lastWakeAt: now, nextDue: next, lastResult: "woke")
+    #expect(off.windowReset(now: now) == nil)
+}

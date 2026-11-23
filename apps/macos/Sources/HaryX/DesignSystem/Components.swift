@@ -150,7 +150,7 @@ struct SignInAgainButton: View {
                 ProgressView().controlSize(.mini)
                 Text("Waiting for sign-in…").font(.caption).foregroundStyle(.secondary)
             }
-            .help("Finish the sign-in in your browser and terminal")
+            .help("Finish the sign-in in its window and your browser")
         } else if prominent {
             Button("Sign In Again") { store.signInAgain(account) }
                 .buttonStyle(.glassProminent).tint(.orange)

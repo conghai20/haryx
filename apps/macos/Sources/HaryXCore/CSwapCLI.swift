@@ -99,11 +99,11 @@ public struct CSwapCLI: Sendable {
 
     /// Runs the CLI to completion. `stdin` answers y/N prompts or carries a token; when nil,
     /// stdin is /dev/null so a prompt can never hang the app.
-    public func run(_ args: [String], stdin: String? = nil) async throws -> CLIResult {
+    public func run(_ args: [String], stdin: String? = nil, env extra: [String: String] = [:]) async throws -> CLIResult {
         let process = Process()
         process.executableURL = executable
         process.arguments = args
-        process.environment = Self.environment
+        process.environment = Self.environment.merging(extra) { _, new in new }
         let out = Pipe(), err = Pipe()
         process.standardOutput = out
         process.standardError = err
@@ -142,18 +142,19 @@ public struct CSwapCLI: Sendable {
 
     /// Runs and throws on non-zero exit, with the CLI's own error line as the message.
     @discardableResult
-    public func checked(_ args: [String], stdin: String? = nil) async throws -> String {
-        let result = try await run(args, stdin: stdin)
+    public func checked(_ args: [String], stdin: String? = nil, env: [String: String] = [:]) async throws -> String {
+        let result = try await run(args, stdin: stdin, env: env)
         guard result.status == 0 else {
             throw CLIError.failed(command: args.joined(separator: " "), message: Self.errorMessage(result))
         }
         return result.text
     }
 
-    public func json<T: Decodable>(_ type: T.Type, _ args: [String]) async throws -> T {
-        let result = try await run(args)
+    public func json<T: Decodable>(_ type: T.Type, _ args: [String], decoder: JSONDecoder = CSwapJSON.decoder,
+                                   env: [String: String] = [:]) async throws -> T {
+        let result = try await run(args, env: env)
         do {
-            return try CSwapJSON.decoder.decode(T.self, from: result.stdout)
+            return try decoder.decode(T.self, from: result.stdout)
         } catch {
             if result.status != 0 { throw CLIError.failed(command: args.joined(separator: " "), message: Self.errorMessage(result)) }
             throw CLIError.decode(command: args.joined(separator: " "), message: String(describing: error))

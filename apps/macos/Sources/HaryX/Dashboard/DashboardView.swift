@@ -18,12 +18,12 @@ enum DashboardGroup: String, CaseIterable, Identifiable {
 }
 
 enum DashboardSection: String, CaseIterable, Identifiable {
-    case accounts, autoSwitch, mappings, config, maintenance, preferences
+    case accounts, autoSwitch, mappings, profiles, config, maintenance, preferences
     var id: String { rawValue }
 
     var group: DashboardGroup {
         switch self {
-        case .accounts, .autoSwitch, .mappings, .config, .maintenance: .ai
+        case .accounts, .autoSwitch, .mappings, .profiles, .config, .maintenance: .ai
         case .preferences: .app
         }
     }
@@ -33,6 +33,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         case .accounts: "Accounts"
         case .autoSwitch: "Auto-Switch"
         case .mappings: "Folder Mappings"
+        case .profiles: "Setup Profiles"
         case .config: "CLI Settings"
         case .maintenance: "Backup & Maintenance"
         case .preferences: "App Preferences"
@@ -44,6 +45,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         case .accounts: "person.2.fill"
         case .autoSwitch: "arrow.triangle.2.circlepath"
         case .mappings: "folder.badge.person.crop"
+        case .profiles: "shippingbox"
         case .config: "slider.horizontal.3"
         case .maintenance: "externaldrive.badge.timemachine"
         case .preferences: "gearshape"
@@ -92,6 +94,7 @@ struct DashboardView: View {
                 case .accounts: AccountsPane()
                 case .autoSwitch: AutoSwitchPane()
                 case .mappings: MappingsPane()
+                case .profiles: ProfilesPane()
                 case .config: ConfigPane()
                 case .maintenance: MaintenancePane()
                 case .preferences: PreferencesPane()

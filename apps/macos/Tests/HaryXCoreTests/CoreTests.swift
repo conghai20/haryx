@@ -169,3 +169,47 @@ func spritesAreWellFormed(_ species: Species) {
     #expect(list.accounts[1].active)
     #expect(list.accounts[0].usageError == "network")
 }
+
+// MARK: - profiles
+
+func profileFixture<T: Decodable>(_ type: T.Type, _ name: String) throws -> T {
+    let url = contractsDir.deletingLastPathComponent().appendingPathComponent("haryx/\(name)")
+    return try ProfileJSON.decoder.decode(T.self, from: Data(contentsOf: url))
+}
+
+@Test func decodesProfileContracts() throws {
+    let list = try profileFixture(ProfileList.self, "profile-list.json")
+    #expect(list.profiles.first?.name == "work")
+    #expect(list.profiles.first?.secrets == "local")
+    let show = try profileFixture(ProfileInventory.self, "profile-show.json")
+    #expect(show.profile == "default")
+    #expect(show.items.contains { $0.id == "skills/review" })
+    #expect(show.grouped.first?.category == "settings")
+    let plan = try profileFixture(ProfilePlan.self, "profile-plan.json")
+    #expect(plan.changes.contains { $0.id == "skills/review" && $0.action == "update" })
+    #expect(plan.unchangedCount == plan.entries.count - plan.changes.count)
+}
+
+@Test func profileArgumentsFollowOptions() {
+    var o = ProfileExportOptions()
+    #expect(ProfileArgs.export("default", to: "/tmp/f", o)
+        == ["ai", "profile", "export", "default", "/tmp/f", "--secrets", "redact", "--plugins", "ref"])
+    o.includeHistory = false
+    o.credentials = true
+    #expect(!o.isValid, "credentials need encryption")
+    o.encrypt = true
+    o.includeDirs = ["/x"]
+    #expect(o.isValid)
+    #expect(ProfileArgs.export("w", to: "f", o)
+        == ["ai", "profile", "export", "w", "f", "--no-history", "--credentials", "--include-dir", "/x",
+            "--secrets", "encrypt", "--plugins", "ref"])
+    #expect(ProfileArgs.apply("w", prune: true, includeHistory: true) == ["ai", "profile", "apply", "w", "--yes", "--prune"])
+}
+
+@Test func validatesProfileNames() {
+    #expect(ProfileArgs.isValidName("work-2"))
+    #expect(!ProfileArgs.isValidName("default"))
+    #expect(!ProfileArgs.isValidName(".hidden"))
+    #expect(!ProfileArgs.isValidName("a/b"))
+    #expect(!ProfileArgs.isValidName("bé"))
+}

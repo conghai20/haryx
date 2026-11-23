@@ -1,6 +1,6 @@
 # Plan: `haryx ai profile` — move a Claude Code setup between machines
 
-Status: CLI built (phases 1-4) on `feat/ai-profile`; macOS app section in progress.
+Status: built on `feat/ai-profile` (CLI phases 1-4 and the macOS Setup Profiles section).
 
 ## Problem
 

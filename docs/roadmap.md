@@ -5,6 +5,10 @@ Rebuild every claude-swap command in Rust (`cli/`, plan in `haryx-cli-plan.md`),
 prompts and `--json` shapes, verified against `packages/contracts/`. Port from `upstream/claude-swap/`
 (MIT, pinned in `upstream/README.md`). Then switch the macOS app to call `haryx`, falling back to `cswap`.
 
+## Setup profiles
+`haryx ai profile`: list, save, export, import and apply a Claude Code setup (skills, hooks, MCPs, plugins)
+across machines through one file. Plan: [ai-profile-plan.md](ai-profile-plan.md).
+
 ## Distribution
 Homebrew (formula + cask), crates.io, Developer ID signed and notarized DMG on GitHub releases, and pip/npm wrapper
 packages for the CLI on macOS, Linux and Windows.

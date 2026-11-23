@@ -21,7 +21,7 @@ pub const HISTORY_REDACTION: &str = "[REDACTED:haryx]";
 fn patterns() -> &'static [(Regex, &'static str, usize)] {
     static PATTERNS: OnceLock<Vec<(Regex, &'static str, usize)>> = OnceLock::new();
     PATTERNS.get_or_init(|| {
-        let table: [(&str, &str, usize); 8] = [
+        let table: [(&str, &str, usize); 11] = [
             (r"sk-ant-[A-Za-z0-9_\-]{20,}", "ANTHROPIC_KEY", 0),
             (r"sk-(?:proj-)?[A-Za-z0-9_\-]{32,}", "OPENAI_KEY", 0),
             (r"github_pat_[A-Za-z0-9_]{40,}", "GITHUB_TOKEN", 0),
@@ -32,6 +32,21 @@ fn patterns() -> &'static [(Regex, &'static str, usize)] {
             (
                 r"(?i)bearer\s+([A-Za-z0-9._~+/=\-]{20,})",
                 "BEARER_TOKEN",
+                1,
+            ),
+            (
+                r##"[A-Za-z][A-Za-z0-9+.\-]*://[^\s/:@'"]+:([^\s@/'"]+)@"##,
+                "URL_PASSWORD",
+                1,
+            ),
+            (
+                r##"(?i)[?&](?:api[_-]?key|access[_-]?token|auth[_-]?token|token|secret|password|passwd|sig|signature|key)=([^&\s'"#]+)"##,
+                "URL_TOKEN",
+                1,
+            ),
+            (
+                r##"(?i)--(?:token|password|passwd|api[-_]?key|secret|auth[-_]?token|access[-_]?token)(?:=|\s+)([^\s'"]+)"##,
+                "ARG_SECRET",
                 1,
             ),
         ];
@@ -48,6 +63,17 @@ fn secret_key() -> &'static Regex {
     KEY.get_or_init(|| {
         Regex::new(
             r"(?i)(token|secret|passw(or)?d|api[_-]?key|access[_-]?key|private[_-]?key|credential|^auth(orization)?$|^x-api-key$)",
+        )
+        .expect("static pattern")
+    })
+}
+
+/// A command-line flag whose next argument is a secret.
+fn secret_flag() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        Regex::new(
+            r"(?i)^--?(token|password|passwd|api[-_]?key|secret|auth[-_]?token|access[-_]?token)$",
         )
         .expect("static pattern")
     })
@@ -167,6 +193,9 @@ impl SecretBook {
             let mut last = 0;
             for cap in re.captures_iter(&current) {
                 let Some(m) = cap.get(*group) else { continue };
+                if m.as_str().starts_with("${") {
+                    continue;
+                }
                 replaced.push_str(&current[last..m.start()]);
                 let name = self.name_for(m.as_str(), hint);
                 replaced.push_str(&placeholder(&name));
@@ -206,12 +235,22 @@ impl SecretBook {
                     .collect();
                 Value::Object(out)
             }
-            Value::Array(items) => Value::Array(
-                items
-                    .iter()
-                    .map(|v| self.redact_json_in(v, parent_key))
-                    .collect(),
-            ),
+            Value::Array(items) => {
+                // `["--token", "value"]`: the value after a secret flag is a secret.
+                let mut out = Vec::with_capacity(items.len());
+                let mut after_flag = false;
+                for v in items {
+                    let redacted = match v {
+                        Value::String(s) if after_flag && is_literal_secret(s) => {
+                            Value::String(placeholder(&self.name_for(s, "ARG_SECRET")))
+                        }
+                        other => self.redact_json_in(other, parent_key),
+                    };
+                    after_flag = v.as_str().is_some_and(|s| secret_flag().is_match(s));
+                    out.push(redacted);
+                }
+                Value::Array(out)
+            }
             Value::String(s) => Value::String(self.redact_text(s).into_owned()),
             other => other.clone(),
         }
@@ -300,6 +339,21 @@ mod tests {
         assert_eq!(out["github"]["env"]["NODE_ENV"], "production");
         assert_eq!(out["github"]["env"]["API_KEY"], "${FROM_ENV}");
         assert_eq!(book.values()["GITHUB_TOKEN"], "plain-value");
+    }
+
+    #[test]
+    fn redacts_url_passwords_query_tokens_and_flag_values() {
+        let mut book = SecretBook::default();
+        let out = book
+            .redact_text("postgres://me:hunter2@db/x https://x/api?key=abc123&y=1 --token=t0k3n");
+        assert_eq!(
+            out,
+            "postgres://me:${HARYX_SECRET_URL_PASSWORD}@db/x https://x/api?key=${HARYX_SECRET_URL_TOKEN}&y=1 --token=${HARYX_SECRET_ARG_SECRET}"
+        );
+        let args = json!({"args": ["--password", "pw1", "--verbose", "x"]});
+        let out = book.redact_json(&args);
+        assert_eq!(out["args"][1], "${HARYX_SECRET_ARG_SECRET_2}");
+        assert_eq!(out["args"][3], "x");
     }
 
     #[test]

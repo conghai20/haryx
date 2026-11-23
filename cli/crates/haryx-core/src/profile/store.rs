@@ -173,8 +173,20 @@ impl ProfileStore {
             }
         };
         let dir = self.dir(name);
-        walk::remove_any(&dir)?;
-        std::fs::rename(&tmp, &dir)?;
+        let old = self
+            .root
+            .join(format!(".old-{name}-{}", std::process::id()));
+        walk::remove_any(&old)?;
+        if dir.exists() {
+            std::fs::rename(&dir, &old)?;
+        }
+        if let Err(e) = std::fs::rename(&tmp, &dir) {
+            if old.exists() {
+                let _ = std::fs::rename(&old, &dir);
+            }
+            return Err(e.into());
+        }
+        walk::remove_any(&old)?;
         Ok(manifest)
     }
 

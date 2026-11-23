@@ -17,6 +17,10 @@ use crate::error::{Error, Result};
 
 /// Largest manifest read before anything else.
 const MAX_MANIFEST_BYTES: u64 = 64 * 1024 * 1024;
+/// Hard limits that hold whatever the manifest claims (decompression bombs).
+const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+const MAX_TOTAL_BYTES: u64 = 16 * 1024 * 1024 * 1024;
+const MAX_ENTRIES: usize = 1_000_000;
 
 /// Pack a profile directory into `out` (written to a temp file beside it, then renamed).
 pub fn write(profile_dir: &Path, manifest: &Manifest, out: &Path) -> Result<()> {
@@ -35,10 +39,10 @@ pub fn write(profile_dir: &Path, manifest: &Manifest, out: &Path) -> Result<()> 
 }
 
 fn write_to(profile_dir: &Path, manifest: &Manifest, tmp: &Path) -> Result<()> {
+    walk::remove_any(tmp)?;
     let file = std::fs::OpenOptions::new()
         .write(true)
-        .create(true)
-        .truncate(true)
+        .create_new(true)
         .open(tmp)?;
     #[cfg(unix)]
     {
@@ -151,9 +155,19 @@ fn extract_into(file: &Path, staging: &Path) -> Result<Manifest> {
     let mut archive = open(file)?;
     let mut entries = archive.entries()?;
     let manifest = first_manifest(&mut entries)?;
+    if manifest.total_bytes > MAX_TOTAL_BYTES || manifest.files.len() > MAX_ENTRIES {
+        return Err(Error::Validation(
+            "Profile is larger than haryx accepts".into(),
+        ));
+    }
     let mut seen = std::collections::BTreeSet::new();
     let mut total: u64 = 0;
+    let mut count: usize = 0;
     for entry in entries {
+        count += 1;
+        if count > MAX_ENTRIES {
+            return Err(Error::Validation("Profile has too many entries".into()));
+        }
         let mut entry = entry.map_err(|e| Error::Validation(format!("Damaged profile: {e}")))?;
         let rel = entry.path()?.to_string_lossy().into_owned();
         check_rel(&rel)?;
@@ -170,21 +184,19 @@ fn extract_into(file: &Path, staging: &Path) -> Result<Manifest> {
             Error::Validation(format!("Profile entry {rel} is not in its manifest"))
         })?;
         total = total.saturating_add(record.size);
-        if total > manifest.total_bytes {
+        if total > manifest.total_bytes || record.size > MAX_FILE_BYTES {
             return Err(Error::Validation(
                 "Profile is larger than its manifest declares".into(),
             ));
         }
-        let mut data = Vec::new();
-        (&mut entry).take(record.size + 1).read_to_end(&mut data)?;
-        if data.len() as u64 != record.size || walk::sha256_hex(&data) != record.sha256 {
+        let path = staging.join(&rel);
+        walk::ensure_parent(&path)?;
+        let (written, hash) = stream_to_file(&mut entry, record.size + 1, &path)?;
+        if written != record.size || hash != record.sha256 {
             return Err(Error::Validation(format!(
                 "Profile entry {rel} does not match its manifest"
             )));
         }
-        let path = staging.join(&rel);
-        walk::ensure_parent(&path)?;
-        std::fs::write(&path, &data)?;
         let mode = entry.header().mode().unwrap_or(0o600) & 0o700;
         #[cfg(unix)]
         {
@@ -202,6 +214,34 @@ fn extract_into(file: &Path, staging: &Path) -> Result<Manifest> {
     }
     manifest.save(staging)?;
     Ok(manifest)
+}
+
+/// Copy at most `limit` bytes to a new file while hashing them: (bytes written, sha256 hex).
+fn stream_to_file(reader: &mut dyn Read, limit: u64, path: &Path) -> Result<(u64, String)> {
+    use sha2::{Digest, Sha256};
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)?;
+    let mut hasher = Sha256::new();
+    let mut limited = reader.take(limit);
+    let mut buf = vec![0u8; 64 * 1024];
+    let mut written: u64 = 0;
+    loop {
+        let n = limited.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+        file.write_all(&buf[..n])?;
+        written += n as u64;
+    }
+    let hash = hasher
+        .finalize()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    Ok((written, hash))
 }
 
 /// A relative path of normal components only (no `/`, `..`, drive or root).

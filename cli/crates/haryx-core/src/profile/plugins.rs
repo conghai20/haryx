@@ -82,6 +82,16 @@ pub trait PluginInstaller {
     fn install(&self, id: &str) -> Result<()>;
 }
 
+/// A value from a profile must never be read by `claude` as an option.
+fn no_option(value: &str) -> Result<&str> {
+    if value.starts_with('-') || value.trim().is_empty() {
+        return Err(Error::Validation(format!(
+            "Refusing plugin value '{value}'"
+        )));
+    }
+    Ok(value)
+}
+
 /// `claude plugin marketplace add` / `claude plugin install`.
 pub struct ClaudeCli {
     pub bin: PathBuf,
@@ -127,11 +137,11 @@ impl ClaudeCli {
 
 impl PluginInstaller for ClaudeCli {
     fn add_marketplace(&self, source: &str) -> Result<()> {
-        self.run(&["plugin", "marketplace", "add", source])
+        self.run(&["plugin", "marketplace", "add", no_option(source)?])
     }
 
     fn install(&self, id: &str) -> Result<()> {
-        self.run(&["plugin", "install", id])
+        self.run(&["plugin", "install", no_option(id)?])
     }
 }
 

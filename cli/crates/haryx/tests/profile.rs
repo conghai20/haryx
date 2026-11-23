@@ -502,3 +502,91 @@ fn no_history_leaves_conversations_out() {
     assert!(!b.claude().join("history.jsonl").exists());
     assert!(!b.claude().join("projects").exists());
 }
+
+#[test]
+fn settings_that_run_commands_need_confirmation() {
+    let a = Machine::new();
+    a.write(
+        "settings.json",
+        &json!({"apiKeyHelper": "/tmp/steal.sh", "theme": "dark"}).to_string(),
+    );
+    let file = export_file(&a);
+    a.ok(&["export", file.to_str().unwrap(), "--no-history"]);
+    let b = Machine::new();
+    b.ok(&["import", "work", file.to_str().unwrap()]);
+    let plan: Value =
+        serde_json::from_str(&b.ok(&["apply", "work", "--dry-run", "--json"]).out).unwrap();
+    let runs: Vec<&str> = plan["runs_code"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert!(
+        runs.iter().any(|l| l.starts_with("setting apiKeyHelper")),
+        "{runs:?}"
+    );
+    assert!(
+        !runs.iter().any(|l| l.contains("theme")),
+        "inert keys are not listed"
+    );
+    let refused = b.run_env(&["apply", "work"], &[]);
+    assert_eq!(refused.code, 1);
+    assert!(!b.claude().join("settings.json").exists());
+}
+
+#[test]
+fn included_folder_outside_allowed_places_is_never_written() {
+    let a = Machine::new();
+    a.seed();
+    let extra = a.home().join("notes");
+    std::fs::create_dir_all(&extra).unwrap();
+    std::fs::write(extra.join("authorized_keys"), "attacker-key\n").unwrap();
+    a.ok(&["save", "work", "--include-dir", extra.to_str().unwrap()]);
+    // Tamper with the saved profile: point the folder at ~/.ssh.
+    let manifest_path = a.home().join("store/profiles/work/manifest.json");
+    let mut manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap()).unwrap();
+    manifest["include_dirs"][0]["origin"] = json!("{{HARYX_HOME}}/.ssh");
+    std::fs::write(&manifest_path, manifest.to_string()).unwrap();
+
+    let run = a.ok(&["apply", "work", "--yes"]);
+    assert!(
+        run.err.contains("never written") || run.out.contains("never written"),
+        "{}{}",
+        run.out,
+        run.err
+    );
+    assert!(!a.home().join(".ssh").exists());
+}
+
+#[test]
+fn archive_listing_plain_secrets_is_rejected() {
+    let a = Machine::new();
+    a.seed();
+    a.ok(&["save", "work"]);
+    // A hand-made archive whose manifest carries secrets.json.
+    let dir = a.home().join("store/profiles/work");
+    let mut manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("manifest.json")).unwrap()).unwrap();
+    manifest["files"]["secrets.json"] = json!({"sha256": "0", "size": 1});
+    let tar_dir = a.home().join("evil");
+    std::fs::create_dir_all(&tar_dir).unwrap();
+    std::fs::write(tar_dir.join("manifest.json"), manifest.to_string()).unwrap();
+    let file = a.home().join("evil.haryx-profile");
+    let status = Command::new("tar")
+        .env("COPYFILE_DISABLE", "1")
+        .args([
+            "-czf",
+            file.to_str().unwrap(),
+            "-C",
+            tar_dir.to_str().unwrap(),
+            "manifest.json",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let run = a.run_env(&["import", "evil", file.to_str().unwrap()], &[]);
+    assert_eq!(run.code, 1);
+    assert!(run.err.contains("may not carry"), "{}", run.err);
+}

@@ -150,7 +150,89 @@ impl<'a> Ctx<'a> {
     pub fn extra_live_path(&self, origin: &str) -> PathBuf {
         PathBuf::from(tokens::expand_text(origin, &self.home).into_owned())
     }
+
+    /// An included folder is restored only inside the home, outside `~/.claude`, and away from
+    /// credential and auto-start folders; its stored copy must be `files/extra/<n>`.
+    pub fn check_extra(&self, origin: &str, stored: &str) -> std::result::Result<PathBuf, String> {
+        let index = stored.strip_prefix("files/extra/").unwrap_or("");
+        if index.is_empty() || !index.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(format!(
+                "included folder has a bad location in the profile: {stored}"
+            ));
+        }
+        let path = self.extra_live_path(origin);
+        let home = PathBuf::from(&self.home);
+        let normal = path.components().all(|c| {
+            matches!(
+                c,
+                std::path::Component::Normal(_) | std::path::Component::RootDir
+            )
+        });
+        let rest = path
+            .strip_prefix(&home)
+            .ok()
+            .filter(|r| !r.as_os_str().is_empty());
+        let Some(rest) = rest.filter(|_| normal && path.is_absolute()) else {
+            return Err(format!(
+                "included folder {} is outside your home folder",
+                path.display()
+            ));
+        };
+        let claude = &self.env.claude_home;
+        if path.starts_with(claude) || claude.starts_with(&path) {
+            return Err(format!(
+                "included folder {} overlaps ~/.claude",
+                path.display()
+            ));
+        }
+        let text = rest.to_string_lossy();
+        if let Some(denied) = DENIED_EXTRA_DIRS
+            .iter()
+            .find(|d| text == **d || text.starts_with(&format!("{d}/")))
+        {
+            return Err(format!(
+                "included folder ~/{denied} is never written by a profile"
+            ));
+        }
+        Ok(path)
+    }
 }
+
+/// Home folders an included folder may never target: credentials, keys, auto-start and executables.
+const DENIED_EXTRA_DIRS: &[&str] = &[
+    ".ssh",
+    ".gnupg",
+    ".aws",
+    ".azure",
+    ".kube",
+    ".docker",
+    ".config/gcloud",
+    ".config/gh",
+    ".local/bin",
+    "bin",
+    "Library/LaunchAgents",
+    "Library/LaunchDaemons",
+    "Library/Keychains",
+];
+
+/// Settings keys that change nothing about what runs or where data goes. Every other key is listed in
+/// the confirmation (`apiKeyHelper`, `statusLine`, `env`, `permissions`, `enabledPlugins`, ...).
+const INERT_SETTINGS: &[&str] = &[
+    "model",
+    "theme",
+    "effortLevel",
+    "description",
+    "outputStyle",
+    "language",
+    "cleanupPeriodDays",
+    "includeCoAuthoredBy",
+    "spinnerTipsEnabled",
+    "verbose",
+    "alwaysThinkingEnabled",
+    "skipWorkflowUsageWarning",
+    "agentPushNotifEnabled",
+    "preferredNotifChannel",
+];
 
 /// The items a stored profile carries, restricted to `selection`.
 pub fn profile_items(ctx: &Ctx<'_>, selection: &Selection) -> Result<Vec<Item>> {
@@ -158,6 +240,11 @@ pub fn profile_items(ctx: &Ctx<'_>, selection: &Selection) -> Result<Vec<Item>> 
     let root = ctx.dir.join(super::manifest::FILES_DIR).join("claude");
     let mut out = items::path_items(&root, selection, &ctx.home, bundle)?;
     for doc in JsonDoc::ALL {
+        // Plugin registries only travel with bundled plugin files; a reference profile never writes them.
+        let plugin_doc = matches!(doc, JsonDoc::InstalledPlugins | JsonDoc::KnownMarketplaces);
+        if plugin_doc && !bundle {
+            continue;
+        }
         if let Some(value) = ctx.stored_json(doc)? {
             out.extend(items::json_items(doc, &value, selection));
         }
@@ -165,14 +252,22 @@ pub fn profile_items(ctx: &Ctx<'_>, selection: &Selection) -> Result<Vec<Item>> 
     if !bundle {
         out.extend(items::plugin_items(&ctx.manifest.plugins, selection));
     }
-    out.extend(ctx.manifest.include_dirs.iter().map(|d| Item {
-        category: Category::Other,
-        id: format!("extra:{}", d.origin),
-        target: Target::Extra {
-            origin: d.origin.clone(),
-            stored: d.path.clone(),
-        },
-    }));
+    if selection.has(Category::Other) {
+        out.extend(
+            ctx.manifest
+                .include_dirs
+                .iter()
+                .filter(|d| ctx.check_extra(&d.origin, &d.path).is_ok())
+                .map(|d| Item {
+                    category: Category::Other,
+                    id: format!("extra:{}", d.origin),
+                    target: Target::Extra {
+                        origin: d.origin.clone(),
+                        stored: d.path.clone(),
+                    },
+                }),
+        );
+    }
     if ctx.manifest.has_credentials && selection.has(Category::Credentials) {
         out.push(Item {
             category: Category::Credentials,
@@ -199,6 +294,14 @@ pub fn build(ctx: &Ctx<'_>, req: &ApplyRequest) -> Result<Plan> {
         }
         plan.entries.push(entry);
     }
+    plan.runs_code.extend(content_summary(&plan.entries));
+    plan.warnings.extend(
+        ctx.manifest
+            .include_dirs
+            .iter()
+            .filter_map(|d| ctx.check_extra(&d.origin, &d.path).err())
+            .map(|e| format!("Skipped: {e}")),
+    );
     if req.prune {
         plan.entries.extend(prune_entries(ctx, &selection, &items)?);
     }
@@ -456,11 +559,78 @@ fn code_notes(ctx: &Ctx<'_>, entry: &Entry) -> Result<Vec<String>> {
             "script: {}",
             items::live_path(ctx.env, rel).display()
         )]),
-        Target::Plugin(p) => Ok(vec![format!("plugin: {}", p.id)]),
+        Target::Json { doc, key } if matches!(doc, JsonDoc::Settings | JsonDoc::SettingsLocal) => {
+            if INERT_SETTINGS.contains(&key.as_str()) {
+                return Ok(Vec::new());
+            }
+            let value = incoming_json(ctx, *doc, key)?
+                .map(|(v, _)| v)
+                .unwrap_or(Value::Null);
+            Ok(vec![format!(
+                "setting {key}: {}",
+                short(&value.to_string())
+            )])
+        }
+        Target::Json {
+            doc: JsonDoc::InstalledPlugins | JsonDoc::KnownMarketplaces,
+            key,
+        } => Ok(vec![format!("plugin registry entry: {key}")]),
+        Target::Json {
+            doc: JsonDoc::ClaudeJson,
+            key,
+        } => Ok(vec![format!("~/.claude.json key: {key}")]),
+        Target::Plugin(p) => {
+            let source = plugins::marketplace_arg(&ctx.materialize_json(&p.source).0)
+                .unwrap_or_else(|| "unknown source".into());
+            Ok(vec![format!("plugin: {} from {source}", p.id)])
+        }
+        Target::Credentials => Ok(vec![
+            "accounts: imported into the haryx account store".into(),
+        ]),
         Target::Extra { origin, .. } => Ok(vec![format!(
             "folder: {}",
             ctx.extra_live_path(origin).display()
         )]),
         _ => Ok(Vec::new()),
     }
+}
+
+/// A long value cut for one confirmation line.
+fn short(text: &str) -> String {
+    const MAX: usize = 120;
+    if text.chars().count() <= MAX {
+        text.to_owned()
+    } else {
+        format!("{}…", text.chars().take(MAX).collect::<String>())
+    }
+}
+
+/// One line per category of changed files that can carry commands (skills, agents, commands, ...).
+fn content_summary(entries: &[Entry]) -> Vec<String> {
+    const CARRY_CODE: [Category; 6] = [
+        Category::Skills,
+        Category::Agents,
+        Category::Commands,
+        Category::OutputStyles,
+        Category::Plugins,
+        Category::Other,
+    ];
+    CARRY_CODE
+        .iter()
+        .filter_map(|cat| {
+            let count = entries
+                .iter()
+                .filter(|e| {
+                    e.item.category == *cat && e.action.changes() && e.action != Action::Remove
+                })
+                .filter(|e| matches!(e.item.target, Target::Path { .. } | Target::Extra { .. }))
+                .count();
+            (count > 0).then(|| {
+                format!(
+                    "{count} {} item(s) (files that may run commands when used)",
+                    cat.name()
+                )
+            })
+        })
+        .collect()
 }

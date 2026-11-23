@@ -24,6 +24,9 @@ struct Record {
     path: PathBuf,
     /// Its copy inside the backup (`data/<n>`), or `None` when it did not exist (restore removes it).
     stored: Option<String>,
+    /// When the path was a symlink: its target, restored as a link (never copied by value).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    link: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -78,7 +81,11 @@ impl Backup {
         if self.doc.records.iter().any(|r| r.path == path) {
             return Ok(());
         }
-        let stored = if std::fs::metadata(path).is_ok() {
+        let link = std::fs::symlink_metadata(path)
+            .ok()
+            .filter(|m| m.file_type().is_symlink())
+            .and_then(|_| std::fs::read_link(path).ok());
+        let stored = if link.is_none() && std::fs::metadata(path).is_ok() {
             let rel = format!("data/{}", self.doc.records.len());
             walk::copy_tree(path, &self.dir.join(&rel))?;
             Some(rel)
@@ -88,6 +95,7 @@ impl Backup {
         self.doc.records.push(Record {
             path: path.to_path_buf(),
             stored,
+            link,
         });
         self.save()
     }
@@ -137,8 +145,9 @@ pub fn apply(
                 )?;
             }
             Target::Extra { origin, stored } => {
-                let live = ctx.extra_live_path(origin);
-                apply_path(ctx, entry, &ctx.dir.join(stored), &live, &mut backup)?;
+                // Re-checked here: an included folder never lands outside the allowed places.
+                let live = ctx.check_extra(origin, stored).map_err(Error::Validation)?;
+                apply_extra(ctx, &ctx.dir.join(stored), &live, &mut backup)?;
             }
             Target::Json { doc, .. } => json_changes.entry(*doc).or_default().push(entry),
             Target::Plugin(_) | Target::Credentials => {}
@@ -213,6 +222,18 @@ fn apply_path(
         }
         Action::Same | Action::Skip => Ok(()),
     }
+}
+
+/// An included folder: add and overwrite files, never delete what is already there.
+fn apply_extra(ctx: &Ctx<'_>, stored: &Path, live: &Path, backup: &mut Backup) -> Result<()> {
+    let (files, _) = ctx.item_files(stored)?;
+    for (rel, data) in files {
+        let path = live.join(&rel);
+        backup.keep(&path)?;
+        walk::write_file(&path, &data)?;
+        walk::copy_mode(&stored.join(&rel), &path);
+    }
+    Ok(())
 }
 
 /// Empty a directory but keep it (and any symlink pointing at it).
@@ -365,9 +386,21 @@ pub fn rollback(env: &ProfileEnv, id: Option<&str>) -> Result<(String, String)> 
     let mut current = Backup::new(env, &format!("rollback of {chosen}"))?;
     let _lock = crate::claude_locks::claude_config_lock(&env.path_env, Some(CONFIG_LOCK_TIMEOUT))?;
     for record in &doc.records {
+        if !record.path.starts_with(&env.home) {
+            return Err(Error::Validation(format!(
+                "Backup {chosen} names {} outside your home folder; not restoring it",
+                record.path.display()
+            )));
+        }
+    }
+    for record in &doc.records {
         current.keep(&record.path)?;
         walk::remove_any(&record.path)?;
-        if let Some(stored) = &record.stored {
+        if let Some(target) = &record.link {
+            walk::ensure_parent(&record.path)?;
+            #[cfg(unix)]
+            std::os::unix::fs::symlink(target, &record.path)?;
+        } else if let Some(stored) = &record.stored {
             walk::copy_tree(&dir.join(stored), &record.path)?;
         }
     }

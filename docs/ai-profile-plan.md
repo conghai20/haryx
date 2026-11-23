@@ -189,6 +189,18 @@ existing Windows roadmap.
 
 - An imported profile is code: hooks and MCP servers execute on the user's machine. Step 3 is mandatory
   for interactive use.
+- The confirmation lists every hook, MCP server, script, plugin (with its marketplace source), included
+  folder, credentials import, `~/.claude.json` key, and every settings key except a short list of inert
+  ones (`model`, `theme`, ...): `apiKeyHelper`, `statusLine`, `env`, `permissions`, `enabledPlugins` and
+  the rest can run commands or redirect traffic. Changed skills, agents and commands are counted.
+- An `--include-dir` folder is restored only inside the home, outside `~/.claude`, and never into
+  `.ssh`, `.gnupg`, `.aws`, `.kube`, `.docker`, `~/bin`, `.local/bin` or `Library/Launch*`; apply only
+  adds and overwrites files there, never deletes.
+- The archive may carry only `manifest.json`, `files/…` and `secrets.age` (never a plain
+  `secrets.json`); each file is capped at 2 GB and the whole at 16 GB whatever the manifest says, and
+  entries stream to disk while hashed.
+- Plugin values never reach `claude` as options; backups keep symlinks as links and rollback restores
+  only inside the home.
 - Secrets never leave the machine in plaintext. `export` refuses to write a detected secret when the
   chosen mode cannot cover it (for example inside an `--include-dir` binary file); the user must
   `--exclude` it.

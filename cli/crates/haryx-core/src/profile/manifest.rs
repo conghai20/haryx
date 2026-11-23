@@ -121,6 +121,15 @@ impl Manifest {
                 manifest.kind
             )));
         }
+        if let Some(bad) = manifest
+            .files
+            .keys()
+            .find(|k| !(k.starts_with(&format!("{FILES_DIR}/")) || k.as_str() == SECRETS_AGE_FILE))
+        {
+            return Err(Error::Validation(format!(
+                "Profile lists a file it may not carry: {bad}"
+            )));
+        }
         if manifest.schema > SCHEMA {
             return Err(Error::Validation(format!(
                 "This profile uses format {} but this haryx reads up to {SCHEMA}; upgrade haryx",

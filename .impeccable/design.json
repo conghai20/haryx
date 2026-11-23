@@ -1,0 +1,318 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-24T03:15:00Z",
+  "title": "Design System: HaryX",
+  "extensions": {
+    "colorMeta": {
+      "electric-cyan": {
+        "role": "primary",
+        "displayName": "Electric Cyan",
+        "canonical": "#22D3EE",
+        "tonalRamp": [
+          "#164E63",
+          "#155E75",
+          "#0E7490",
+          "#0891B2",
+          "#06B6D4",
+          "#22D3EE",
+          "#67E8F9",
+          "#CFFAFE"
+        ],
+        "note": "Dynamic: this value in dark appearance, electric-cyan-light in light (Brand.cyan)."
+      },
+      "electric-cyan-light": {
+        "role": "primary",
+        "displayName": "Electric Cyan (light appearance)",
+        "canonical": "#0891B2",
+        "tonalRamp": [
+          "#164E63",
+          "#155E75",
+          "#0E7490",
+          "#0891B2",
+          "#06B6D4",
+          "#22D3EE",
+          "#67E8F9",
+          "#CFFAFE"
+        ]
+      },
+      "cyan-ink": {
+        "role": "primary",
+        "displayName": "Cyan Ink",
+        "canonical": "#0E7490",
+        "tonalRamp": [
+          "#164E63",
+          "#155E75",
+          "#0E7490",
+          "#0891B2",
+          "#06B6D4",
+          "#22D3EE",
+          "#67E8F9",
+          "#CFFAFE"
+        ],
+        "note": "Cyan text on light ground (Brand.cyanText; dark appearance uses #22D3EE) and the AccentColor asset."
+      },
+      "midnight-navy": {
+        "role": "secondary",
+        "displayName": "Midnight Navy",
+        "canonical": "#101827",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ]
+      },
+      "soft-white": {
+        "role": "secondary",
+        "displayName": "Soft White",
+        "canonical": "#F1F5F9",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ]
+      },
+      "pace-amber": {
+        "role": "tertiary",
+        "displayName": "Pace Amber",
+        "canonical": "NSColor.systemOrange (#FF9F0A dark / #FF9500 light)",
+        "tonalRamp": [
+          "#4A2A03",
+          "#7A4405",
+          "#B36200",
+          "#E07F00",
+          "#FF9F0A",
+          "#FFB547",
+          "#FFD08A",
+          "#FFEBCC"
+        ]
+      },
+      "limit-red": {
+        "role": "tertiary",
+        "displayName": "Limit Red",
+        "canonical": "NSColor.systemRed (#FF453A dark / #FF3B30 light)",
+        "tonalRamp": [
+          "#4C0E0B",
+          "#7F1A14",
+          "#B3241B",
+          "#E0352B",
+          "#FF453A",
+          "#FF7A72",
+          "#FFAAA5",
+          "#FFDAD7"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Active account 5-hour % in the menu bar panel; one per surface."
+      },
+      "display-card": {
+        "displayName": "Display Card",
+        "purpose": "5-hour % on dashboard account cards."
+      },
+      "clock": {
+        "displayName": "Clock",
+        "purpose": "Reset time beside the display figure."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "HARYX in the lockup; size and tracking scale with the tile (0.72x, 0.08x)."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Account names."
+      },
+      "body": {
+        "displayName": "Body / Callout",
+        "purpose": "Almanac rows and notes; tabular figures."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Countdowns, pace line, metadata, column headers."
+      },
+      "badge": {
+        "displayName": "Badge",
+        "purpose": "Uppercase plan/state badges."
+      }
+    },
+    "shadows": [
+      {
+        "name": "none",
+        "value": "no authored shadows",
+        "purpose": "Content is flat (quaternary fill, accent 18% when selected). Controls, navigation and floating notices use system Liquid Glass; notices may tint it (cyan/red 12% banner, red 10% error notice)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "snappy",
+        "value": "SwiftUI .snappy",
+        "purpose": "Banner appearance (move from bottom + opacity)."
+      },
+      {
+        "name": "hidden-is-still",
+        "value": "no animation while the panel or dashboard is hidden",
+        "purpose": "Idle CPU budget; mascots pause when their surface is not visible."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "panel",
+        "value": "380pt fixed width"
+      },
+      {
+        "name": "card-column",
+        "value": "250pt minimum adaptive column"
+      },
+      {
+        "name": "window-min",
+        "value": "860 x 560pt"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Prominent glass in the accent; the one main action on a surface.",
+      "html": "<button class=\"ds-btn-primary\">Switch to next</button>",
+      "css": ".ds-btn-primary{background:#0E7490;color:#fff;font:500 13px/1 -apple-system,system-ui,sans-serif;padding:8px 18px;border:none;border-radius:999px;box-shadow:inset 0 1px 0 rgba(255,255,255,.25);transition:filter .15s}.ds-btn-primary:hover{filter:brightness(1.1)}.ds-btn-primary:focus-visible{outline:3px solid rgba(34,211,238,.5);outline-offset:2px}.ds-btn-primary:active{filter:brightness(.92)}"
+    },
+    {
+      "name": "Glass Button",
+      "kind": "button",
+      "refersTo": "button-glass",
+      "description": "Secondary glass controls in the panel footer: the icon-only Dashboard menu (primary action opens the dashboard) and the Terminal split button.",
+      "html": "<span class=\"ds-row\"><button class=\"ds-btn-glass\" aria-label=\"Open the dashboard\" title=\"Open the dashboard (⌘D)\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\"><path d=\"M2 11.5a6 6 0 1 1 12 0\"/><path d=\"M8 11.5L8 6.5\"/><circle cx=\"8\" cy=\"11.5\" r=\"1\" fill=\"currentColor\"/><path d=\"M3.8 8.2h.01M5.2 6h.01M10.8 6h.01M12.2 8.2h.01\"/></svg></button><button class=\"ds-btn-glass\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\"><rect x=\"1.5\" y=\"2.5\" width=\"13\" height=\"11\" rx=\"2\"/><path d=\"M4.5 6l2 2-2 2M8 10h3\"/></svg>Terminal</button></span>",
+      "css": ".ds-btn-glass{display:inline-flex;gap:6px;align-items:center;background:rgba(255,255,255,.08);color:#F1F5F9;font:500 13px/1 -apple-system,system-ui,sans-serif;padding:8px 16px;border:none;border-radius:999px;backdrop-filter:blur(20px);transition:background .15s}.ds-btn-glass:hover{background:rgba(255,255,255,.14)}.ds-btn-glass:focus-visible{outline:3px solid rgba(34,211,238,.5);outline-offset:2px}.ds-row{display:inline-flex;gap:8px}"
+    },
+    {
+      "name": "Sign In Again",
+      "kind": "button",
+      "refersTo": "button-sign-in",
+      "description": "Amber prominent glass when a re-login is needed.",
+      "html": "<button class=\"ds-btn-signin\">Sign In Again</button>",
+      "css": ".ds-btn-signin{background:#FF9F0A;color:#fff;font:500 11px/1 -apple-system,system-ui,sans-serif;padding:5px 12px;border:none;border-radius:999px}.ds-btn-signin:hover{filter:brightness(1.08)}.ds-btn-signin:focus-visible{outline:3px solid rgba(255,159,10,.5);outline-offset:2px}"
+    },
+    {
+      "name": "Plan Badges",
+      "kind": "chip",
+      "refersTo": "badge-active",
+      "description": "9pt bold uppercase in the tint on the tint at 18%; running state is a cyan dot beside secondary text.",
+      "html": "<span class=\"ds-badge ds-badge-active\">ACTIVE</span> <span class=\"ds-badge ds-badge-plan\">TEAM</span> <span class=\"ds-running\"><i></i>2 running</span>",
+      "css": ".ds-badge{display:inline-block;font:700 9px/1 -apple-system,system-ui,sans-serif;padding:2px 6px;border-radius:999px}.ds-badge-active{color:#22D3EE;background:rgba(34,211,238,.18)}.ds-badge-plan{color:rgba(235,235,245,.6);background:rgba(235,235,245,.11)}.ds-running{display:inline-flex;gap:3px;align-items:center;font:600 9px/1 -apple-system,system-ui,sans-serif;color:rgba(235,235,245,.6)}.ds-running i{width:6px;height:6px;border-radius:50%;background:#22D3EE}"
+    },
+    {
+      "name": "Tide Staff",
+      "kind": "custom",
+      "refersTo": "tide-staff",
+      "description": "Flat usage fill, 1.5pt radius, 1pt pace tick overhanging 3pt above and below; cyan / amber / red.",
+      "html": "<div class=\"ds-staff\"><div class=\"ds-staff-bar\"><div class=\"ds-staff-fill\" style=\"width:25%\"></div></div><div class=\"ds-staff-tick\" style=\"left:32%\"></div></div><div class=\"ds-staff\"><div class=\"ds-staff-bar\"><div class=\"ds-staff-fill ds-warn\" style=\"width:88%\"></div></div><div class=\"ds-staff-tick\" style=\"left:70%\"></div></div><div class=\"ds-timeleft\" style=\"width:90%\"></div>",
+      "css": ".ds-staff{position:relative;width:320px;height:12px;margin:4px 0}.ds-staff-bar{position:absolute;top:3px;left:0;right:0;height:6px;background:rgba(235,235,245,.16);border-radius:1.5px;overflow:hidden}.ds-staff-fill{height:100%;background:#22D3EE}.ds-staff-fill.ds-warn{background:#FF9F0A}.ds-staff-tick{position:absolute;top:0;width:1px;height:12px;background:#F1F5F9;transform:translateX(-.5px)}.ds-timeleft{height:1px;max-width:320px;background:rgba(34,211,238,.55)}"
+    },
+    {
+      "name": "Usage Bar",
+      "kind": "custom",
+      "refersTo": "tide-staff-card",
+      "description": "Inspector reading: sentence-case label and reset above a 5pt Tide Staff, % in a 40pt trailing column.",
+      "html": "<div class=\"ds-ub\"><div class=\"ds-ub-h\"><span>5-hour</span><span>resets in 3h 18m · 03:20</span></div><div class=\"ds-ub-r\"><div class=\"ds-ub-s\"><div style=\"width:42%\"></div><i style=\"left:35%\"></i></div><b>42%</b></div></div>",
+      "css": ".ds-ub{width:300px;font:10px/1.3 -apple-system,system-ui,sans-serif;color:#F1F5F9}.ds-ub-h{display:flex;justify-content:space-between}.ds-ub-h span:first-child{font-weight:500;color:rgba(235,235,245,.6)}.ds-ub-h span:last-child{color:rgba(235,235,245,.3);font-variant-numeric:tabular-nums}.ds-ub-r{display:flex;align-items:center;gap:8px}.ds-ub-s{position:relative;flex:1;height:5px;margin:3px 0;background:rgba(235,235,245,.16);border-radius:1.5px}.ds-ub-s div{height:100%;background:#22D3EE;border-radius:1.5px}.ds-ub-s i{position:absolute;top:-3px;width:1px;height:11px;background:#F1F5F9}.ds-ub-r b{width:40px;text-align:right;font:500 12px/1 -apple-system,system-ui,sans-serif;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Active Tide Reading",
+      "kind": "custom",
+      "refersTo": "tide-staff",
+      "description": "44pt Space Grotesk 5-hour %, reset clock right, staff with overhanging pace tick; pace text only at 5+ points off pace.",
+      "html": "<div class=\"ds-tide\"><div class=\"ds-tide-row\"><span class=\"ds-tide-pct\">25%</span><span class=\"ds-tide-of\">of 5-hour window</span><span class=\"ds-tide-clock\"><b>05:30</b><small>reset in 4h 33m</small></span></div><div class=\"ds-tide-staff\"><div style=\"width:25%\"></div><i style=\"left:18%\"></i></div><div class=\"ds-tide-foot\"><span class=\"ds-amber\">7 pts ahead of pace</span><span>7d 4%</span></div></div>",
+      "css": ".ds-tide{width:352px;color:#F1F5F9;font-family:-apple-system,system-ui,sans-serif}.ds-tide-row{display:flex;align-items:baseline;gap:8px}.ds-tide-pct{font:600 44px/1 'Space Grotesk',system-ui;font-variant-numeric:tabular-nums}.ds-tide-of{font-size:12px;color:rgba(235,235,245,.6)}.ds-tide-clock{margin-left:auto;text-align:right;display:flex;flex-direction:column}.ds-tide-clock b{font:500 18px/1.1 'Space Grotesk',system-ui;font-variant-numeric:tabular-nums}.ds-tide-clock small{font-size:10px;color:rgba(235,235,245,.6)}.ds-tide-staff{position:relative;height:6px;margin:9px 0;background:rgba(235,235,245,.16);border-radius:1.5px}.ds-tide-staff div{height:100%;background:#22D3EE;border-radius:1.5px}.ds-tide-staff i{position:absolute;top:-3px;width:1px;height:12px;background:#F1F5F9}.ds-amber{color:#FF9F0A}.ds-tide-foot{display:flex;justify-content:space-between;font-size:10px;color:rgba(235,235,245,.6);font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Almanac Row",
+      "kind": "custom",
+      "refersTo": "almanac-row",
+      "description": "Fixed trailing columns in tabular figures; % coloured only from 85%.",
+      "html": "<div class=\"ds-alm\"><div class=\"ds-alm-h\"><span>Next in line</span><span>5h</span><span>7d</span><span>Resets</span></div><div class=\"ds-alm-r\" tabindex=\"0\"><span>hieunguyen…gmail.com <small>Pro</small></span><span class=\"ds-amber\">95%</span><span>57%</span><span class=\"ds-dim\">02:49</span></div><div class=\"ds-alm-r ds-off\" tabindex=\"0\"><span>Dep1.cla…stem.com <small>Team</small></span><span>0%</span><span class=\"ds-amber\">90%</span><span class=\"ds-dim\">not started</span></div></div>",
+      "css": ".ds-alm{width:352px;font:12px/1.2 -apple-system,system-ui,sans-serif;color:#F1F5F9;font-variant-numeric:tabular-nums}.ds-alm-h,.ds-alm-r{display:grid;grid-template-columns:1fr 40px 40px 72px;column-gap:10px}.ds-alm-h{font-size:10px;font-weight:500;color:rgba(235,235,245,.3);padding-bottom:2px}.ds-alm-h span:not(:first-child),.ds-alm-r span:not(:first-child){text-align:right}.ds-alm-r{padding:5px 0;transition:background .12s}.ds-alm-r:hover,.ds-alm-r:focus-visible{background:rgba(235,235,245,.08);outline:none}.ds-alm-r small{font-size:10px;color:rgba(235,235,245,.3)}.ds-amber{color:#FF9F0A}.ds-dim{color:rgba(235,235,245,.6)}.ds-off{opacity:.5}"
+    },
+    {
+      "name": "Account Card",
+      "kind": "card",
+      "refersTo": "account-card",
+      "description": "Flat quaternary fill, 16pt radius, 14pt padding, no glass or stroke; accent at 18% when selected.",
+      "html": "<div class=\"ds-cards\"><div class=\"ds-card ds-card-sel\" tabindex=\"0\"><b>Dep1.pj02@…</b><small>Slot 3 · Team</small><div class=\"ds-card-pct\">25%<small> 5-hour</small></div><div class=\"ds-card-staff\"><div style=\"width:25%\"></div><i style=\"left:18%\"></i></div><div class=\"ds-card-left\" style=\"width:90%\"></div><small class=\"ds-amber\">7 pts ahead of pace</small><small>Week 4%</small></div><div class=\"ds-card\" tabindex=\"0\"><b>csv_claude@…</b><small>Slot 1 · Team</small><div class=\"ds-card-pct\">96%<small> 5-hour</small></div><div class=\"ds-card-staff\"><div style=\"width:96%;background:#FF9F0A\"></div></div><div class=\"ds-card-left\" style=\"width:30%\"></div><small>Week 74%</small></div></div>",
+      "css": ".ds-cards{display:flex;gap:16px;flex-wrap:wrap}.ds-card{width:250px;display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:16px;background:rgba(235,235,245,.08);color:#F1F5F9;font:12px/1.3 -apple-system,system-ui,sans-serif}.ds-card:focus-visible{outline:3px solid rgba(34,211,238,.5);outline-offset:2px}.ds-card-sel{background:rgba(14,116,144,.18)}.ds-card small{font-size:10px;color:rgba(235,235,245,.6)}.ds-card b{font-size:13px}.ds-card-pct{font:600 28px/1 'Space Grotesk',system-ui;font-variant-numeric:tabular-nums}.ds-card-staff{position:relative;height:5px;margin:3px 0;background:rgba(235,235,245,.16);border-radius:1.5px}.ds-card-staff div{height:100%;background:#22D3EE;border-radius:1.5px}.ds-card-staff i{position:absolute;top:-3px;width:1px;height:11px;background:#F1F5F9}.ds-card-left{height:1px;background:rgba(34,211,238,.55)}.ds-card .ds-amber{color:#FF9F0A}"
+    },
+    {
+      "name": "Brand Lockup",
+      "kind": "nav",
+      "refersTo": "brand-tile",
+      "description": "Wing H on its Midnight Navy tile plus the HARYX wordmark.",
+      "html": "<span class=\"ds-lockup\"><span class=\"ds-tile\"><svg viewBox=\"0 0 64 64\" width=\"14\" height=\"14\"><path fill=\"#22D3EE\" d=\"M11.4 4L20.3 4L20.3 14.8L27.1 24.1C35.9 16.5 46.8 13.2 52.6 4C50 13.4 41 22.6 26.2 35.7L11.4 14.8Z\"/><path fill=\"#F1F5F9\" d=\"M52.6 60L43.7 60L43.7 49.2L36.9 39.9C28.1 47.5 17.2 50.8 11.4 60C14 50.6 23 41.4 37.8 28.3L52.6 49.2Z\"/></svg></span>HARYX</span>",
+      "css": ".ds-lockup{display:inline-flex;align-items:center;gap:7px;font:700 13px/1 'Space Grotesk',system-ui;letter-spacing:1.44px;color:#F1F5F9}.ds-tile{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:4.3px;background:#101827}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Tide Table",
+    "overview": "**Creative North Star: \"The Tide Table\"**\n\nEach account's 5-hour window is read the way a harbour master reads a tide table: how high the water is now, where the prediction says it should be, and when the next low water comes. The system is a native macOS one. The ground is the system's own Liquid Glass and Light/Dark appearance; HaryX adds very little on top of it: one cyan for what is live, an amber and a red for pace and limits, a geometric display face for the numbers that matter, and hairline rules in place of boxes.\n\nDensity is that of an almanac rather than a dashboard of widgets. The menu bar panel (380pt wide) puts the active account first with its 5-hour percentage set large, a flat tide staff under it, and the rest of the accounts below a hairline as a fixed-column table in switch order. Type weight and size carry the hierarchy; chrome is removed wherever a rule or a column can do the job.\n\nThe dashboard window is a standard sidebar/detail split. Accounts are flat filled cards, active account first and then in switch order, that repeat the panel's tide reading at a smaller scale (percentage, staff with pace tick, time-left rule, pace delta, week), so the reading looks the same wherever it appears. Glass belongs to the controls and navigation that sit over this content, never to the content itself.",
+    "keyCharacteristics": [
+      "System Liquid Glass for controls, navigation and floating notices; content sits on flat system fills. System Light/Dark throughout.",
+      "Electric Cyan marks the active account, live state and on-pace usage. Amber means ahead of pace or past 85%; red only at the limit.",
+      "Space Grotesk only for the wordmark, large percentages and reset clocks; SF Pro everywhere else.",
+      "Tabular figures in every number that sits in a column or updates in place.",
+      "1pt hairline rules divide sections; flat fills, no gradients, no authored shadows."
+    ],
+    "rules": [
+      {
+        "name": "The Live Cyan Rule",
+        "body": "Cyan means live or on pace: the active account, a running session, an enabled automation, a fill that is on pace. Do not use it for decoration or for a heading. Small live text on glass is carried by a cyan dot beside secondary text, not by cyan text.",
+        "section": "colors"
+      },
+      {
+        "name": "The Three-Step Fill Rule",
+        "body": "A usage reading is cyan while on pace, amber when ahead of pace or at 85% or more, red at 100%. Ahead of pace means 5 or more points over the expected pace when a pace is known, otherwise the CLI's own verdict; drift under 5 points is on pace. In almanac columns a percentage is coloured only from 85% up; below that it stays primary text.",
+        "section": "colors"
+      },
+      {
+        "name": "The Display-Only Rule",
+        "body": "Space Grotesk appears only in the wordmark, the large percentages and the reset clocks. Labels, buttons, headings and tables stay in SF Pro.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Every number that sits in a column or refreshes in place uses tabular (monospaced) digits, so the columns do not move when the values change.",
+        "section": "typography"
+      },
+      {
+        "name": "The Glass Is Chrome Rule",
+        "body": "Glass is for controls, navigation and floating notices. Content (account cards and readings) sits on flat system fills, and selection is a fill change, not a ring or a glass tint. Never author shadows or gradients.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** put the active account's 5-hour percentage first, as the one Display figure on the surface, with the reset clock right-aligned beside it.",
+      "**Do** draw every usage reading as a Tide Staff (flat fill, 1.5pt radius, pace tick) coloured cyan / amber / red by the Three-Step Fill Rule.",
+      "**Do** use tabular figures for every percentage, clock and countdown.",
+      "**Do** divide panel sections with 1pt system-separator rules and 10pt of space on each side.",
+      "**Do** use the system label tiers for all neutral text, keep content on flat system fills, and show selection as the accent fill at 18%."
+    ],
+    "donts": [
+      "**Don't** set labels, buttons, headings or table text in Space Grotesk; it is reserved for the wordmark, large figures and clocks.",
+      "**Don't** use cyan for anything that is not live, active or on pace, and don't use red before a window is at its limit.",
+      "**Don't** put content on glass or add gradients and authored shadows; cards are flat system fills and glass is for controls, navigation and floating notices.",
+      "**Don't** put borders or rings on containers, including for selection; selection is the accent fill at 18%.",
+      "**Don't** draw a usage reading as a capsule progress bar or label it in uppercase; use the Tide Staff and sentence case.",
+      "**Don't** use Midnight Navy as a surface or text colour; it exists as the mark's tile."
+    ]
+  }
+}

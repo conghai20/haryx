@@ -95,8 +95,9 @@ Binding, set by the owner:
 
 - `README.md`, `PLAN.md`: feature and architecture description.
 - `Tests/CSwapCoreTests`: core test suite (12 tests passing).
-- Measured performance: ~0.3% CPU idle; RSS observed ~85 MB just after launch, against a README claim of ~20 MB
-  (unverified after settle).
+- Measured performance (2026-11-24, brand redesign): ~0.1-0.2% CPU idle; 22 MB footprint on a fresh launch,
+  59 MB settled after 10 panel open/close cycles (accepted baseline). Before: ~6% CPU and 111 MB on a
+  long-running instance.
 - No users, testimonials, screenshots, press or benchmarks exist. Do not fabricate them.
 
 ## Product Principles

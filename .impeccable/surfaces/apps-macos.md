@@ -12,7 +12,8 @@ Audience and job: developers running several Claude accounts glance mid-task to 
 active, how much of its 5h window is left, when it resets, and what auto-switch will do next.
 Constraints: native glass and system Light/Dark; Electric Cyan is the accent; Midnight Navy in the mark and
 selected/active emphasis; Space Grotesk for headings, the wordmark and large numbers only, SF Pro elsewhere.
-Strict performance budget: ~0% idle CPU with the panel closed, <= 40 MB settled RSS, no animation while
+Strict performance budget: ~0% idle CPU with the panel closed, <= 40 MB settled (owner accepted 59 MB on
+2026-11-24 as the new baseline: framework-held, measured after 10 panel cycles), no animation while
 hidden, flat fills only, render on data change. Measure before and after.
 Unresolved: none.
 

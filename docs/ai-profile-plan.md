@@ -21,6 +21,7 @@ by AirDrop, USB, or any file share.
 | Import | Stores the profile only. `apply` writes it into `~/.claude`; `import --apply` does both. |
 | Apply mode | Merge: add and update, keep local-only items. `--prune` also removes local items the profile does not have (setup categories only, never history). |
 | History | Exported by default (`--no-history` to leave it out): conversations, prompt history, file checkpoints, todos, plans. |
+| Extra parts | Opt-in, off by default: `--credentials`, `--signed`, `--claude-json`, `--cache` (see "Optional parts"). |
 | Secrets | Chosen per export: `--secrets redact` (default) or `--secrets encrypt` (age, passphrase). Never plaintext. |
 | Plugins | Chosen per export: `--plugins ref` (default) or `--plugins bundle`. |
 | Third-party folders | Opt-in per export: `--include-dir PATH` (repeatable), e.g. `~/.claude/ecc`, `~/.claude-mem`. |
@@ -39,6 +40,7 @@ haryx ai profile show [NAME]                            # inventory; NAME defaul
 haryx ai profile save NAME                              # snapshot live ~/.claude as NAME
 haryx ai profile export [NAME] FILE                     # write a portable .haryx-profile file
       [--secrets redact|encrypt] [--plugins ref|bundle] [--no-history]
+      [--credentials] [--signed] [--claude-json] [--cache]
       [--only CATS] [--exclude CATS] [--include-dir PATH]...
 haryx ai profile import NAME FILE [--dry-run] [--apply] [--force]
 haryx ai profile apply NAME [--dry-run] [--yes] [--prune] [--no-history]
@@ -50,7 +52,7 @@ haryx ai profile rollback [BACKUP_ID]                   # undo the last (or a gi
 - Every read command takes `--json`; shapes land in `packages/contracts/haryx/` first (contracts-first rule).
 - `export` with no NAME exports `default`.
 - `import` refuses an existing NAME unless `--force`.
-- `CATS` is a comma list of categories: `settings,hooks,skills,agents,commands,rules,output-styles,plugins,mcps,memory,history`.
+- `CATS` is a comma list of categories: `settings,hooks,skills,agents,commands,rules,output-styles,plugins,mcps,memory,history,credentials,signed,claude-json,cache`.
 - `--no-history` is the same as `--exclude history`; in the macOS app it is an "Include history" box,
   checked by default.
 
@@ -70,16 +72,24 @@ haryx ai profile rollback [BACKUP_ID]                   # undo the last (or a gi
 Item status: `ok`, `broken` (missing hook script, MCP command not on `PATH`), `needs-secret` (placeholder
 without a value), `secret` (contains a detected secret; export will redact or encrypt it).
 
-**Never exported, with no option:**
+### Optional parts (off by default)
 
-- Credentials: `.credentials.json`, Keychain items, the haryx store. Accounts move with `haryx ai export`.
-- Anthropic-managed signed files: `policy-limits*`, `remote-settings*`. They are per account and refreshed
-  by Claude Code; a copy from another machine would be stale or rejected.
-- Machine-local runtime state: `sessions/` (records of running processes, keyed by PID), `session-env/`,
-  `shell-snapshots/`, `ide/` (lock files of open editors), `cache/`, `debug/`, `backups/`, `statsig/`,
-  `paste-cache/`. It means nothing on another machine. The conversations themselves are in `projects/`,
-  which the history category carries.
-- Every `~/.claude.json` key besides `mcpServers` (account identity, folder trust decisions, machine state).
+| Flag | Part | Notes |
+|---|---|---|
+| `--credentials` | every account in the haryx store plus the active Claude Code login (the `haryx ai export --full` envelope) | Requires `--secrets encrypt`; refused otherwise. Apply imports the accounts as `haryx ai import` does. |
+| `--signed` | `policy-limits*`, `remote-settings*` | Anthropic-managed, per account, re-fetched by Claude Code; a copy is usually replaced on next start. |
+| `--claude-json` | the whole `~/.claude.json`, not only `mcpServers` | Includes account identity, onboarding state and folder trust decisions. Apply merges per key; trust decisions are listed in the confirmation. Secrets inside follow `--secrets`. |
+| `--cache` | `cache/`, `paste-cache/`, `statsig/` | Rebuilt by Claude Code anyway; only saves a warm start. |
+
+**Credentials warning.** OAuth refresh tokens rotate: when the same login is used on two machines, the
+first one to refresh can invalidate the other, which then needs `haryx ai login`. Export prints this
+warning, and apply prints it again.
+
+**Never exported, with no option:** machine-local runtime state: `sessions/` (records of running
+processes, keyed by PID), `session-env/`, `shell-snapshots/`, `ide/` (lock files of open editors),
+`debug/`, `backups/`. On another machine it points at processes and editors that do not exist, and
+Claude Code may act on it. The conversations themselves are in `projects/`, which the history part
+carries.
 
 ## Storage
 

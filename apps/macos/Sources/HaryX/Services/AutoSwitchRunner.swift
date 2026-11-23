@@ -29,7 +29,9 @@ final class AutoSwitchRunner {
         let p = Process()
         p.executableURL = cli.executable
         p.arguments = ["auto", "--json"] + (dryRun ? ["--dry-run"] : [])
-        p.environment = CSwapCLI.environment
+        // If HaryX dies without stopping us (killed, crashed), haryx ends its loop instead of
+        // auto-switching unattended forever. cswap ignores the variable.
+        p.environment = CSwapCLI.environment.merging(["HARYX_EXIT_WITH_PARENT": "1"]) { _, new in new }
         p.standardInput = FileHandle.nullDevice
         let out = Pipe(), err = Pipe()
         p.standardOutput = out

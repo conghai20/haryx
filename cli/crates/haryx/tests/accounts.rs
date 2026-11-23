@@ -598,3 +598,52 @@ fn auto_once_human_lines_are_timestamped() {
             .contains("no switch: no-active-account (log in and run 'haryx --add-account' first)")
     );
 }
+
+/// Start `haryx auto` in the background from a shell that exits at once (re-parenting auto), and
+/// report whether it is still alive a few seconds later.
+fn orphaned_auto_survives(s: &Sandbox, exit_with_parent: bool) -> bool {
+    let mut cmd = Command::new("/bin/sh");
+    cmd.arg("-c")
+        .arg(r#""$0" auto --interval 15 >/dev/null 2>&1 & echo $!"#)
+        .arg(env!("CARGO_BIN_EXE_haryx"))
+        .env("HOME", s.dir.path())
+        .env("HARYX_HOME", s.store())
+        .env("CLAUDE_CONFIG_DIR", s.dir.path().join(".claude"))
+        .env("HARYX_SECURITY_BIN", s.dir.path().join("security"))
+        .env("HARYX_API_BASE", "http://127.0.0.1:9")
+        .env_remove("XDG_DATA_HOME");
+    if exit_with_parent {
+        cmd.env("HARYX_EXIT_WITH_PARENT", "1");
+    } else {
+        cmd.env_remove("HARYX_EXIT_WITH_PARENT");
+    }
+    let out = cmd.output().unwrap();
+    let pid: i32 = String::from_utf8_lossy(&out.stdout).trim().parse().unwrap();
+    let alive = |pid: i32| {
+        // SAFETY: signal 0 only checks that the process exists; it sends nothing.
+        unsafe { libc::kill(pid, 0) == 0 }
+    };
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while std::time::Instant::now() < deadline && alive(pid) {
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    let survived = alive(pid);
+    if survived {
+        // SAFETY: terminating the test's own child process.
+        unsafe { libc::kill(pid, libc::SIGTERM) };
+    }
+    survived
+}
+
+#[test]
+fn auto_started_by_an_app_stops_when_the_app_is_gone() {
+    let s = Sandbox::new();
+    assert!(
+        !orphaned_auto_survives(&s, true),
+        "HARYX_EXIT_WITH_PARENT=1 ends an orphaned loop"
+    );
+    assert!(
+        orphaned_auto_survives(&s, false),
+        "a plain background `haryx auto` keeps running"
+    );
+}

@@ -136,11 +136,31 @@ pub fn run(opts: &AutoOptions, debug: bool) -> Result<(), CommandError> {
     }
 }
 
-/// Relay SIGINT/SIGTERM flags to the engine's stop handle.
+/// Set by a host app (HaryX for macOS) so the loop ends when the app is gone instead of
+/// auto-switching unattended forever; macOS has no parent-death signal to do this for us.
+const EXIT_WITH_PARENT_ENV: &str = "HARYX_EXIT_WITH_PARENT";
+
+/// Whether the process that started us has exited: we were re-parented, or adopted by launchd
+/// (PID 1), which also covers a parent that exited before we first looked.
+fn parent_gone(original_parent: libc::pid_t) -> bool {
+    // SAFETY: getppid takes no arguments, cannot fail and touches no memory.
+    let parent = unsafe { libc::getppid() };
+    parent == 1 || parent != original_parent
+}
+
+/// Relay SIGINT/SIGTERM flags, and the host app's exit when asked to, to the engine's stop handle.
 fn spawn_signal_watcher(stop: Arc<AtomicBool>) -> std::thread::JoinHandle<()> {
+    let watch_parent = std::env::var_os(EXIT_WITH_PARENT_ENV).is_some_and(|v| v == "1");
+    // SAFETY: as in `parent_gone`.
+    let original_parent = unsafe { libc::getppid() };
     std::thread::spawn(move || {
         while !stop.load(Ordering::SeqCst) {
             if INTERRUPTED.load(Ordering::SeqCst) || TERMINATED.load(Ordering::SeqCst) {
+                stop.store(true, Ordering::SeqCst);
+                return;
+            }
+            if watch_parent && parent_gone(original_parent) {
+                log::info!("auto: parent process exited; stopping ({EXIT_WITH_PARENT_ENV})");
                 stop.store(true, Ordering::SeqCst);
                 return;
             }

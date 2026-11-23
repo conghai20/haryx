@@ -2,14 +2,9 @@ import HaryXCore
 import SwiftUI
 
 extension Color {
-    /// Green → amber → red as a quota fills.
+    /// Brand cyan → warning → red as a quota fills (flat, no gradients).
     static func usage(_ pct: Double?) -> Color {
-        guard let pct else { return .secondary }
-        switch pct {
-        case ..<60: return .green
-        case ..<85: return .orange
-        default: return .red
-        }
+        Brand.usageFill(pct.map { UsageWindow(pct: $0) })
     }
 }
 
@@ -38,7 +33,7 @@ struct UsageBar: View {
                                 .frame(width: 1.5)
                                 .offset(x: geo.size.width * min(1, expected / 100))
                         }
-                        Capsule().fill(Color.usage(pct).gradient)
+                        Capsule().fill(Brand.usageFill(window))
                             .frame(width: max(compact ? 3 : 4, geo.size.width * min(1, (pct ?? 0) / 100)))
                     }
                 }
@@ -71,7 +66,7 @@ struct UsageBar: View {
 
 struct PlanBadge: View {
     let text: String
-    var tint: Color = .accentColor
+    var tint: Color = Brand.cyan
 
     var body: some View {
         Text(text)
@@ -86,11 +81,11 @@ struct RunningBadge: View {
     let count: Int
     var body: some View {
         HStack(spacing: 3) {
-            Circle().fill(.green).frame(width: 6, height: 6)
+            Circle().fill(Brand.cyan).frame(width: 6, height: 6)
             Text(count > 1 ? "\(count) running" : "running")
         }
         .font(.system(size: 9, weight: .semibold))
-        .foregroundStyle(.green)
+        .foregroundStyle(Brand.cyanText)
     }
 }
 
@@ -101,8 +96,8 @@ struct AccountBadges: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            if account.active { PlanBadge(text: "ACTIVE", tint: .accentColor) }
-            if let plan = account.plan?.label { PlanBadge(text: plan.uppercased(), tint: .purple) }
+            if account.active { PlanBadge(text: "ACTIVE", tint: Brand.cyanText) }
+            if let plan = account.plan?.label { PlanBadge(text: plan.uppercased(), tint: .secondary) }
             if account.isDisabled { PlanBadge(text: "OFF", tint: .gray) }
             if let n = store.sessions[account.number]?.count, n > 0 { RunningBadge(count: n) }
         }
@@ -114,11 +109,11 @@ struct BannerView: View {
     var body: some View {
         Label(banner.text, systemImage: banner.isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
             .font(.caption)
-            .foregroundStyle(banner.isError ? .red : .green)
+            .foregroundStyle(banner.isError ? Brand.limit : Brand.cyanText)
             .lineLimit(3)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(8)
-            .glassEffect(.regular.tint((banner.isError ? Color.red : Color.green).opacity(0.12)), in: .rect(cornerRadius: 10))
+            .glassEffect(.regular.tint((banner.isError ? Brand.limit : Brand.cyan).opacity(0.12)), in: .rect(cornerRadius: 10))
             .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 }

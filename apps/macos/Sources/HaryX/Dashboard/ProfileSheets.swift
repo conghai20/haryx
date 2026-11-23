@@ -244,7 +244,7 @@ struct ApplyProfileSheet: View {
                 ForEach(plan.changes) { e in
                     HStack {
                         Text(e.action).font(.caption.weight(.semibold)).frame(width: 54, alignment: .leading)
-                            .foregroundStyle(e.action == "remove" ? .red : .accentColor)
+                            .foregroundStyle(e.action == "remove" ? .red : Brand.cyan)
                         Text(e.id).font(.caption.monospaced()).lineLimit(1).truncationMode(.middle)
                         Spacer()
                         if !e.needsSecret.isEmpty {

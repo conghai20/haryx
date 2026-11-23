@@ -26,6 +26,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar = StatusBarController(store: store)
         DashboardWindow.shared.store = store
         store.start()
+        // Design review: `--open-dashboard` shows the dashboard, `--open-panel` opens the menu bar panel once the first refresh lands;
+        // `--light` / `--dark` force an appearance.
+        if CommandLine.arguments.contains("--light") { NSApp.appearance = NSAppearance(named: .aqua) }
+        if CommandLine.arguments.contains("--dark") { NSApp.appearance = NSAppearance(named: .darkAqua) }
+        if CommandLine.arguments.contains("--open-dashboard") { DashboardWindow.shared.show() }
+        if CommandLine.arguments.contains("--open-panel") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in self?.statusBar?.open() }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

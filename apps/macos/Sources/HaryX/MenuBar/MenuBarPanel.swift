@@ -3,16 +3,32 @@ import SwiftUI
 
 struct MenuBarPanel: View {
     @Environment(AppStore.self) private var store
-    static let width: CGFloat = 372
+    static let width: CGFloat = 380
 
     var body: some View {
         GlassEffectContainer(spacing: 12) {
-            VStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 0) {
                 header
-                aiSection
-                if let banner = store.banner { BannerView(banner: banner) }
+                Hairline().padding(.vertical, 10)
+                if let active = store.active {
+                    ActiveTide(account: active)
+                } else if let error = store.refreshError {
+                    ErrorCard(message: error)
+                }
+                let queue = store.nextInLine
+                if !queue.isEmpty {
+                    Hairline().padding(.vertical, 10)
+                    NextInLine(accounts: queue)
+                }
+                if let event = store.auto.events.last(where: { $0.severity != .info }) {
+                    Text("\(event.date.formatted(date: .omitted, time: .shortened))  \(event.summary)")
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        .padding(.top, 8)
+                }
+                if let banner = store.banner { BannerView(banner: banner).padding(.top, 8) }
+                QuickActions().padding(.top, 12)
             }
-            .padding(12)
+            .padding(14)
         }
         .frame(width: Self.width)
         .environment(\.mascotsPaused, !store.panelVisible)
@@ -23,102 +39,144 @@ struct MenuBarPanel: View {
     }
 
     private var header: some View {
-        HStack {
-            Text("HaryX").font(.headline)
+        HStack(spacing: 8) {
+            BrandLockup(size: 18)
             if let busy = store.busy {
                 ProgressView().controlSize(.mini)
-                Text(busy).font(.caption).foregroundStyle(.secondary)
+                Text(busy).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
-            Spacer()
-            if store.auto.isRunning {
-                Label("Auto", systemImage: "arrow.triangle.2.circlepath")
-                    .font(.caption2.weight(.semibold)).foregroundStyle(.green)
+            Spacer(minLength: 4)
+            Button {
+                store.auto.isRunning ? store.auto.stop() : store.startAuto()
+            } label: {
+                Text(store.auto.isRunning ? "Auto-switch on" : "Auto-switch off")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(store.auto.isRunning ? Brand.cyanText : .secondary)
             }
+            .help(store.auto.isRunning ? "Stop auto-switch" : "Start auto-switch")
             Group {
-                Button("Dashboard") { DashboardWindow.shared.show() }
-                    .keyboardShortcut("d")
-                Button("Quit") { NSApp.terminate(nil) }
-                    .keyboardShortcut("q")
-            }
-            .font(.caption)
-        }
-        .buttonStyle(.borderless)
-    }
-
-    /// Everything about AI coding accounts (the `haryx ai` commands), under one heading whose "+"
-    /// signs in a new account. Later sections (DevSecOps, SRE, Cloud…) sit beside it.
-    private var aiSection: some View {
-        VStack(spacing: 8) {
-            PanelSectionHeader(title: "AI", systemImage: "sparkles") {
-                if let t = store.lastRefresh {
-                    Text(t, format: .relative(presentation: .numeric)).font(.caption2).foregroundStyle(.tertiary)
-                }
                 Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") }
-                    .buttonStyle(.borderless)
-                    .help("Refresh")
-                    .keyboardShortcut("r")
-                    .accessibilityLabel("Refresh")
+                    .help("Refresh").keyboardShortcut("r").accessibilityLabel("Refresh")
                 Button { store.signInNew() } label: { Image(systemName: "plus") }
-                    .buttonStyle(.borderless)
                     .disabled(store.addLoginPending)
                     .help(store.addLoginPending ? "A new-account sign-in is already open" : "Sign in a new account")
                     .accessibilityLabel("Sign in a new account")
+                Menu {
+                    Button("Open Dashboard") { DashboardWindow.shared.show() }.keyboardShortcut("d")
+                    Divider()
+                    Button("Quit HaryX") { NSApp.terminate(nil) }.keyboardShortcut("q")
+                } label: { Image(systemName: "ellipsis") }
+                    .menuIndicator(.hidden)
+                    .fixedSize()
+                    .accessibilityLabel("More")
             }
-            if let active = store.active {
-                HeroCard(account: active)
-            } else if let error = store.refreshError {
-                ErrorCard(message: error)
-            }
-            accountList
-            QuickActions()
+            .foregroundStyle(.secondary)
         }
+        .buttonStyle(.borderless)
     }
-
-    private var accountList: some View {
-        ScrollView {
-            VStack(spacing: 4) {
-                ForEach(store.accounts.filter { !$0.active }) { AccountRow(account: $0) }
-            }
-        }
-        .scrollIndicators(.never)
-        .frame(maxHeight: min(CGFloat(max(store.accounts.count - 1, 0)) * 64, 360))
-    }
-
 }
 
-private struct HeroCard: View {
+/// A 1 pt rule.
+private struct Hairline: View {
+    var body: some View { Rectangle().fill(.separator).frame(height: 1) }
+}
+
+/// The active account read like a tide table: observed use against the predicted pace, the
+/// next reset as the next low water.
+private struct ActiveTide: View {
     @Environment(AppStore.self) private var store
     let account: Account
+    private static let fiveHours: TimeInterval = 5 * 3600
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            MascotView(style: store.style(for: account), mood: store.mood(for: account), size: 64, phase: store.phase(for: account))
-            VStack(alignment: .leading, spacing: 6) {
-                VStack(alignment: .leading, spacing: 1) {
+        let five = account.usage?.fiveHour
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                MascotView(style: store.style(for: account), mood: store.mood(for: account), size: 36,
+                           phase: store.phase(for: account))
+                VStack(alignment: .leading, spacing: 2) {
                     Text(account.displayName).font(.headline).lineLimit(1)
-                    if account.alias != nil { Text(account.email).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
-                    AccountBadges(account: account)
-                }
-                if account.usage != nil {
-                    if account.usage?.fiveHour != nil { UsageBar(label: "5-HOUR", window: account.usage?.fiveHour) }
-                    UsageBar(label: "WEEKLY", window: account.usage?.sevenDay)
-                    if let w = account.usage?.sevenDay, w.aheadOfPace == true, w.willLastToReset == false, let end = w.projectedExhaustionAt {
-                        Label("On pace to run out \(end.formatted(.relative(presentation: .named)))", systemImage: "gauge.with.dots.needle.67percent")
-                            .font(.caption2).foregroundStyle(.orange)
+                    HStack(spacing: 6) {
+                        if let plan = account.plan?.label { Text(plan) }
+                        if let n = store.sessions[account.number]?.count, n > 0 {
+                            Text(n == 1 ? "1 running" : "\(n) running").foregroundStyle(Brand.cyanText)
+                        }
+                        if let wake = store.wake?.account(account.number)?.summary() { Text(wake) }
                     }
-                } else if let note = account.statusNote {
-                    Text(note).font(.caption).foregroundStyle(.orange)
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
-                if account.offersSignIn { SignInAgainButton(account: account, prominent: account.needsRelogin).controlSize(.small) }
+                Spacer(minLength: 0)
             }
+            if account.usage != nil {
+                HStack(alignment: .lastTextBaseline) {
+                    Text(five?.pct.map { "\(Int($0))%" } ?? "—")
+                        .font(Brand.display(44, relativeTo: .largeTitle).monospacedDigit())
+                        .foregroundStyle(five?.pct == nil ? .tertiary : .primary)
+                    Text("of 5-hour window").font(.callout).foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    VStack(alignment: .trailing, spacing: 0) {
+                        Text(five?.clock ?? "—").font(Brand.display(18, weight: .medium, relativeTo: .title3).monospacedDigit())
+                        if let c = five?.countdown { Text("reset in \(c)").font(.caption).foregroundStyle(.secondary) }
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                TideStaff(window: five)
+                HStack {
+                    paceLine(five)
+                    Spacer()
+                    Text("7d \(account.usage?.sevenDay?.pct.map { "\(Int($0))%" } ?? "—")")
+                        .monospacedDigit().foregroundStyle(.secondary)
+                }
+                .font(.caption)
+                TimeLeftRule(resetsAt: five?.resetsAt, windowSeconds: Self.fiveHours)
+            } else if let note = account.statusNote {
+                Text(note).font(.callout).foregroundStyle(Brand.warn)
+            }
+            if account.offersSignIn { SignInAgainButton(account: account, prominent: account.needsRelogin).controlSize(.small) }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.accentColor.opacity(0.08)), in: .rect(cornerRadius: 18))
-        .contentShape(.rect(cornerRadius: 18))
+        .contentShape(.rect)
         .onTapGesture { AccountActionMenu.show(for: account, store: store) }
         .help("Click for account actions")
         .contextMenu { AccountContextMenu(account: account) }
+    }
+
+    @ViewBuilder private func paceLine(_ w: UsageWindow?) -> some View {
+        if let d = w?.paceDelta, d != 0 {
+            Text(d > 0 ? "\(d) pts ahead of pace" : "\(-d) pts under pace")
+                .foregroundStyle(d > 0 ? Brand.warn : .secondary)
+        } else if let w = account.usage?.sevenDay, w.aheadOfPace == true, w.willLastToReset == false,
+                  let end = w.projectedExhaustionAt {
+            Text("Weekly runs out \(end.formatted(.relative(presentation: .named)))").foregroundStyle(Brand.warn)
+        } else {
+            Text("on pace").foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// The other accounts as an almanac: in switch order, columns that never move.
+private struct NextInLine: View {
+    let accounts: [Account]
+    private static let rowHeight: CGFloat = 30
+
+    var body: some View {
+        ScrollView {
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 0) {
+                GridRow {
+                    Text("Next in line")
+                    Text("5h").gridColumnAlignment(.trailing)
+                    Text("7d").gridColumnAlignment(.trailing)
+                    Text("Resets").gridColumnAlignment(.trailing)
+                    Color.clear.frame(width: 1, height: 1)
+                }
+                .font(.caption2.weight(.medium)).foregroundStyle(.tertiary)
+                .padding(.bottom, 2)
+                .accessibilityHidden(true)
+                ForEach(accounts) { AccountRow(account: $0) }
+            }
+        }
+        .scrollIndicators(.never)
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(maxHeight: min(CGFloat(accounts.count + 1) * Self.rowHeight, 300))
     }
 }
 
@@ -128,42 +186,57 @@ struct AccountRow: View {
     @State private var hovering = false
 
     var body: some View {
-        HStack(spacing: 10) {
-            MascotView(style: store.style(for: account), mood: store.mood(for: account), size: 34, phase: store.phase(for: account))
-                .opacity(account.isDisabled ? 0.55 : 1)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 4) {
-                    Text("\(account.number)").font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
-                    Text(account.displayName).font(.callout.weight(.medium)).lineLimit(1)
-                    AccountBadges(account: account)
-                }
-                if account.usage != nil {
-                    HStack(spacing: 8) {
-                        UsageBar(label: "5h", window: account.usage?.fiveHour, compact: true)
-                        UsageBar(label: "7d", window: account.usage?.sevenDay, compact: true)
-                    }
-                } else if let note = account.statusNote {
-                    Text(note).font(.caption2).foregroundStyle(.orange).lineLimit(1)
-                }
+        GridRow {
+            HStack(spacing: 6) {
+                MascotView(style: store.style(for: account), mood: store.mood(for: account), size: 18,
+                           phase: store.phase(for: account))
+                Text(account.displayName).lineLimit(1).truncationMode(.middle)
+                if let plan = account.plan?.label { Text(plan).font(.caption2).foregroundStyle(.tertiary) }
             }
-            Spacer(minLength: 0)
-            if account.needsRelogin && account.canRelogin {
-                SignInAgainButton(account: account).controlSize(.small)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if account.usage != nil {
+                pct(account.usage?.fiveHour)
+                pct(account.usage?.sevenDay)
+                Text(account.usage?.fiveHour?.clock ?? (account.usage?.fiveHour?.pct == 0 ? "not started" : "—"))
+                    .foregroundStyle(.secondary)
+                    .gridColumnAlignment(.trailing)
             } else {
-                Button("Use") { Task { await store.switchTo(account) } }
-                    .buttonStyle(.glass)
-                    .controlSize(.small)
-                    .opacity(hovering ? 1 : 0.55)
-                    .disabled(store.busy != nil)
-                    .help("Switch to \(account.displayName)")
+                Text(account.isDisabled ? "disabled" : (account.statusNote ?? "—"))
+                    .foregroundStyle(account.needsRelogin ? Brand.warn : .secondary)
+                    .lineLimit(1)
+                    .gridCellColumns(3)
             }
+            trailing
         }
-        .padding(.horizontal, 8).padding(.vertical, 6)
-        .background(hovering ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 10))
+        .font(.callout.monospacedDigit())
+        .opacity(account.isDisabled ? 0.5 : 1)
+        .padding(.vertical, 5)
+        .background(hovering ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear))
         .contentShape(.rect)
         .onTapGesture { AccountActionMenu.show(for: account, store: store) }
         .onHover { hovering = $0 }
         .contextMenu { AccountContextMenu(account: account) }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private func pct(_ w: UsageWindow?) -> some View {
+        Text(w?.pct.map { "\(Int($0))%" } ?? "—")
+            .foregroundStyle(w?.pct.map { $0 >= 85 } == true ? Brand.usageFill(w) : .primary)
+            .gridColumnAlignment(.trailing)
+    }
+
+    @ViewBuilder private var trailing: some View {
+        if account.needsRelogin && account.canRelogin {
+            SignInAgainButton(account: account, prominent: false).controlSize(.mini)
+        } else {
+            Button("Use") { Task { await store.switchTo(account) } }
+                .buttonStyle(.borderless)
+                .font(.caption.weight(.medium))
+                .opacity(hovering ? 1 : 0)
+                .disabled(store.busy != nil || account.isDisabled)
+                .help("Switch to \(account.displayName)")
+        }
     }
 }
 
@@ -203,24 +276,29 @@ private struct QuickActions: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Menu {
-                ForEach(AppStore.SwitchMode.allCases) { mode in
-                    Button(mode.title) { Task { await store.switchNext(mode) } }
+            let next = store.nextInLine.first(where: { !$0.isDisabled && !$0.needsRelogin })
+            HStack(spacing: 4) {
+                Button {
+                    if let next { Task { await store.switchTo(next) } } else { Task { await store.switchNext(.best) } }
+                } label: {
+                    Text(next.map { "Switch to \($0.displayName)" } ?? "Switch")
+                        .lineLimit(1).truncationMode(.middle)
+                        .frame(maxWidth: .infinity)
                 }
-            } label: {
-                Label("Switch", systemImage: "arrow.left.arrow.right")
-            } primaryAction: {
-                Task { await store.switchNext(.best) }
+                .buttonStyle(.glassProminent)
+                .help("Switch to the next account in line")
+                Menu {
+                    ForEach(AppStore.SwitchMode.allCases) { mode in
+                        Button(mode.title) { Task { await store.switchNext(mode) } }
+                    }
+                } label: { Image(systemName: "chevron.down") }
+                    .menuIndicator(.hidden)
+                    .buttonStyle(.glass)
+                    .fixedSize()
+                    .help("Other ways to switch")
+                    .accessibilityLabel("Other ways to switch")
             }
-            .help("Click: switch to the account with most headroom")
-
-            Button {
-                store.auto.isRunning ? store.auto.stop() : store.startAuto()
-            } label: {
-                Label("Auto", systemImage: store.auto.isRunning ? "pause.fill" : "play.fill")
-            }
-            .tint(store.auto.isRunning ? .green : nil)
-            .help(store.auto.isRunning ? "Stop auto-switch" : "Start auto-switch")
+            .disabled(store.busy != nil)
 
             Menu {
                 Section("New shell") {
@@ -250,12 +328,12 @@ private struct QuickActions: View {
             } primaryAction: {
                 store.openTerminal()
             }
+            .buttonStyle(.glass)
             .help("Click: new \(TerminalApp.preferred.title) window")
         }
-        .buttonStyle(.glass)
         .menuStyle(.button)
         .labelStyle(.titleAndIcon)
-        .controlSize(.regular)
+        .controlSize(.large)
         .frame(maxWidth: .infinity)
     }
 }

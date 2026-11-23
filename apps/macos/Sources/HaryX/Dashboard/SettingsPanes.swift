@@ -106,7 +106,7 @@ struct AutoSwitchPane: View {
                     HStack(spacing: 14) {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.largeTitle)
-                            .foregroundStyle(store.auto.isRunning ? .green : .secondary)
+                            .foregroundStyle(store.auto.isRunning ? Brand.cyanText : .secondary)
                             .symbolEffect(.rotate, isActive: store.auto.isRunning)
                         VStack(alignment: .leading) {
                             Text(store.auto.isRunning ? "Auto-switch is running" : "Auto-switch is off").font(.headline)
@@ -160,7 +160,7 @@ struct AutoSwitchPane: View {
     private func color(_ e: AutoEvent) -> Color {
         switch e.severity {
         case .info: .secondary
-        case .notable: .accentColor
+        case .notable: Brand.cyan
         case .problem: .red
         }
     }

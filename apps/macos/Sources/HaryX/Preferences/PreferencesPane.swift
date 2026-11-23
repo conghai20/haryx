@@ -10,7 +10,6 @@ struct PreferencesPane: View {
     @AppStorage(Prefs.shell) private var shell = ""
     @AppStorage(Prefs.claudeFolder) private var claudeFolder = CSwapCLI.home
     @AppStorage(Prefs.menuBarPercent) private var menuBarPercent = true
-    @AppStorage(Prefs.menuBarAnimate) private var menuBarAnimate = true
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var showNotifyDenied = false
 
@@ -20,8 +19,6 @@ struct PreferencesPane: View {
                 Toggle("Launch at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, on in setLaunchAtLogin(on) }
                 Toggle("Show 5-hour % in the menu bar", isOn: $menuBarPercent)
-                Toggle("Animate menu bar mascot while Claude runs", isOn: $menuBarAnimate)
-                    .onChange(of: menuBarAnimate) { store.updateMenuBarAnimation() }
                 Picker("Refresh usage every", selection: $refreshSeconds) {
                     Text("30 seconds").tag(30.0)
                     Text("1 minute").tag(60.0)

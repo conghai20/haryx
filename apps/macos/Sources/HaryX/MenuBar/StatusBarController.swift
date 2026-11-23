@@ -18,7 +18,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     init(store: AppStore) {
         self.store = store
         super.init()
-        popover.behavior = .transient
+        popover.behavior = CommandLine.arguments.contains("--open-panel") ? .applicationDefined : .transient
         popover.delegate = self
         let host = NSHostingController(rootView: MenuBarPanel().environment(store))
         host.sizingOptions = .preferredContentSize
@@ -47,6 +47,11 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
 
     func close() { popover.performClose(nil) }
 
+    func open() {
+        popover.appearance = NSApp.appearance
+        if !popover.isShown { toggle() }
+    }
+
     func popoverDidShow(_ notification: Notification) {
         log.notice("popover shown")
         store.panelVisible = true
@@ -61,6 +66,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     /// and when another HaryX window (the dashboard) becomes key.
     private func installDismissTriggers() {
         removeDismissTriggers()
+        guard !CommandLine.arguments.contains("--open-panel") else { return } // design review keeps it open
         let mask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
         if let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] _ in
             MainActor.assumeIsolated { self?.close() }
@@ -136,11 +142,19 @@ final class DashboardWindow: NSObject, NSWindowDelegate {
             window = w
         }
         NSApp.setActivationPolicy(.regular)
+        if window?.isMiniaturized == true { window?.deminiaturize(nil) }
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }
 
     func windowWillClose(_ notification: Notification) {
+        store?.dashboardVisible = false
         NSApp.setActivationPolicy(.accessory)
+    }
+
+    /// Mascots and other motion stop while the window is covered or minimized.
+    func windowDidChangeOcclusionState(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        store?.dashboardVisible = window.occlusionState.contains(.visible)
     }
 }

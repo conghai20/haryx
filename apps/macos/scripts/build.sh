@@ -36,6 +36,15 @@ for size in 16 32 128 256 512; do
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 
+# Brand accent (deep Electric Cyan, white text 5.4:1): sidebar selection and prominent buttons.
+xcrun actool "$ROOT/Resources/Assets.xcassets" --compile "$APP/Contents/Resources" --platform macosx \
+  --minimum-deployment-target 26.0 --accent-color AccentColor \
+  --output-partial-info-plist "$BUILD/assets-info.plist" >/dev/null
+
+# Space Grotesk (OFL) for display moments, registered through ATSApplicationFontsPath.
+mkdir -p "$APP/Contents/Resources/Fonts"
+cp "$ROOT/Resources/Fonts/SpaceGrotesk.ttf" "$ROOT/Resources/Fonts/OFL.txt" "$APP/Contents/Resources/Fonts/"
+
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -53,6 +62,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSUIElement</key><true/>
   <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>ATSApplicationFontsPath</key><string>Fonts</string>
+  <key>NSAccentColorName</key><string>AccentColor</string>
   <key>NSAppleEventsUsageDescription</key><string>HaryX opens iTerm2 windows to run Claude as the account you picked.</string>
 </dict>
 </plist>

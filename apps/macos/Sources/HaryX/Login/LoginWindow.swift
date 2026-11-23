@@ -124,7 +124,7 @@ private struct LoginView: View {
         Group {
             switch session.state {
             case .succeeded(let message):
-                Label(message, systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                Label(message, systemImage: "checkmark.circle.fill").foregroundStyle(Brand.cyanText)
             case .failed(let message):
                 Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
             case .cancelled:

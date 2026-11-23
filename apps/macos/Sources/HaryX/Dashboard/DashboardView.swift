@@ -18,12 +18,12 @@ enum DashboardGroup: String, CaseIterable, Identifiable {
 }
 
 enum DashboardSection: String, CaseIterable, Identifiable {
-    case accounts, autoSwitch, mappings, profiles, config, maintenance, preferences
+    case accounts, autoSwitch, wake, mappings, profiles, config, maintenance, preferences
     var id: String { rawValue }
 
     var group: DashboardGroup {
         switch self {
-        case .accounts, .autoSwitch, .mappings, .profiles, .config, .maintenance: .ai
+        case .accounts, .autoSwitch, .wake, .mappings, .profiles, .config, .maintenance: .ai
         case .preferences: .app
         }
     }
@@ -32,6 +32,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         switch self {
         case .accounts: "Accounts"
         case .autoSwitch: "Auto-Switch"
+        case .wake: "Wake"
         case .mappings: "Folder Mappings"
         case .profiles: "Setup Profiles"
         case .config: "CLI Settings"
@@ -44,6 +45,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         switch self {
         case .accounts: "person.2.fill"
         case .autoSwitch: "arrow.triangle.2.circlepath"
+        case .wake: "alarm"
         case .mappings: "folder.badge.person.crop"
         case .profiles: "shippingbox"
         case .config: "slider.horizontal.3"
@@ -87,12 +89,16 @@ struct DashboardView: View {
                     }
                 }
             }
+            .safeAreaInset(edge: .top) {
+                BrandLockup(size: 20).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 6)
+            }
             .navigationSplitViewColumnWidth(min: 190, ideal: 210)
         } detail: {
             Group {
                 switch router.section ?? .accounts {
                 case .accounts: AccountsPane()
                 case .autoSwitch: AutoSwitchPane()
+                case .wake: WakePane()
                 case .mappings: MappingsPane()
                 case .profiles: ProfilesPane()
                 case .config: ConfigPane()
@@ -109,6 +115,7 @@ struct DashboardView: View {
         }
         .animation(.snappy, value: store.banner)
         .frame(minWidth: 860, minHeight: 560)
+        .environment(\.mascotsPaused, !store.dashboardVisible)
         .task { await store.loadExtras() }
     }
 }
@@ -184,20 +191,19 @@ struct AccountCard: View {
                 MascotView(style: store.style(for: account), mood: store.mood(for: account), size: 72, phase: store.phase(for: account))
                     .opacity(account.isDisabled ? 0.55 : 1)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Slot \(account.number)").font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
                     Text(account.displayName).font(.headline).lineLimit(1)
-                    if account.alias != nil { Text(account.email).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
-                    if let org = account.organizationName { Text(org).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
+                    Text(([account.alias != nil ? account.email : nil, "Slot \(account.number)", account.organizationName]
+                        .compactMap { $0 }).joined(separator: " · "))
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     AccountBadges(account: account)
                 }
                 Spacer(minLength: 0)
             }
             // Same layout for every card (usage unknown shows "—"), so cards needing a re-login are
             // as tall as the others.
-            UsageBar(label: "5-HOUR", window: account.usage?.fiveHour)
-            UsageBar(label: "WEEKLY", window: account.usage?.sevenDay)
-            Text(account.statusNote ?? " ")
-                .font(.caption).foregroundStyle(.orange)
+            CardTide(account: account)
+            Text(account.statusNote ?? store.wake?.account(account.number)?.summary() ?? " ")
+                .font(.caption).foregroundStyle(account.statusNote != nil ? Brand.warn : .secondary)
                 .lineLimit(1).truncationMode(.tail)
                 .help(account.statusNote ?? "")
             HStack {
@@ -221,10 +227,39 @@ struct AccountCard: View {
         }
         .padding(14)
         .frame(maxHeight: .infinity, alignment: .top)
-        .glassEffect(.regular.tint(selected ? Color.accentColor.opacity(0.18) : .clear).interactive(), in: .rect(cornerRadius: 20))
+        .glassEffect(.regular.tint(selected ? Brand.cyan.opacity(0.18) : .clear).interactive(), in: .rect(cornerRadius: 20))
         .overlay { if selected { RoundedRectangle(cornerRadius: 20).strokeBorder(.tint, lineWidth: 1.5) } }
         // The whole rounded card is clickable, padding and empty space included (not only its views).
         .contentShape(.rect(cornerRadius: 20))
         .contextMenu { AccountContextMenu(account: account) }
+    }
+}
+
+/// The card's tide reading: the 5-hour % large, its reset, the staff, and the week.
+private struct CardTide: View {
+    let account: Account
+
+    var body: some View {
+        let five = account.usage?.fiveHour
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .lastTextBaseline) {
+                Text(five?.pct.map { "\(Int($0))%" } ?? "—")
+                    .font(Brand.display(28, relativeTo: .title).monospacedDigit())
+                    .foregroundStyle(five?.pct == nil ? .tertiary : .primary)
+                Text("5-hour").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                if let clock = five?.clock {
+                    Text("resets \(clock)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                }
+            }
+            TideStaff(window: five, height: 5)
+            HStack {
+                Text("Week \(account.usage?.sevenDay?.pct.map { "\(Int($0))%" } ?? "—")")
+                Spacer()
+                if let c = account.usage?.sevenDay?.countdown { Text("resets in \(c)") }
+            }
+            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
     }
 }

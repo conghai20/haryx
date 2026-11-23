@@ -135,6 +135,23 @@ extension AppStore {
         await perform(disabled ? "Disabling" : "Enabling", [disabled ? "disable" : "enable", ref(a)])
     }
 
+    // MARK: wake (`haryx ai wake`)
+
+    func setWake(_ a: Account, _ on: Bool) async {
+        await perform(on ? "Wake on" : "Wake off", ["ai", "wake", on ? "on" : "off", ref(a)], extras: true)
+    }
+
+    func setWakeAgent(installed: Bool) async {
+        await perform(installed ? "Installing wake agent" : "Removing wake agent",
+                      ["ai", "wake", installed ? "install" : "uninstall"], extras: true)
+    }
+
+    func setWakeConfig(quietHours: String?, weeklyCapPct: Double) async {
+        let quiet = quietHours.map { ["--quiet", $0] } ?? ["--no-quiet"]
+        await perform("Wake settings", ["ai", "wake", "config"] + quiet + ["--weekly-cap", String(Int(weeklyCapPct))],
+                      success: "Wake settings saved", extras: true)
+    }
+
     func setAlias(_ a: Account, _ alias: String?) async {
         let args = alias.map { ["alias", ref(a), $0] } ?? ["alias", ref(a), "--unset"]
         await perform("Alias", args)

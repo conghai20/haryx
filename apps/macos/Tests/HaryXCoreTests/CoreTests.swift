@@ -213,3 +213,24 @@ func profileFixture<T: Decodable>(_ type: T.Type, _ name: String) throws -> T {
     #expect(!ProfileArgs.isValidName("a/b"))
     #expect(!ProfileArgs.isValidName("bé"))
 }
+
+// MARK: - wake
+
+@Test func decodesWakeStatus() throws {
+    let url = contractsDir.deletingLastPathComponent().appendingPathComponent("haryx/wake-status.json")
+    let status = try CSwapJSON.decoder.decode(WakeStatus.self, from: Data(contentsOf: url))
+    #expect(status.agentInstalled)
+    #expect(status.quietHours == "01:00-06:00")
+    #expect(status.accounts.count == 3)
+    #expect(status.account(1)?.on == true)
+    #expect(status.account(3)?.summary() == nil)
+    #expect(status.account(2)?.summary() == "wake skipped: weekly cap")
+}
+
+@Test func wakeSummaryPrefersFailuresAndNextDue() {
+    let now = Date(timeIntervalSince1970: 1_000)
+    let failed = WakeAccount(number: 1, on: true, lastWakeAt: nil, nextDue: nil, lastResult: "failed:http-401")
+    #expect(failed.summary(now: now) == "wake failed (http-401)")
+    let due = WakeAccount(number: 1, on: true, lastWakeAt: nil, nextDue: Date(timeIntervalSince1970: 5_000), lastResult: "not-due")
+    #expect(due.summary(now: now)?.hasPrefix("wakes ") == true)
+}

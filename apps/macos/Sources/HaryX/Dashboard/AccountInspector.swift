@@ -33,6 +33,8 @@ struct AccountInspector: View {
 
             UsageSection(account: account)
 
+            WakeSection(account: account)
+
             Section("Identity") {
                 LabeledContent("Email", value: account.email)
                 if let org = account.organizationName { LabeledContent("Organization", value: org) }

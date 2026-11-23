@@ -12,8 +12,9 @@ struct Banner: Equatable {
 @MainActor @Observable
 final class AppStore {
     static let sessionScanSeconds = 4.0
+    /// Session scan cadence while neither the panel nor the dashboard is on screen.
+    static let hiddenSessionScanSeconds = 15.0
     /// Each status-item image change costs a menu bar re-snapshot in AppKit, so keep this low.
-    static let menuBarFPS = 2.0
     static let bannerSeconds = 5.0
 
     // cswap state
@@ -26,6 +27,8 @@ final class AppStore {
     private(set) var priorities: [Int: Int] = [:]
     private(set) var unclaimed: [UnclaimedEntry] = []
     private(set) var version = ""
+    /// `haryx ai wake status`; nil with a cswap backend or before the first load.
+    private(set) var wake: WakeStatus?
     private(set) var cli: CSwapCLI?
 
     // UI state
@@ -35,15 +38,15 @@ final class AppStore {
     private(set) var loginSessions: [LoginSession] = []
     /// slot → live Claude processes using it
     private(set) var sessions: [Int: [ClaudeProcess]] = [:]
-    private(set) var menuBarTick = 0
     var panelVisible = false
+    /// The dashboard window is on screen (not closed, minimized or fully covered).
+    var dashboardVisible = false
 
     let auto = AutoSwitchRunner()
     let styles = MascotStyles()
     let notifier = Notifier()
 
     @ObservationIgnored private var loops: [Task<Void, Never>] = []
-    private var menuBarLoop: Task<Void, Never>?
     @ObservationIgnored private var bannerTask: Task<Void, Never>?
     @ObservationIgnored private var watcher: DispatchSourceFileSystemObject?
     @ObservationIgnored private var seenSequenceMTime: Date?
@@ -72,7 +75,8 @@ final class AppStore {
         loops.append(Task { [weak self] in
             while !Task.isCancelled {
                 await self?.scanSessions()
-                try? await Task.sleep(for: .seconds(Self.sessionScanSeconds))
+                let onScreen = self.map { $0.panelVisible || $0.dashboardVisible } ?? false
+                try? await Task.sleep(for: .seconds(onScreen ? Self.sessionScanSeconds : Self.hiddenSessionScanSeconds))
             }
         })
         watchBackupDir()
@@ -84,7 +88,6 @@ final class AppStore {
     func shutdown() {
         auto.stop()
         loops.forEach { $0.cancel() }
-        menuBarLoop?.cancel()
     }
 
     func relocateCLI() {
@@ -95,6 +98,17 @@ final class AppStore {
     // MARK: derived
 
     var active: Account? { accounts.first(where: \.active) }
+
+    /// The other accounts in switch order: usable before signed-out before disabled, then the
+    /// most headroom first (the `best` strategy's reading).
+    var nextInLine: [Account] {
+        func tier(_ a: Account) -> Int { a.isDisabled ? 2 : (a.needsRelogin ? 1 : 0) }
+        return accounts.filter { !$0.active }.sorted {
+            if tier($0) != tier($1) { return tier($0) < tier($1) }
+            let l = $0.peakPct ?? 101, r = $1.peakPct ?? 101
+            return l != r ? l < r : $0.number < $1.number
+        }
+    }
     var styleMap: [String: MascotStyle] { styles.resolve(accounts) }
 
     func style(for a: Account) -> MascotStyle {
@@ -119,15 +133,12 @@ final class AppStore {
         accounts.first { $0.identityKey == mapping.identityKey }
     }
 
+    /// The Wing H mark as a template image; a dot joins it while the active account runs a session.
     var menuBarImage: NSImage {
-        guard let a = active else { return MascotCache.menuBarImage(MascotStyle(species: .critter), pose: Pose()) }
-        let mood = mood(for: a)
-        // Two-frame walk (legs swap each tick) while a session runs; a still frame otherwise.
-        let pose = mood == .running && menuBarLoop != nil
-            ? Pose(altLegs: menuBarTick % 2 == 1, squat: menuBarTick % 2 == 0, mood: .running)
-            : Pose(mood: mood == .running ? .idle : mood)
-        return MascotCache.menuBarImage(style(for: a), pose: pose)
+        (active.map(isRunning) ?? false) ? Self.markRunning : Self.mark
     }
+    private static let mark = WingH.templateImage()
+    private static let markRunning = WingH.templateImage(running: true)
 
     // MARK: sign-in
 
@@ -189,11 +200,14 @@ final class AppStore {
         async let prio = try? cli.checked(["priority"])
         async let uncl = try? cli.checked(["unclaimed"])
         async let ver = try? cli.checked(["--version"])
+        async let wakeStatus = CSwapCLI.selectedFlavor == .haryx
+            ? try? cli.json(WakeStatus.self, ["ai", "wake", "status", "--json"]) : nil
         // Keep the previous values when a call fails rather than blanking the UI.
         if let c = await configList { config = c.settings; configPath = c.path }
         if let p = await prio { priorities = TextParsers.priorities(p) }
         if let u = await uncl { unclaimed = TextParsers.unclaimed(u) }
         if let v = await ver { version = v.trimmingCharacters(in: .whitespacesAndNewlines) }
+        if let w = await wakeStatus { wake = w }
         loadMappings()
     }
 
@@ -256,7 +270,6 @@ final class AppStore {
         }
         knownProcesses = current
         if bySlot != sessions { sessions = bySlot }
-        updateMenuBarAnimation()
     }
 
     private func sessionEnded(_ p: ClaudeProcess, slot: Int?) {
@@ -267,21 +280,6 @@ final class AppStore {
         let duration = Duration.seconds(ran).formatted(.units(allowed: [.hours, .minutes], width: .abbreviated))
         notifier.post(Notice(key: "session:\(p.pid):\(p.startedAt.timeIntervalSince1970)", category: .session,
                              title: "Claude session finished", body: "\(who) · ran \(duration)\(folder.isEmpty ? "" : " · \(folder)")"))
-    }
-
-    func updateMenuBarAnimation() {
-        let animate = Prefs.d.bool(forKey: Prefs.menuBarAnimate) && (active.map(isRunning) ?? false)
-        if animate, menuBarLoop == nil {
-            menuBarLoop = Task { [weak self] in
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: .seconds(1 / Self.menuBarFPS))
-                    self?.menuBarTick &+= 1
-                }
-            }
-        } else if !animate, let loop = menuBarLoop {
-            loop.cancel()
-            menuBarLoop = nil
-        }
     }
 
     // MARK: auto-switch

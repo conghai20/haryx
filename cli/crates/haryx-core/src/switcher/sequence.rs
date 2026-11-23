@@ -456,8 +456,8 @@ impl Switcher {
     pub fn reject_live_api_key_capture(&self, creds: &str) -> Result<()> {
         if looks_like_api_key(Some(creds)) {
             return Err(Error::Validation(format!(
-                "Active login is an API-key account. Add it with '{prog} add-token sk-ant-...' instead \
-                 of '{prog} add'.",
+                "Active login is an API-key account. Add it with '{prog} ai add-token sk-ant-...' instead \
+                 of '{prog} ai add'.",
                 prog = crate::PROG
             )));
         }

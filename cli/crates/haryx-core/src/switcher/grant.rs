@@ -346,7 +346,7 @@ impl Switcher {
                     Err(err) => {
                         error!(
                             "Account {account_num}'s consumed successor could not be persisted or stashed — it \
-                             survives only for this pass. Fix the storage failure, then re-login and `haryx add` \
+                             survives only for this pass. Fix the storage failure, then re-login and `haryx ai add` \
                              if the slot strikes: {err}"
                         );
                         (successor.to_owned(), "consume-gate-unpersisted".to_owned())
@@ -389,7 +389,7 @@ impl Switcher {
         if let Err(err) = self.store.remove_unclaimed_credential(entry_id) {
             warn!(
                 "Could not retire account {account_num}'s stash entry {entry_id}; leaving it for the next \
-                 pass (`haryx unclaimed --purge` drops it by hand): {err}"
+                 pass (`haryx ai unclaimed --purge` drops it by hand): {err}"
             );
         }
     }
@@ -416,7 +416,7 @@ impl Switcher {
             return Err(Error::CredentialRead(format!(
                 "the unclaimed manifest is {state} and stashed entry files exist; deferring account \
                  {account_num}'s adoption rather than POSTing a generation a stashed successor may already \
-                 have superseded (`haryx unclaimed` lists them, `--purge` drops one)"
+                 have superseded (`haryx ai unclaimed` lists them, `--purge` drops one)"
             )));
         }
         let mut deferred: Option<String> = None;

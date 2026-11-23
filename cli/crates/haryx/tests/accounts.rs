@@ -172,7 +172,7 @@ fn priority_list_and_set() {
     );
     assert!(
         list.out
-            .ends_with("Used only by: haryx auto --strategy priority-consume-first\n")
+            .ends_with("Used only by: haryx ai auto --strategy priority-consume-first\n")
     );
     assert_eq!(s.run(&["priority", "2", "abc"]).code, 1);
 }

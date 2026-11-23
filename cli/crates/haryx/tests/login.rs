@@ -146,7 +146,7 @@ fn two_accounts() -> Sandbox {
 fn relogin_of_inactive_account_stores_fresh_login_and_keeps_active_login() {
     let s = two_accounts();
     let out = s.haryx(
-        &["login", "1"],
+        &["ai", "login", "1"],
         &[("FAKE_EMAIL", "a@example.com"), ("FAKE_TOKEN", "at-a2")],
     );
     assert!(out.status.success(), "{}", text(&out));
@@ -182,7 +182,7 @@ fn relogin_of_inactive_account_stores_fresh_login_and_keeps_active_login() {
 fn relogin_as_another_account_changes_nothing() {
     let s = two_accounts();
     let out = s.haryx(
-        &["login", "1"],
+        &["ai", "login", "1"],
         &[("FAKE_EMAIL", "c@example.com"), ("FAKE_TOKEN", "at-c")],
     );
     assert!(!out.status.success());
@@ -199,7 +199,7 @@ fn relogin_as_another_account_changes_nothing() {
 fn relogin_of_active_account_signs_in_on_the_default_profile() {
     let s = two_accounts();
     let out = s.haryx(
-        &["login", "b@example.com"],
+        &["ai", "login", "b@example.com"],
         &[("FAKE_EMAIL", "b@example.com"), ("FAKE_TOKEN", "at-b2")],
     );
     assert!(out.status.success(), "{}", text(&out));
@@ -211,7 +211,7 @@ fn relogin_of_active_account_signs_in_on_the_default_profile() {
 fn login_without_account_adds_new_slot_without_switching() {
     let s = two_accounts();
     let out = s.haryx(
-        &["login", "--alias", "work"],
+        &["ai", "login", "--alias", "work"],
         &[("FAKE_EMAIL", "c@example.com"), ("FAKE_TOKEN", "at-c")],
     );
     assert!(out.status.success(), "{}", text(&out));
@@ -231,7 +231,7 @@ fn login_without_account_adds_new_slot_without_switching() {
 fn failed_sign_in_changes_nothing() {
     let s = two_accounts();
     let out = s.haryx(
-        &["login", "1"],
+        &["ai", "login", "1"],
         &[
             ("FAKE_EMAIL", "a@example.com"),
             ("FAKE_TOKEN", "at-a2"),
@@ -250,7 +250,7 @@ fn failed_sign_in_changes_nothing() {
 #[test]
 fn slot_and_alias_are_refused_with_an_account() {
     let s = two_accounts();
-    let out = s.haryx(&["login", "1", "--slot", "4"], &[]);
+    let out = s.haryx(&["ai", "login", "1", "--slot", "4"], &[]);
     assert!(!out.status.success());
     assert!(
         text(&out).contains("only for a new account"),

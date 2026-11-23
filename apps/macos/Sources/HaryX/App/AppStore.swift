@@ -31,7 +31,7 @@ final class AppStore {
     // UI state
     var busy: String?
     var banner: Banner?
-    /// Background `haryx login` runs still going (each has a sign-in window).
+    /// Background `haryx ai login` runs still going (each has a sign-in window).
     private(set) var loginSessions: [LoginSession] = []
     /// slot → live Claude processes using it
     private(set) var sessions: [Int: [ClaudeProcess]] = [:]

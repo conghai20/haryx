@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
-use crate::PROG;
+use crate::AI_PROG;
 use crate::error::{Error, Result};
 use crate::fsutil::{WriteOptions, atomic_write_text, publish_target};
 use crate::models::pyfmt::{json_dumps_pretty, repr_json};
@@ -453,7 +453,7 @@ pub fn parse_setting_value(spec: &SettingSpec, raw_value: &str) -> Result<Settin
             let value = raw_value.trim();
             if value.is_empty() {
                 return Err(Error::Config(format!(
-                    "{dotted} expects a non-empty value; use '{PROG} config unset {dotted}' to clear it"
+                    "{dotted} expects a non-empty value; use '{AI_PROG} config unset {dotted}' to clear it"
                 )));
             }
             Ok(SettingValue::Str(value.to_owned()))
@@ -482,7 +482,7 @@ fn parse_number(spec: &SettingSpec, raw_value: &str) -> Result<SettingValue> {
         };
         // An optional number has no spelling for "unset" here; point at the command that clears it.
         let hint = if spec.default() == SettingValue::None {
-            format!("; use '{PROG} config unset {dotted}' to clear it")
+            format!("; use '{AI_PROG} config unset {dotted}' to clear it")
         } else {
             String::new()
         };

@@ -105,7 +105,7 @@ struct RunArgs {
     #[arg(
         value_name = "NUM|EMAIL",
         help = p("Account to run (number or email). Omit to use the current directory's mapping \
-                  (see `{prog} map`).")
+                  (see `{prog} ai map`).")
     )]
     account: Option<String>,
 
@@ -122,7 +122,7 @@ struct RunArgs {
                   session profile, so every account sees one unified history. This is the \
                   default; history the profile already accumulated is merged into ~/.claude \
                   first. --no-share-history keeps this account's history separate for this \
-                  launch, `{prog} config set run.shareHistory false` for every launch.")
+                  launch, `{prog} ai config set run.shareHistory false` for every launch.")
     )]
     share_history: bool,
 
@@ -178,7 +178,7 @@ struct AutoArgs {
         value_name = "PCT",
         help = p("Separate switch line for the 7-day and per-model weekly windows (50-99.9; \
                   default: the threshold). A flag cannot unset a configured value; use \
-                  '{prog} config unset'")
+                  '{prog} ai config unset'")
     )]
     weekly_threshold: Option<f64>,
 
@@ -330,7 +330,7 @@ impl ConfigArgs {
 #[command(
     name = "map",
     bin_name = sub_bin("map"),
-    about = p("Map a stored account to a directory so `{prog} run` (with no account) auto-launches \
+    about = p("Map a stored account to a directory so `{prog} ai run` (with no account) auto-launches \
                it there. With no arguments, lists all mappings."),
     after_help = help::map_epilog(),
     help_template = help::HELP_TEMPLATE,
@@ -386,7 +386,7 @@ struct UnmapArgs {
     name = "unclaimed",
     bin_name = sub_bin("unclaimed"),
     about = p("List stashed credential entries, or purge one by id. Purging deletes the bytes — \
-               recovery is /login + `{prog} add`."),
+               recovery is /login + `{prog} ai add`."),
     help_template = help::HELP_TEMPLATE,
     args_override_self = true,
     infer_long_args = true,
@@ -407,7 +407,7 @@ struct UnclaimedArgs {
 #[command(
     name = "swap",
     bin_name = sub_bin("swap"),
-    about = p("Exchange two accounts' slot numbers, so they trade places in `{prog} list` and as \
+    about = p("Exchange two accounts' slot numbers, so they trade places in `{prog} ai list` and as \
                numeric targets. Aliases, backups, and session history move with their account."),
     after_help = help::swap_epilog(),
     help_template = help::HELP_TEMPLATE,

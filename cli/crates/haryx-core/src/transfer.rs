@@ -22,7 +22,7 @@ use crate::models::{Platform, get_timestamp, normalize_alias};
 use crate::oauth::credential_fingerprint;
 use crate::switcher::{JsonObject, Switcher};
 use crate::usage_store::Identities;
-use crate::{PROG, VERSION};
+use crate::{AI_PROG, PROG, VERSION};
 
 /// The export envelope's format version.
 pub const FORMAT_VERSION: i64 = 1;
@@ -585,7 +585,7 @@ fn import_one(
             let list: Vec<String> = pids.iter().map(i32::to_string).collect();
             eprint(&format!(
                 "Warning: {} (slot {target}) has a live session-mode instance (PID {}); its session profile keeps \
-                 the pre-import credentials until it is restarted via '{PROG} run'.",
+                 the pre-import credentials until it is restarted via '{AI_PROG} run'.",
                 entry.email,
                 list.join(", ")
             ));
@@ -700,7 +700,7 @@ pub fn import_usage(switcher: &Switcher, source: &str, hold_s: Option<f64>) -> R
     let document = parse_payload(&text, "usage document")?;
     if document.get("schemaVersion").and_then(Value::as_i64) != Some(i64::from(SCHEMA_VERSION)) {
         return Err(transfer(format!(
-            "unsupported usage document schemaVersion: {} (expected {SCHEMA_VERSION}, as printed by '{PROG} list \
+            "unsupported usage document schemaVersion: {} (expected {SCHEMA_VERSION}, as printed by '{AI_PROG} list \
              --json')",
             document
                 .get("schemaVersion")

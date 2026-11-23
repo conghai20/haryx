@@ -2,7 +2,7 @@ import AppKit
 import HaryXCore
 import SwiftUI
 
-/// The sign-in window: shows a background `haryx login` run, its sign-in link, and a field to
+/// The sign-in window: shows a background `haryx ai login` run, its sign-in link, and a field to
 /// paste the code the sign-in page shows. One window per run.
 @MainActor
 final class LoginWindow: NSObject, NSWindowDelegate {

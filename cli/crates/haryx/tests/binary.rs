@@ -34,16 +34,35 @@ fn version_names_haryx_and_the_upstream_release() {
 
 #[test]
 fn help_goes_to_stdout_with_exit_zero() {
-    for argv in [&["help"][..], &["--help"], &["run", "--help"]] {
+    for argv in [
+        &["help"][..],
+        &["--help"],
+        &["run", "--help"],
+        &["ai", "run", "--help"],
+    ] {
         let output = haryx(argv);
         assert_eq!(output.status.code(), Some(0), "{argv:?}");
         assert!(stdout(&output).contains("Usage: haryx"), "{argv:?}");
         assert!(stderr(&output).is_empty(), "{argv:?}");
     }
-    let main_help = stdout(&haryx(&["help"]));
-    assert!(main_help.contains("haryx import --from-cswap"));
-    assert!(!main_help.contains("menubar"));
-    assert!(!main_help.contains("cswap run"), "examples say haryx");
+    let top_help = stdout(&haryx(&["help"]));
+    assert!(
+        top_help.contains("haryx ai <command>"),
+        "the overview lists the sections"
+    );
+    assert!(
+        !top_help.contains("import --from-cswap"),
+        "the overview leaves commands to 'ai'"
+    );
+    for argv in [&["ai", "help"][..], &["ai", "--help"], &["list", "--help"]] {
+        let ai_help = stdout(&haryx(argv));
+        assert!(ai_help.contains("haryx ai import --from-cswap"), "{argv:?}");
+        assert!(!ai_help.contains("menubar"), "{argv:?}");
+        assert!(
+            !ai_help.contains("cswap run"),
+            "examples say haryx: {argv:?}"
+        );
+    }
     assert!(stdout(&haryx(&["config", "--help"])).contains("autoswitch.threshold"));
 }
 

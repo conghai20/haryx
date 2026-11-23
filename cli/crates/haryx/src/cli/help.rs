@@ -1,13 +1,14 @@
 //! Help, description and epilog texts, ported from the argparse parsers in `claude_swap/cli.py`.
 //!
-//! Texts are written with a `{prog}` placeholder that [`p`] fills with [`haryx_core::PROG`], so the
-//! program name lives in one place. Examples say `haryx` where upstream says `cswap`.
+//! Texts are written with `{prog}` / `{ai}` placeholders that [`p`] fills with [`haryx_core::PROG`] /
+//! [`haryx_core::AI_PROG`], so the names live in one place. Examples say `haryx ai` where upstream says
+//! `cswap`: every account command lives under the `ai` section.
 
-use haryx_core::PROG;
 use haryx_core::models::{
     ACCOUNT_PRIORITY_MAX, ACCOUNT_THRESHOLD_MAX, ACCOUNT_THRESHOLD_MIN, pyfmt::format_g,
 };
 use haryx_core::settings::{SETTING_SPECS, format_setting_value};
+use haryx_core::{AI_PROG, PROG};
 
 /// The per-account threshold range as help shows it (`50-99.9`), read from `haryx_core::models`.
 fn threshold_range() -> String {
@@ -22,14 +23,14 @@ fn threshold_range() -> String {
 pub const HELP_TEMPLATE: &str =
     "{usage-heading} {usage}\n\n{about-with-newline}\n{all-args}{after-help}";
 
-/// Fill the `{prog}` placeholder.
+/// Fill the `{ai}` (`haryx ai`) and `{prog}` (`haryx`) placeholders.
 pub fn p(text: &str) -> String {
-    text.replace("{prog}", PROG)
+    text.replace("{ai}", AI_PROG).replace("{prog}", PROG)
 }
 
-/// `haryx <sub>`: the program name a pre-dispatched parser shows in its usage line.
+/// `haryx ai <sub>`: the program name a pre-dispatched parser shows in its usage line.
 pub fn sub_bin(sub: &str) -> String {
-    format!("{PROG} {sub}")
+    format!("{AI_PROG} {sub}")
 }
 
 /// `--version` text: `haryx <ver> (claude-swap <upstream ver>)` (clap prefixes the name).
@@ -41,129 +42,151 @@ pub fn version() -> String {
     )
 }
 
+/// `haryx --help`: the sections, not their commands.
+pub fn top_usage() -> String {
+    p("{prog} <section> <command> [args] [options]")
+}
+
+pub fn top_description() -> String {
+    p("HaryX: a control center for your AI workflow
+
+Sections:
+  {ai} <command>     AI coding accounts: usage, switching, sign-in, sessions
+                         ('{ai} help' lists its commands)
+
+Commands:
+  {prog} help             show this help
+  {prog} upgrade          self-upgrade to latest
+
+Aliases: update=upgrade. Bare '{prog}' in a terminal opens the AI dashboard ('{ai} tui').")
+}
+
+/// `haryx ai --help`: every account command.
 pub fn main_usage() -> String {
-    p("{prog} <command> [args] [options]")
+    p("{ai} <command> [args] [options]")
 }
 
 pub fn main_description() -> String {
-    p("Multi-Account Switcher for Claude Code
+    p(
+        "AI coding accounts (Claude Code): usage, switching, sign-in and sessions
 
 Commands:
-  {prog} help                       show this help
-  {prog} list                       list managed accounts
-  {prog} status                     show current account
-  {prog} switch                     rotate to the next account
-  {prog} switch <num|email>         switch to a specific account
-  {prog} add                        add the current account
-  {prog} login [num|email]          sign an account in again, or add a new one
-  {prog} add-token [TOKEN|-]        register a setup-token or API key
-  {prog} remove <num|email>         remove an account
-  {prog} disable <num|email>        hold an account out of auto-rotation
-  {prog} enable <num|email>         return a disabled account to rotation
-  {prog} threshold <num|email> <pct>  set one account's switch-away point
-  {prog} threshold <num|email> --unset  clear it (use the global default)
-  {prog} threshold                  list the global default and overrides
-  {prog} priority <num|email> <tier>  set priority (higher first; default 0)
-  {prog} priority                   list account priorities
-  {prog} run <num|email> [-- ...]   run as an account, this terminal only
-  {prog} run                        run the current dir's mapped account
-  {prog} map <num|email> [path]     map a directory to an account
-  {prog} map                        list directory mappings
-  {prog} unmap [path]               remove a directory mapping
-  {prog} alias <num|email> <name>   set a short alias for an account
-  {prog} alias <num|email> --unset  remove an account's alias
-  {prog} alias                      list all aliases
-  {prog} swap <a> <b>               exchange two accounts' slot numbers
-  {prog} move <a> <slot>            assign an account to a slot (swaps if taken)
-  {prog} auto                       auto-switch when nearing rate limits
-  {prog} config [set KEY VALUE]     show or change settings (settings.json)
-  {prog} unclaimed [--purge ID]     list or drop stashed credential entries
-  {prog} export <path>              export accounts
-  {prog} import <path>              import accounts
-  {prog} import --from-cswap        copy accounts from an existing cswap store
-  {prog} import-usage <path>        adopt usage another machine read (list --json)
-  {prog} tui                        interactive dashboard (also: bare {prog})
-  {prog} watch                      dashboard, opened on the live watch page
-  {prog} upgrade                    self-upgrade to latest
-  {prog} purge                      remove all {prog} data
+  {ai} help                       show this help
+  {ai} list                       list managed accounts
+  {ai} status                     show current account
+  {ai} switch                     rotate to the next account
+  {ai} switch <num|email>         switch to a specific account
+  {ai} add                        add the current account
+  {ai} login [num|email]          sign an account in again, or add a new one
+  {ai} add-token [TOKEN|-]        register a setup-token or API key
+  {ai} remove <num|email>         remove an account
+  {ai} disable <num|email>        hold an account out of auto-rotation
+  {ai} enable <num|email>         return a disabled account to rotation
+  {ai} threshold <num|email> <pct>  set one account's switch-away point
+  {ai} threshold <num|email> --unset  clear it (use the global default)
+  {ai} threshold                  list the global default and overrides
+  {ai} priority <num|email> <tier>  set priority (higher first; default 0)
+  {ai} priority                   list account priorities
+  {ai} run <num|email> [-- ...]   run as an account, this terminal only
+  {ai} run                        run the current dir's mapped account
+  {ai} map <num|email> [path]     map a directory to an account
+  {ai} map                        list directory mappings
+  {ai} unmap [path]               remove a directory mapping
+  {ai} alias <num|email> <name>   set a short alias for an account
+  {ai} alias <num|email> --unset  remove an account's alias
+  {ai} alias                      list all aliases
+  {ai} swap <a> <b>               exchange two accounts' slot numbers
+  {ai} move <a> <slot>            assign an account to a slot (swaps if taken)
+  {ai} auto                       auto-switch when nearing rate limits
+  {ai} config [set KEY VALUE]     show or change settings (settings.json)
+  {ai} unclaimed [--purge ID]     list or drop stashed credential entries
+  {ai} export <path>              export accounts
+  {ai} import <path>              import accounts
+  {ai} import --from-cswap        copy accounts from an existing cswap store
+  {ai} import-usage <path>        adopt usage another machine read (list --json)
+  {ai} tui                        interactive dashboard (also: bare {prog})
+  {ai} watch                      dashboard, opened on the live watch page
+  {ai} purge                      remove all {prog} data
 
-Aliases: ls=list  rm=remove  update=upgrade")
+Aliases: ls=list  rm=remove",
+    )
 }
 
 pub fn main_epilog() -> String {
     p("Flags combine with subcommands:
-  {prog} switch --strategy best           # pick the account with most quota left
-  {prog} switch --strategy next-available # rotate, skipping rate-limited accounts
-  {prog} switch user@example.com
-  {prog} list --token-status
-  {prog} list --json
-  {prog} import-usage usage.json --hold 600  # adopt another machine's list --json
-  {prog} import --from-cswap               # copy accounts from cswap
-  {prog} add --slot 3                      # add to a specific slot
-  {prog} add-token sk-ant-oat01-... --email me@example.com
-  {prog} run 2 -- --resume                 # forward args after '--' to claude
-  {prog} auto --once                       # single auto-switch tick (cron-friendly)
-  {prog} config set autoswitch.threshold 80
+  {ai} switch --strategy best           # pick the account with most quota left
+  {ai} switch --strategy next-available # rotate, skipping rate-limited accounts
+  {ai} switch user@example.com
+  {ai} list --token-status
+  {ai} list --json
+  {ai} import-usage usage.json --hold 600  # adopt another machine's list --json
+  {ai} import --from-cswap               # copy accounts from cswap
+  {ai} add --slot 3                      # add to a specific slot
+  {ai} add-token sk-ant-oat01-... --email me@example.com
+  {ai} run 2 -- --resume                 # forward args after '--' to claude
+  {ai} auto --once                       # single auto-switch tick (cron-friendly)
+  {ai} config set autoswitch.threshold 80
 
-The original flag spellings ({prog} --switch, {prog} --list, ...) keep working.")
+The original spellings keep working: without 'ai' ({prog} list, {prog} switch 2) and as flags
+({prog} --switch, {prog} --list, ...). Only 'login' needs 'ai': '{prog} login' is kept for HaryX itself.")
 }
 
 pub fn run_epilog() -> String {
     p("Examples:
-  {prog} run 2
-  {prog} run user@example.com
-  {prog} run 2 --no-share
-  {prog} run 2 --no-share-history
-  {prog} run 2 --require-session
-  {prog} run 2 -- --resume")
+  {ai} run 2
+  {ai} run user@example.com
+  {ai} run 2 --no-share
+  {ai} run 2 --no-share-history
+  {ai} run 2 --require-session
+  {ai} run 2 -- --resume")
 }
 
 pub fn map_epilog() -> String {
     p("Examples:
-  {prog} map 2 ~/work/client-app
-  {prog} map user@example.com          # map the current directory
-  {prog} map                           # list all mappings")
+  {ai} map 2 ~/work/client-app
+  {ai} map user@example.com          # map the current directory
+  {ai} map                           # list all mappings")
 }
 
 pub fn swap_epilog() -> String {
     p("Examples:
-  {prog} swap 1 2
-  {prog} swap dev user@example.com")
+  {ai} swap 1 2
+  {ai} swap dev user@example.com")
 }
 
 pub fn login_epilog() -> String {
     p("Examples:
-  {prog} login 3                   fix \"re-login needed\" on account 3
-  {prog} login                     add a new account (the active login stays)
-  {prog} login --slot 5 --alias w  add a new account into slot 5 as 'w'
-  {prog} login 3 --sso             sign in with single sign-on
+  {ai} login 3                   fix \"re-login needed\" on account 3
+  {ai} login                     add a new account (the active login stays)
+  {ai} login --slot 5 --alias w  add a new account into slot 5 as 'w'
+  {ai} login 3 --sso             sign in with single sign-on
 
 Claude Code (`claude auth login`) does the sign-in in your browser; {prog} only stores the login.")
 }
 
 pub fn move_epilog() -> String {
     p("Examples:
-  {prog} move user@example.com 1   move an account onto shortcut 1
-  {prog} move dev 1                by alias
-  {prog} move 2 1                  by number (swaps if slot 1 is taken)")
+  {ai} move user@example.com 1   move an account onto shortcut 1
+  {ai} move dev 1                by alias
+  {ai} move 2 1                  by number (swaps if slot 1 is taken)")
 }
 
 pub fn alias_epilog() -> String {
     p("Examples:
-  {prog} alias 2 dev
-  {prog} alias user@example.com dev
-  {prog} alias 2 --unset
-  {prog} alias                         # list all aliases")
+  {ai} alias 2 dev
+  {ai} alias user@example.com dev
+  {ai} alias 2 --unset
+  {ai} alias                         # list all aliases")
 }
 
 pub fn threshold_epilog() -> String {
     format!(
         "{}\n\nValid range: {} (percent used).",
         p("Examples:
-  {prog} threshold 2 85
-  {prog} threshold user@example.com 99.9
-  {prog} threshold 2 --unset           # back to the global default
-  {prog} threshold                     # list the global default and overrides"),
+  {ai} threshold 2 85
+  {ai} threshold user@example.com 99.9
+  {ai} threshold 2 --unset           # back to the global default
+  {ai} threshold                     # list the global default and overrides"),
         threshold_range()
     )
 }
@@ -187,13 +210,13 @@ pub fn auto_epilog() -> String {
   3  blocked: wanted to switch but no viable target / all exhausted
 
 Examples:
-  {prog} auto                       # foreground loop, switch at 90% used
-  {prog} auto --threshold 80        # switch earlier
-  {prog} auto --weekly-threshold 97 # let the weekly window run higher before switching
-  {prog} auto --model Fable         # also switch when the Fable weekly limit is hit
-  {prog} auto --json                # one JSON event per line (for scripts)
-  {prog} auto --once; echo $?       # single tick, outcome in exit code
-  {prog} auto --dry-run             # log decisions, never actually switch
+  {ai} auto                       # foreground loop, switch at 90% used
+  {ai} auto --threshold 80        # switch earlier
+  {ai} auto --weekly-threshold 97 # let the weekly window run higher before switching
+  {ai} auto --model Fable         # also switch when the Fable weekly limit is hit
+  {ai} auto --json                # one JSON event per line (for scripts)
+  {ai} auto --once; echo $?       # single tick, outcome in exit code
+  {ai} auto --dry-run             # log decisions, never actually switch
 
 Defaults live in settings.json in the backup root; flags override them.")
 }
@@ -243,11 +266,11 @@ pub fn config_epilog() -> String {
         "Keys:\n{}\n\n{}",
         keys.join("\n"),
         p("Examples:
-  {prog} config                              # list effective settings
-  {prog} config get autoswitch.threshold
-  {prog} config set autoswitch.threshold 80
-  {prog} config set autoswitch.weeklyThreshold 97  # own line for the 7d/per-model windows
-  {prog} config unset autoswitch.threshold   # back to the default
-  {prog} config path                         # where settings.json lives")
+  {ai} config                              # list effective settings
+  {ai} config get autoswitch.threshold
+  {ai} config set autoswitch.threshold 80
+  {ai} config set autoswitch.weeklyThreshold 97  # own line for the 7d/per-model windows
+  {ai} config unset autoswitch.threshold   # back to the default
+  {ai} config path                         # where settings.json lives")
     )
 }

@@ -433,7 +433,7 @@ fn set_string_kind() {
     let dir = root();
     let message = config_err(set_setting(dir.path(), "autoswitch.model", "   "));
     assert!(
-        message.contains("haryx config unset autoswitch.model"),
+        message.contains("haryx ai config unset autoswitch.model"),
         "{message}"
     );
     assert!(!settings_path(dir.path()).exists());
@@ -659,7 +659,7 @@ fn weekly_threshold_set_validates_loudly_and_unset_clears() {
     assert_eq!(
         message,
         "autoswitch.weeklyThreshold expects a number, got 'banana'; \
-         use 'haryx config unset autoswitch.weeklyThreshold' to clear it"
+         use 'haryx ai config unset autoswitch.weeklyThreshold' to clear it"
     );
     assert!(!settings_path(dir.path()).exists());
     // A required number gets no unset hint.

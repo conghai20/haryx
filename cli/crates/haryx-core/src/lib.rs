@@ -44,6 +44,8 @@ pub use error::{Error, Result};
 
 /// Program name shown in messages and help.
 pub const PROG: &str = "haryx";
+/// The AI-accounts section every account, usage and session command lives under (`haryx ai list`).
+pub const AI_PROG: &str = "haryx ai";
 /// Version of haryx itself.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// The claude-swap release whose behaviour this build reproduces.

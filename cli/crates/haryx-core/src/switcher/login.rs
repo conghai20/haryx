@@ -304,7 +304,7 @@ impl Switcher {
         if !relogin {
             println!(
                 "{}",
-                dimmed("The active login was not changed. Switch to it with: haryx switch")
+                dimmed("The active login was not changed. Switch to it with: haryx ai switch")
             );
         }
         LoginOutcome {

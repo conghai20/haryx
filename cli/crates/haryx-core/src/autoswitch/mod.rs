@@ -55,7 +55,7 @@ pub const SYSTEMIC_MESSAGES: [(&str, &str); 4] = [
     (
         "stash-unreadable",
         "a stashed successor is unreadable — unlock the keychain or fix the file, then retry; \
-         `haryx unclaimed` inspects it",
+         `haryx ai unclaimed` inspects it",
     ),
     (
         "consume-busy",

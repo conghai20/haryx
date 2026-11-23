@@ -3,7 +3,7 @@
 
 use clap::error::ErrorKind;
 use clap::{ArgGroup, CommandFactory, Parser};
-use haryx_core::PROG;
+use haryx_core::{AI_PROG, PROG};
 
 use super::help;
 use super::{Command, Error, ImportSource, Invocation, SwitchStrategy};
@@ -170,7 +170,7 @@ impl MainArgs {
         if !self.has_action() {
             return Err((
                 ErrorKind::MissingRequiredArgument,
-                format!("no command given — try '{PROG} help'"),
+                format!("no command given — try '{AI_PROG} help'"),
             ));
         }
         self.check_empty_values()?;

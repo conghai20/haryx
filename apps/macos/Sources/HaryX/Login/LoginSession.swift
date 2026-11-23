@@ -3,7 +3,7 @@ import Foundation
 import HaryXCore
 import Observation
 
-/// One `haryx login` run in the background on a pseudo-terminal the app owns.
+/// One `haryx ai login` run in the background on a pseudo-terminal the app owns.
 ///
 /// Claude Code's sign-in expects a terminal (it reads a pasted code from it), so the CLI gets a
 /// pty instead of pipes: its output is shown in the sign-in window, and whatever the person types

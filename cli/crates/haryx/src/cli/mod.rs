@@ -16,10 +16,15 @@
 //! Python menu bar's LaunchAgent; the HaryX macOS app replaces that menu bar.
 //!
 //! Added: `import --from-cswap`, which copies accounts from an existing cswap store.
+//!
+//! Sections: every command above lives under `haryx ai` (`haryx ai list`, `haryx ai login 3`). The
+//! upstream spellings without `ai` stay as undocumented aliases, except `login`, which is new and whose
+//! top-level name is kept for a future HaryX account sign-in. `haryx --help` lists the sections.
 
 pub mod help;
 mod main_parser;
 mod subparsers;
+mod top;
 
 pub use clap::Error;
 
@@ -281,13 +286,40 @@ pub fn translate_subcommand(argv: &[String]) -> Vec<String> {
     }
 }
 
+/// The section every account, usage and session command lives under: `haryx ai list`.
+pub const AI_SECTION: &str = "ai";
+
+/// Commands that work only inside the `ai` section: their top-level names are kept for HaryX itself
+/// (`haryx login` will sign in to a HaryX account).
+pub const AI_ONLY: &[&str] = &["login"];
+
+/// Top-level help requests, answered with the section overview instead of the `ai` command list.
+const TOP_HELP: &[&str] = &["help", "--help", "-h"];
+
 /// Parse the arguments after the program name, as upstream `main()` dispatches them.
+///
+/// `haryx ai <command>` is the documented form. The commands that predate the sections keep working
+/// without `ai` (`haryx list`), as upstream spells them; the [`AI_ONLY`] ones do not.
 ///
 /// `interactive` says whether stdin and stdout are both terminals: bare `haryx` then opens the TUI,
 /// and otherwise is the "no command given" usage error. Help and version requests come back as a
 /// [`clap::Error`] of kind `DisplayHelp` / `DisplayVersion`; [`clap::Error::exit`] prints them on
 /// stdout with exit code 0 and usage errors on stderr with exit code 2.
 pub fn parse(argv: &[String], interactive: bool) -> Result<Invocation, Error> {
+    match argv.split_first() {
+        None if !interactive => Err(top::no_command()),
+        Some((first, rest)) if first == AI_SECTION => parse_ai(rest, interactive),
+        Some((first, _)) if AI_ONLY.contains(&first.as_str()) => Err(top::moved_to_ai(first)),
+        Some((first, rest)) if rest.is_empty() && TOP_HELP.contains(&first.as_str()) => {
+            Err(top::help())
+        }
+        _ => parse_ai(argv, interactive),
+    }
+}
+
+/// Parse the arguments of the `ai` section (after `haryx ai`, or after a bare `haryx` for the
+/// commands that predate the sections).
+fn parse_ai(argv: &[String], interactive: bool) -> Result<Invocation, Error> {
     if let Some((first, rest)) = argv.split_first()
         && let Some(parsed) = subparsers::parse(first, rest)
     {

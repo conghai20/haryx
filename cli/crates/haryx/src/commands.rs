@@ -9,7 +9,7 @@ mod upgrade;
 
 use std::fmt;
 
-use haryx_core::PROG;
+use haryx_core::{AI_PROG, PROG};
 
 use crate::cli::Command;
 
@@ -95,7 +95,7 @@ fn tui(start_watch: bool, debug: bool) -> Result<(), CommandError> {
     guard::refuse_root()?;
     if !std::io::stdout().is_terminal() {
         return Err(CommandError {
-            message: format!("{PROG}: the dashboard needs a terminal; try '{PROG} list'"),
+            message: format!("{PROG}: the dashboard needs a terminal; try '{AI_PROG} list'"),
             exit_code: 1,
         });
     }

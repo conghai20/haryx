@@ -6,11 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Account, usage and session commands now live in the `ai` section: `haryx ai list`,
+  `haryx ai switch 2`, `haryx ai tui`, `haryx ai watch`, and so on. `haryx --help` lists the
+  sections; `haryx ai help` lists the commands. Hints and help text use the `ai` form.
+  The cswap spellings without `ai` (`haryx list`, `haryx --list`) keep working, so scripts written
+  for `cswap` are unaffected. Bare `haryx` in a terminal still opens the dashboard.
+
 ### Added
 
-- `haryx login [NUM|EMAIL|ALIAS] [--slot N] [--alias NAME] [--sso]`: signs a managed account in
+- `haryx ai login [NUM|EMAIL|ALIAS] [--slot N] [--alias NAME] [--sso]`: signs a managed account in
   again (fixes "re-login needed") or adds a new account, by running Claude Code's own
-  `claude auth login` in an isolated profile. The active login is left untouched.
+  `claude auth login` in an isolated profile. The active login is left untouched. It exists only as
+  `haryx ai login`: the top-level `haryx login` is kept for a future HaryX account.
 - macOS app: **Sign In Again** on accounts that need a re-login, and **Sign In New Account**, in
   the account inspector, the menu bar Terminal dropdown and the dashboard toolbar.
 - macOS app: sign-in runs in the background in its own window, which shows the sign-in link
@@ -19,7 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- The "re-login needed" hint now points at `haryx login` instead of `haryx add`.
+- The "re-login needed" hint now points at `haryx ai login` instead of `haryx add`.
 
 ## [0.1.0] - 2026-11-23
 

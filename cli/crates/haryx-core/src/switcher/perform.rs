@@ -22,7 +22,7 @@ use crate::locking::{DEFAULT_LOCK_TIMEOUT, FileLock};
 use crate::models::{SwitchRollback, SwitchTransaction, get_timestamp};
 use crate::oauth::{self, AccountIdentity};
 use crate::printer::{accent, dimmed, warning};
-use crate::{PROG, paths, session};
+use crate::{AI_PROG, PROG, paths, session};
 
 /// The live credential and what the profile oracle said about it, fetched before the locks.
 #[derive(Clone, Debug, Default)]
@@ -492,7 +492,7 @@ impl Switcher {
                         "Account-{target} ({email}) has a live session-mode Claude instance (PID {}). Running the \
                          same account as both the default login and a session can make one copy's token go stale \
                          if the server rotates it. If the session later fails to authenticate, exit it and re-run \
-                         '{PROG} run {target}'.",
+                         '{AI_PROG} run {target}'.",
                         pids.join(", ")
                     ),
                 );
@@ -506,7 +506,7 @@ impl Switcher {
                  backup, and it could not be adopted into the backup: the profile's identity file (.claude.json) \
                  could not be read, or a Claude instance started against it just now. The backup is a consumed \
                  generation, and activating it would fail with invalid_grant on its first refresh. Re-login \
-                 inside the profile ('{PROG} run {target}', then /login) so its identity is rewritten, or switch \
+                 inside the profile ('{AI_PROG} run {target}', then /login) so its identity is rewritten, or switch \
                  to another account."
             )));
         }
@@ -749,18 +749,18 @@ impl Switcher {
                     format!(
                         "Credential ownership mismatch detected. The live credential was preserved and was not \
                          written into Account-{current}. If Account-{foreign} later cannot authenticate, log in \
-                         as it and run: {PROG} add --slot {foreign}"
+                         as it and run: {AI_PROG} add --slot {foreign}"
                     )
                 } else if kind == "known-foreign" {
                     format!(
                         "The live credential was previously identified as another account's. It was preserved \
                          and not written into Account-{current}. If the owning account later cannot authenticate, \
-                         log in as it and run: {PROG} add"
+                         log in as it and run: {AI_PROG} add"
                     )
                 } else {
                     format!(
                         "The live login does not match a managed account. It was preserved and not written into \
-                         Account-{current}. If you need that account, log in as it and run: {PROG} add"
+                         Account-{current}. If you need that account, log in as it and run: {AI_PROG} add"
                     )
                 };
                 self.emit(emit_output, warnings, msg);
@@ -783,7 +783,7 @@ impl Switcher {
                         format!(
                             "The live store holds a Claude login instead of Account-{current}'s API key. The \
                              stored key was kept and the login was preserved, not written into Account-{current}. \
-                             If you need that account, log in as it and run: {PROG} add"
+                             If you need that account, log in as it and run: {AI_PROG} add"
                         ),
                     );
                 }
@@ -802,7 +802,7 @@ impl Switcher {
                     warnings,
                     format!(
                         "{cause} Account-{current}'s stored backup was kept. If the account cannot authenticate \
-                         after switching back, log in with Claude Code and run: {PROG} add"
+                         after switching back, log in with Claude Code and run: {AI_PROG} add"
                     ),
                 );
             }

@@ -20,7 +20,8 @@ use crate::printer::{
 };
 use crate::usage_store::UsageEntry;
 use crate::{
-    PROG, credentials, oauth, pace, paths, poll_policy, process, session, settings, subscription,
+    AI_PROG, PROG, credentials, oauth, pace, paths, poll_policy, process, session, settings,
+    subscription,
 };
 
 /// Slack between two slots' reset instants before the lockstep heuristic stops calling them the same
@@ -41,7 +42,7 @@ pub fn sentinel_note(sentinel: &str) -> String {
         USAGE_API_KEY => "API key (no quota)".into(),
         USAGE_KEYCHAIN_UNAVAILABLE => "keychain unavailable — locked or in use; try again".into(),
         USAGE_RELOGIN_REQUIRED => {
-            format!("re-login needed — refresh token dead; sign in again: {PROG} login <num>")
+            format!("re-login needed — refresh token dead; sign in again: {AI_PROG} login <num>")
         }
         other => other.to_owned(),
     }
@@ -55,7 +56,7 @@ pub fn error_note(kind: &str) -> String {
         "consume-busy" => format!("another {PROG} surface holds the slot — retries next pass"),
         "stash-unreadable" => format!(
             "this slot's stashed successor is unreadable — unlock the keychain or fix the file, then retry; \
-             `{PROG} unclaimed` inspects it"
+             `{AI_PROG} unclaimed` inspects it"
         ),
         "live-login" => "the live login is this account's, so Claude Code renews it — switch to this account to realign".into(),
         "oauth_not_allowed_for_organization" => "this account's organization does not allow OAuth sign-in (a lapsed \
@@ -66,7 +67,7 @@ pub fn error_note(kind: &str) -> String {
              captive portal or a wrong system clock"
             .into(),
         "setup-token" => format!(
-            "setup-tokens cannot read the usage endpoint — `{PROG} config set usage.headerProbe true` reads it \
+            "setup-tokens cannot read the usage endpoint — `{AI_PROG} config set usage.headerProbe true` reads it \
              from a 1-token request"
         ),
         other => other.to_owned(),
@@ -345,7 +346,7 @@ impl Switcher {
                 match by_fp.get(&fp) {
                     Some(other) => out.push(format!(
                         "Account-{other} and Account-{snum} hold the same credential ({}) — one slot's backup \
-                         was overwritten. Log in with the missing account and re-add it: {PROG} add --slot N",
+                         was overwritten. Log in with the missing account and re-add it: {AI_PROG} add --slot N",
                         info.email
                     )),
                     None => {
@@ -416,7 +417,7 @@ impl Switcher {
                 out.push(format!(
                     "Account-{other} and Account-{snum} report identical usage and matching reset times — they \
                      may be the same account (issue #117). If it persists, log in with the missing account and \
-                     re-add it: {PROG} add --slot N"
+                     re-add it: {AI_PROG} add --slot N"
                 ));
             }
         }

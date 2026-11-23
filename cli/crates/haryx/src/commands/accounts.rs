@@ -10,7 +10,7 @@ use haryx_core::models::{normalize_account_priority_str, normalize_account_thres
 use haryx_core::printer::{accent, bolded, dimmed, muted, warning};
 use haryx_core::settings::load_settings;
 use haryx_core::switcher::Switcher;
-use haryx_core::{Error, PROG};
+use haryx_core::{AI_PROG, Error};
 use serde_json::Value;
 
 use super::{CommandError, guard};
@@ -156,7 +156,7 @@ pub fn priority(setting: &AccountSetting, debug: bool) -> Result<(), CommandErro
             println!(
                 "{}",
                 dimmed(&format!(
-                    "Used only by: {PROG} auto --strategy priority-consume-first"
+                    "Used only by: {AI_PROG} auto --strategy priority-consume-first"
                 ))
             );
             Ok(())
@@ -371,7 +371,7 @@ pub fn offer_cswap_import(switcher: &Switcher, json: bool) {
         eprintln!(
             "{}",
             muted(&format!(
-                "Found a cswap store at {}; copy its accounts with: {PROG} import --from-cswap",
+                "Found a cswap store at {}; copy its accounts with: {AI_PROG} import --from-cswap",
                 ns.store_root.display()
             ))
         );

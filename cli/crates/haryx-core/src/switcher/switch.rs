@@ -7,12 +7,12 @@ use serde_json::{Value, json};
 
 use super::perform::SwitchOp;
 use super::{JsonObject, Switcher};
-use crate::PROG;
 use crate::error::{Error, Result};
 use crate::json_output::{SCHEMA_VERSION, account_ref};
 use crate::oauth;
 use crate::printer::{accent, dimmed, muted, warning};
 use crate::usage_store::Decision;
+use crate::{AI_PROG, PROG};
 
 /// A no-op switch result.
 struct Noop<'a> {
@@ -500,7 +500,7 @@ impl Switcher {
                     .any(|n| self.account_is_switchable(n).unwrap_or(false))
                 {
                     return Err(Error::Config(format!(
-                        "No accounts remain in rotation. Re-enable one with: {PROG} enable <num|email>"
+                        "No accounts remain in rotation. Re-enable one with: {AI_PROG} enable <num|email>"
                     )));
                 }
                 return Err(Error::Config(format!(

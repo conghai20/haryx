@@ -31,7 +31,7 @@ use crate::session::{
 use crate::session_history::{MergeCounts, merge_history_into_source, mkdir_private};
 use crate::settings::{atomic_write_json, explicit_share_history, load_run_settings};
 use crate::switcher::Switcher;
-use crate::{PROG, oauth, paths, spawn};
+use crate::{AI_PROG, PROG, oauth, paths, spawn};
 
 /// Items shared from `~/.claude` into every profile (unless `--no-share`).
 pub const SHARED_ITEMS: [&str; 7] = [
@@ -138,7 +138,7 @@ impl<'a> SessionManager<'a> {
     fn ensure_not_api_key(&self, num: &str, email: &str) -> Result<()> {
         if self.switcher.account_kind(Some(num))? == "api_key" {
             return Err(Error::Session(format!(
-                "Account-{num} ({email}) is an API-key account; '{PROG} run' (session mode) does not support \
+                "Account-{num} ({email}) is an API-key account; '{AI_PROG} run' (session mode) does not support \
                  API-key accounts yet. Use '{PROG} --switch-to' to make it your default login instead."
             )));
         }
@@ -823,9 +823,9 @@ impl<'a> SessionManager<'a> {
 
     fn relaunch_command(&self, slot: &str) -> String {
         if load_run_settings(self.store_root()).share_history {
-            format!("{PROG} run {slot}")
+            format!("{AI_PROG} run {slot}")
         } else {
-            format!("{PROG} run {slot} --share-history")
+            format!("{AI_PROG} run {slot} --share-history")
         }
     }
 
@@ -922,7 +922,7 @@ impl<'a> SessionManager<'a> {
         println!(
             "{}",
             dimmed(&format!(
-                "Chat history is shared between accounts by default now (turn off: {PROG} config set run.shareHistory false)."
+                "Chat history is shared between accounts by default now (turn off: {AI_PROG} config set run.shareHistory false)."
             ))
         );
     }

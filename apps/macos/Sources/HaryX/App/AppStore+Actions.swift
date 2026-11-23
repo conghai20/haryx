@@ -82,19 +82,19 @@ extension AppStore {
         await perform("Adding", args, stdin: overwrite ? "y\n" : "n\n", extras: true)
     }
 
-    /// Sign an account in again: `haryx login` runs in the background and its sign-in window
+    /// Sign an account in again: `haryx ai login` runs in the background and its sign-in window
     /// shows the link and takes the pasted code.
     func signInAgain(_ a: Account) {
         guard a.canRelogin else {
             return flash("\(a.displayName) is a token, not a login. Replace it with Sign In New Account.", error: true)
         }
         if loginPending(for: a) { return flash("A sign-in for \(a.displayName) is already open.") }
-        startLogin(["login", ref(a)], title: "Sign In Again: \(a.email)", identityKey: a.identityKey)
+        startLogin(["ai", "login", ref(a)], title: "Sign In Again: \(a.email)", identityKey: a.identityKey)
     }
 
-    /// Add a new account through `haryx login` without changing the active login.
+    /// Add a new account through `haryx ai login` without changing the active login.
     func signInNew(slot: Int? = nil, alias: String? = nil) {
-        var args = ["login"]
+        var args = ["ai", "login"]
         if let slot { args += ["--slot", String(slot)] }
         if let alias, !alias.isEmpty { args += ["--alias", alias] }
         startLogin(args, title: "Sign In New Account", identityKey: nil)

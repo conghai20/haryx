@@ -16,7 +16,7 @@ Claude as a given account per folder or terminal. It ships as:
 
 - **`haryx`**, a command-line tool in Rust (`cli/`): a drop-in port of
   [claude-swap](https://github.com/realiti4/claude-swap) (`cswap`) with the same commands, flags and
-  `--json` output, plus an interactive dashboard (`haryx tui`).
+  `--json` output, plus an interactive dashboard (`haryx ai tui`).
 - **HaryX for macOS**, a native menu bar app (`apps/macos/`) that drives `haryx` (or `cswap`).
 
 A server, a web dashboard and native mobile apps are on the [roadmap](docs/roadmap.md).
@@ -75,7 +75,7 @@ cargo install --path crates/haryx   # → ~/.cargo/bin/haryx
 
 See [cli/README.md](cli/README.md) for the commands. haryx keeps its own data folder
 (`~/Library/Application Support/HaryX`, `$XDG_DATA_HOME/haryx` on Linux, or `HARYX_HOME`);
-`haryx import --from-cswap` copies an existing cswap setup and leaves cswap untouched.
+`haryx ai import --from-cswap` copies an existing cswap setup and leaves cswap untouched.
 
 ## macOS app
 

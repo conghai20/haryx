@@ -255,6 +255,55 @@ fn bare_haryx_opens_the_tui_only_at_a_terminal() {
 }
 
 #[test]
+fn ai_section_parses_like_the_bare_commands() {
+    for argv in [
+        &["list", "--json"][..],
+        &["switch", "2"],
+        &["run", "2", "--", "--resume"],
+        &["config", "get", "autoswitch.threshold"],
+        &["tui"],
+        &["watch"],
+        &["--list"],
+    ] {
+        let sectioned: Vec<&str> = std::iter::once("ai").chain(argv.iter().copied()).collect();
+        assert_eq!(ok(&sectioned), ok(argv), "{argv:?}");
+    }
+}
+
+#[test]
+fn login_lives_only_in_the_ai_section() {
+    assert!(matches!(
+        ok(&["ai", "login", "3"]).command,
+        Command::Login(_)
+    ));
+    assert_usage_error(&["login", "3"], "did you mean 'haryx ai login'?");
+    assert_usage_error(&["login"], "did you mean 'haryx ai login'?");
+}
+
+#[test]
+fn bare_ai_section_opens_the_tui_only_at_a_terminal() {
+    assert_eq!(
+        parse(&args(&["ai"]), true).map(|inv| inv.command).ok(),
+        Some(Command::Tui)
+    );
+    assert_usage_error(&["ai"], "no command given — try 'haryx ai help'");
+}
+
+#[test]
+fn top_help_and_ai_help_are_both_help_requests() {
+    for argv in [
+        &["help"][..],
+        &["--help"],
+        &["-h"],
+        &["ai", "help"],
+        &["ai", "--help"],
+    ] {
+        let err = parse(&args(argv), false).expect_err("help is reported as an error");
+        assert_eq!(err.kind(), ErrorKind::DisplayHelp, "{argv:?}");
+    }
+}
+
+#[test]
 fn debug_is_carried_by_every_parser() {
     assert!(ok(&["list", "--debug"]).debug);
     assert!(!ok(&["list"]).debug);

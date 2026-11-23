@@ -1,6 +1,6 @@
 import Foundation
 
-/// What a `haryx login` run printed on its pseudo-terminal, cleaned for display, plus what the
+/// What a `haryx ai login` run printed on its pseudo-terminal, cleaned for display, plus what the
 /// sign-in window needs from it: the sign-in link and whether the run waits for input.
 ///
 /// Terminal output arrives in arbitrary chunks (an escape sequence can be split across two), so the

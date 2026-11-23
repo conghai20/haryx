@@ -29,7 +29,7 @@ struct MappingsPane: View {
                     }
                 }
                 if store.mappings.isEmpty {
-                    Text("No folders mapped. Mapped folders run Claude as their account with plain `haryx run`.")
+                    Text("No folders mapped. Mapped folders run Claude as their account with plain `haryx ai run`.")
                         .foregroundStyle(.secondary)
                 }
             }
@@ -87,7 +87,7 @@ struct MaintenancePane: View {
                     guard let url = openPanel() else { return }
                     Task { await store.importUsage(from: url, hold: holdSeconds > 0 ? holdSeconds : nil) }
                 }
-                .help("Feed `haryx list --json` output from another machine so both don't poll the usage endpoint")
+                .help("Feed `haryx ai list --json` output from another machine so both don't poll the usage endpoint")
             }
 
             Section("Unclaimed credentials") {

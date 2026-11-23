@@ -379,7 +379,7 @@ fn weekly_threshold_round_trip() {
     assert!(run.err.contains("expects a number"));
     assert!(
         run.err
-            .contains("haryx config unset autoswitch.weeklyThreshold")
+            .contains("haryx ai config unset autoswitch.weeklyThreshold")
     );
     assert!(!sb.settings().exists());
 

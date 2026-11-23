@@ -11,6 +11,8 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-24
+
 ### Added
 
 - `haryx ai wake`: starts an account's next 5-hour window right after the last one resets, with one
@@ -22,6 +24,8 @@ cannot be released without one. Sections, in this order, only when they have ent
 - macOS app: the menu bar panel's Dashboard button has a dropdown that opens the dashboard on any
   section (AI: Accounts, Auto-Switch, Wake, Folder Mappings, Setup Profiles, CLI Settings, Backup &
   Maintenance; HaryX: App Preferences).
+- macOS app: refresh buttons (menu bar, Accounts, Setup Profiles) spin and disable themselves while
+  a refresh runs; Reduce Motion pulses instead.
 
 ### Changed
 
@@ -46,6 +50,8 @@ cannot be released without one. Sections, in this order, only when they have ent
   bring the dashboard forward, like system menu bar panels.
 - macOS app: the whole account card is clickable, including its edges and empty space.
 - macOS app: account cards keep one height when an account needs a re-login.
+- macOS app: the dashboard title bar keeps one height across sections, so the window buttons no
+  longer move when you switch to Accounts or Setup Profiles.
 
 ## [0.1.1] - 2026-11-23
 
@@ -94,6 +100,7 @@ cannot be released without one. Sections, in this order, only when they have ent
 First release: the `haryx` CLI (a Rust port of claude-swap, drop-in compatible with `cswap`) and
 the HaryX macOS menu bar app.
 
-[Unreleased]: https://github.com/conghai20/haryx/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/conghai20/haryx/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/conghai20/haryx/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/conghai20/haryx/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/conghai20/haryx/releases/tag/v0.1.0

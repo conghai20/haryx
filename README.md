@@ -129,7 +129,7 @@ first, then the one bundled in the DMG build, and falls back to `cswap` ≥ 1.1.
 cd apps/macos
 swift test                  # core tests
 scripts/build.sh            # → apps/macos/build/HaryX.app
-scripts/build.sh --install  # → ~/Applications/HaryX.app, launched
+scripts/build.sh --install  # → /Applications/HaryX.app, launched
 scripts/package-dmg.sh      # → apps/macos/build/HaryX-<version>.dmg with haryx bundled
 ```
 

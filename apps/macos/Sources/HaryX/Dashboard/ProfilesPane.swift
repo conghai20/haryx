@@ -74,7 +74,10 @@ struct ProfilesPane: View {
                     .help("Write a .haryx-profile file for another machine")
                 Button { importFile() } label: { Label("Import", systemImage: "square.and.arrow.down") }
                     .help("Store a .haryx-profile file from another machine")
-                Button { Task { await model.reload(store.cli) } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
+                Button { Task { await model.reload(store.cli) } } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise").spinning(model.loading)
+                }
+                .disabled(model.loading)
             }
         }
     }

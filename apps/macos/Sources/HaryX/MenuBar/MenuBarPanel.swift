@@ -55,8 +55,13 @@ struct MenuBarPanel: View {
             }
             .help(store.auto.isRunning ? "Stop auto-switch" : "Start auto-switch")
             Group {
-                Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") }
-                    .help("Refresh").keyboardShortcut("r").accessibilityLabel("Refresh")
+                Button { Task { await store.refresh() } } label: {
+                    Image(systemName: "arrow.clockwise").spinning(store.isRefreshing)
+                }
+                    .disabled(store.isRefreshing)
+                    .help(store.isRefreshing ? "Refreshing…" : "Refresh")
+                    .keyboardShortcut("r")
+                    .accessibilityLabel("Refresh")
                 Button { store.signInNew() } label: { Image(systemName: "plus") }
                     .disabled(store.addLoginPending)
                     .help(store.addLoginPending ? "A new-account sign-in is already open" : "Sign in a new account")

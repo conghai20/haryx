@@ -177,7 +177,10 @@ struct AccountsPane: View {
                     }
                 } label: { Label("Switch", systemImage: "arrow.left.arrow.right") }
                 Menu { SignInMenuSection() } label: { Label("Sign In", systemImage: "person.badge.key") }
-                Button { Task { await store.refresh(); await store.loadExtras() } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
+                Button { Task { await store.refresh(); await store.loadExtras() } } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise").spinning(store.isRefreshing)
+                }
+                .disabled(store.isRefreshing)
             }
         }
         .sheet(item: $addSheet) { AddAccountSheet(mode: $0) }

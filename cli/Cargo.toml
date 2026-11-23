@@ -21,7 +21,7 @@ serde_json = { version = "1", features = ["preserve_order"] }
 jiff = { version = "0.2", features = ["serde"] }
 fs4 = "0.13"
 libc = "0.2"
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography", "Win32_System_Threading"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography", "Win32_Storage_FileSystem", "Win32_System_Threading"] }
 log = { version = "0.4", features = ["std"] }
 ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier", "json"] }
 rand = "0.9"

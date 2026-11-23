@@ -171,7 +171,7 @@ pub fn apply(
 fn write_target(live: &Path) -> PathBuf {
     let is_link = std::fs::symlink_metadata(live).is_ok_and(|m| m.file_type().is_symlink());
     if is_link {
-        std::fs::canonicalize(live).unwrap_or_else(|_| live.to_path_buf())
+        crate::fsutil::canonicalize(live).unwrap_or_else(|_| live.to_path_buf())
     } else {
         live.to_path_buf()
     }

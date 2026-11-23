@@ -323,6 +323,8 @@ pub fn has_files(dir: &Path) -> bool {
 mod tests {
     use super::*;
 
+    // `/bin/sh` exists only on Unix.
+    #[cfg(unix)]
     #[test]
     fn finds_missing_absolute_paths() {
         let missing = missing_paths(

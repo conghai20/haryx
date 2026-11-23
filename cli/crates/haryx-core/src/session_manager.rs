@@ -596,7 +596,7 @@ impl<'a> SessionManager<'a> {
             let src = source_root.join(name);
             let dest = dir.join(name);
             let link_target = if is_link(&src) {
-                std::fs::canonicalize(&src).unwrap_or_else(|_| src.clone())
+                crate::fsutil::canonicalize(&src).unwrap_or_else(|_| src.clone())
             } else {
                 src.clone()
             };
@@ -744,7 +744,7 @@ impl<'a> SessionManager<'a> {
             return false;
         }
         let link_target = if is_link(src) {
-            std::fs::canonicalize(src).unwrap_or_else(|_| src.to_path_buf())
+            crate::fsutil::canonicalize(src).unwrap_or_else(|_| src.to_path_buf())
         } else {
             src.to_path_buf()
         };

@@ -182,7 +182,7 @@ impl Sandbox {
     fn on(platform: HostOs) -> Self {
         let tmp = TempDir::new().unwrap();
         // Canonical, so a path given as CLAUDE_CONFIG_DIR hashes the same string the test computes.
-        let home = std::fs::canonicalize(tmp.path()).unwrap();
+        let home = crate::fsutil::canonicalize(tmp.path()).unwrap();
         let mut env = PathEnv::with_home(&home);
         env.os = platform;
         Sandbox {

@@ -160,7 +160,10 @@ fn normpath(path: &str) -> String {
 }
 
 fn same_file(a: &Path, b: &Path) -> bool {
-    match (std::fs::canonicalize(a), std::fs::canonicalize(b)) {
+    match (
+        crate::fsutil::canonicalize(a),
+        crate::fsutil::canonicalize(b),
+    ) {
         (Ok(x), Ok(y)) => x == y,
         _ => false,
     }

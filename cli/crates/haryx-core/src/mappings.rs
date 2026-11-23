@@ -84,7 +84,7 @@ fn resolve_lenient(absolute: &Path) -> PathBuf {
             }
             Component::Normal(name) => {
                 out.push(name);
-                if let Ok(real) = std::fs::canonicalize(&out) {
+                if let Ok(real) = crate::fsutil::canonicalize(&out) {
                     out = real;
                 }
             }
@@ -350,10 +350,15 @@ mod tests {
         assert_eq!(a, c);
         assert_eq!(a, d);
         // Symlinks resolve (on macOS the temp dir itself sits behind /var -> /private/var).
-        assert_eq!(a, std::fs::canonicalize(&repo).unwrap().to_string_lossy());
+        assert_eq!(
+            a,
+            crate::fsutil::canonicalize(&repo)
+                .unwrap()
+                .to_string_lossy()
+        );
         // A missing tail is kept lexically.
         let missing = normalize_path(&repo.join("x").join("..").join("y")).unwrap();
-        assert_eq!(missing, format!("{a}/y"));
+        assert_eq!(missing, Path::new(&a).join("y").to_string_lossy());
     }
 
     #[cfg(unix)]

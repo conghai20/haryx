@@ -66,7 +66,7 @@ fn version_on_disk(exe: &Path) -> Option<String> {
 pub fn run() -> Result<(), CommandError> {
     let before = env!("CARGO_PKG_VERSION");
     let exe = std::env::current_exe()
-        .and_then(|p| p.canonicalize())
+        .and_then(|p| haryx_core::fsutil::canonicalize(&p))
         .unwrap_or_default();
     let Some(method) = detect_install_method(&exe) else {
         printer::error(&format!(

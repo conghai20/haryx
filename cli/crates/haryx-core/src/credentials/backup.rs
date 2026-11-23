@@ -63,8 +63,7 @@ impl CredentialStore {
     }
 
     fn registry_generation(&self) -> Option<RegistryGeneration> {
-        let meta = std::fs::metadata(&self.host.sequence_file).ok()?;
-        Some(metadata_generation(&meta))
+        file_generation(&self.host.sequence_file)
     }
 
     /// Forget every cached backup read. The epoch bump also voids a fill that was mid-`security` when the
@@ -425,19 +424,45 @@ impl CredentialStore {
 }
 
 #[cfg(unix)]
-fn metadata_generation(meta: &std::fs::Metadata) -> RegistryGeneration {
+fn file_generation(path: &Path) -> Option<RegistryGeneration> {
     use std::os::unix::fs::MetadataExt;
+    let meta = std::fs::metadata(path).ok()?;
     let mtime_ns = i128::from(meta.mtime()) * 1_000_000_000 + i128::from(meta.mtime_nsec());
-    (meta.ino(), mtime_ns, meta.size())
+    Some((meta.ino(), mtime_ns, meta.size()))
 }
 
-#[cfg(not(unix))]
-fn metadata_generation(meta: &std::fs::Metadata) -> RegistryGeneration {
-    // TODO(windows): no inode; mtime and size only.
+/// The NTFS file ID stands in for the inode (std's `file_index` is unstable). The creation time cannot:
+/// file-system tunnelling hands a file created under a just-replaced name the old file's creation time.
+#[cfg(windows)]
+fn file_generation(path: &Path) -> Option<RegistryGeneration> {
+    use std::os::windows::fs::MetadataExt;
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle,
+    };
+
+    let file = std::fs::File::open(path).ok()?;
+    let meta = file.metadata().ok()?;
+    // SAFETY: an all-zero BY_HANDLE_FILE_INFORMATION is a valid value of this plain-data struct.
+    let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+    // SAFETY: the handle belongs to `file`, which stays open for the call; `info` outlives it.
+    let ok = unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) };
+    if ok == 0 {
+        return None;
+    }
+    let file_id = (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow);
+    // FILETIME ticks are 100 ns.
+    let mtime_ns = i128::from(meta.last_write_time()) * 100;
+    Some((file_id, mtime_ns, meta.len()))
+}
+
+#[cfg(not(any(unix, windows)))]
+fn file_generation(path: &Path) -> Option<RegistryGeneration> {
+    let meta = std::fs::metadata(path).ok()?;
     let mtime_ns = meta
         .modified()
         .ok()
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-        .map_or(0, |d| d.as_nanos() as i128);
-    (0, mtime_ns, meta.len())
+        .map_or(0, |d| i128::try_from(d.as_nanos()).unwrap_or(i128::MAX));
+    Some((0, mtime_ns, meta.len()))
 }

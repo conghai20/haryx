@@ -344,7 +344,7 @@ pub fn resolve_lenient(path: &Path) -> PathBuf {
             }
             other => {
                 out.push(other);
-                if let Ok(canonical) = std::fs::canonicalize(&out) {
+                if let Ok(canonical) = crate::fsutil::canonicalize(&out) {
                     out = canonical;
                 }
             }
@@ -527,6 +527,8 @@ mod tests {
         );
     }
 
+    // `/data` is absolute only on Unix.
+    #[cfg(unix)]
     #[test]
     fn linux_store_respects_xdg_data_home() {
         let mut env = linux_env(Path::new("/home/u"));
@@ -550,6 +552,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
     #[test]
     fn linux_store_expands_tilde_in_xdg_data_home() {
         let mut env = linux_env(Path::new("/home/u"));

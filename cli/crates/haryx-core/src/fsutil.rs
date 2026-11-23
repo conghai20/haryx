@@ -154,12 +154,44 @@ pub fn publish_target(path: &Path) -> io::Result<PathBuf> {
                     _ => stored,
                 };
             }
-            Ok(_) => return std::fs::canonicalize(&current),
+            Ok(_) => return canonicalize(&current),
             Err(err) if err.kind() == io::ErrorKind::NotFound => return resolve_missing(&current),
             Err(err) => return Err(err),
         }
     }
     Err(eloop(path))
+}
+
+/// `std::fs::canonicalize` without Windows' extended-length prefix: `\\?\C:\x` becomes `C:\x` and
+/// `\\?\UNC\server\share` becomes `\\server\share`, so a resolved path compares equal to (and starts
+/// with) the plain paths users, `%USERPROFILE%` and Claude Code use. Elsewhere it is `canonicalize`.
+pub fn canonicalize(path: &Path) -> io::Result<PathBuf> {
+    std::fs::canonicalize(path).map(|resolved| strip_verbatim(&resolved))
+}
+
+/// Drop a `\\?\` prefix from a drive or UNC path. Other verbatim forms (`\\?\Volume{..}`, device
+/// paths) have no plain spelling and stay as they are. Pure string work, so it is tested on every OS.
+pub fn strip_verbatim(path: &Path) -> PathBuf {
+    // Not valid Unicode: leave it alone rather than rewrite it lossily.
+    let Some(text) = path.to_str() else {
+        return path.to_path_buf();
+    };
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{rest}"));
+    }
+    match text.strip_prefix(r"\\?\") {
+        Some(rest) if is_drive_path(rest) => PathBuf::from(rest),
+        _ => path.to_path_buf(),
+    }
+}
+
+/// `C:` or `C:\...`.
+fn is_drive_path(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    bytes.len() >= 2
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && (bytes.len() == 2 || bytes[2] == b'\\')
 }
 
 /// A path whose final component does not exist: resolve its parent strictly and keep the name.
@@ -171,9 +203,9 @@ fn resolve_missing(path: &Path) -> io::Result<PathBuf> {
             } else {
                 parent
             };
-            Ok(std::fs::canonicalize(parent)?.join(name))
+            Ok(canonicalize(parent)?.join(name))
         }
-        _ => std::fs::canonicalize(path),
+        _ => canonicalize(path),
     }
 }
 
@@ -325,9 +357,8 @@ pub fn is_link(path: &Path) -> bool {
 /// Compares the stored path, not where it leads: a link to an intermediate symlink is a different (and
 /// worse) link than one to the resolved file even though both end at the same place. False for anything
 /// that is not a link.
-// TODO(windows): strip the `\\?\` / `\\?\UNC\` extended-length prefix from the stored path.
 pub fn link_points_at(link: &Path, target: &Path) -> bool {
-    std::fs::read_link(link).is_ok_and(|stored| stored == target)
+    std::fs::read_link(link).is_ok_and(|stored| strip_verbatim(&stored) == strip_verbatim(target))
 }
 
 /// Remove a symlink itself, never what it leads to. `rmdir` is the fallback for a platform that answers
@@ -672,5 +703,37 @@ mod tests {
         assert!(can_symlink(tmp.path()));
         assert!(can_junction(tmp.path(), None));
         assert_eq!(entries(tmp.path()), Vec::<String>::new());
+    }
+
+    #[test]
+    fn strip_verbatim_handles_drive_unc_and_leaves_the_rest() {
+        let cases = [
+            (r"\\?\C:\Users\u", r"C:\Users\u"),
+            (r"\\?\d:", r"d:"),
+            (r"\\?\UNC\server\share\x", r"\\server\share\x"),
+            (r"\\?\Volume{1234}\x", r"\\?\Volume{1234}\x"),
+            (r"\\?\C:x", r"\\?\C:x"),
+            (r"C:\plain", r"C:\plain"),
+            ("/usr/local", "/usr/local"),
+        ];
+        for (input, want) in cases {
+            assert_eq!(
+                strip_verbatim(Path::new(input)),
+                PathBuf::from(want),
+                "{input}"
+            );
+        }
+    }
+
+    #[test]
+    fn canonicalize_has_no_verbatim_prefix() {
+        let dir = tempfile::tempdir().unwrap();
+        let resolved = canonicalize(dir.path()).unwrap();
+        assert!(
+            !resolved.to_string_lossy().starts_with(r"\\?\"),
+            "{}",
+            resolved.display()
+        );
+        assert!(resolved.is_absolute());
     }
 }

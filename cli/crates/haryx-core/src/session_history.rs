@@ -234,7 +234,8 @@ pub fn merge_history_into_source(
     sessions_dir: &Path,
     counts: &mut MergeCounts,
 ) -> io::Result<()> {
-    let same = src.exists() && fs::canonicalize(src).ok() == fs::canonicalize(dest).ok();
+    let same = src.exists()
+        && crate::fsutil::canonicalize(src).ok() == crate::fsutil::canonicalize(dest).ok();
     if is_link(dest) || same {
         return Err(io::Error::other(format!(
             "{} is the shared history, not the profile's own",

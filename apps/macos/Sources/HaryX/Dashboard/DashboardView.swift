@@ -134,11 +134,11 @@ struct AccountsPane: View {
                     Text(store.refreshError ?? "Sign in with your Claude account to add it.")
                 } actions: {
                     Button("Sign In…") { store.signInNew() }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.glassProminent)
                         .disabled(store.addLoginPending)
                     if store.canImportFromCswap {
                         Button("Import Accounts from cswap") { Task { await store.importFromCswap() } }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.glassProminent)
                     }
                 }
                 .padding(.top, 80)

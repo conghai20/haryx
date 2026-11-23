@@ -5,6 +5,7 @@ colors:
   electric-cyan: "#22D3EE"
   electric-cyan-light: "#0891B2"
   cyan-ink: "#0E7490"
+  cyan-text-light: "#155E75"
   midnight-navy: "#101827"
   soft-white: "#F1F5F9"
   pace-amber: "#FF9F0A"
@@ -127,7 +128,8 @@ One live hue against the system's neutrals, with the system's warning colours ca
 
 ### Primary
 - **Electric Cyan** (dark appearance; Electric Cyan Light in light appearance): the active account, live states (running dot, the auto-switch "on" label), the on-pace fill of the tide staff, and the time-left rule. It is a dynamic colour: the lighter swatch in dark mode, the deeper one on white so it keeps contrast.
-- **Cyan Ink**: cyan used as text on light ground (4.5:1), and the app's AccentColor asset, so it is also the fill of prominent glass buttons (white text) and, at 18% opacity, the fill of a selected dashboard card. In dark mode cyan text returns to Electric Cyan.
+- **Cyan Ink**: the app's AccentColor asset, so it is the fill of prominent glass buttons (white text, 5.4:1) and, at 18% opacity, the fill of a selected dashboard card.
+- **Cyan Text (light)** `#155E75`: cyan used as text in the light appearance; holds 5.3:1 down to light glass at about #DCDCDC, where Cyan Ink falls to 3.9:1. In dark mode cyan text returns to Electric Cyan (9.2:1 on dark glass).
 
 ### Secondary
 - **Midnight Navy**: the tile behind the Wing H mark, and nothing else in the shipped build.
@@ -197,7 +199,7 @@ Two shape families. Readings are almost square: the tide staff is a flat rectang
 - **Borderless:** header icons (SF Symbols in secondary) and the hover-revealed "Use" in almanac rows.
 
 ### Chips
-- **Plan badge:** 9pt bold uppercase text in the tint colour on the same tint at 18% opacity, capsule, 6pt × 2pt padding. ACTIVE uses cyan ink; plan names use secondary; OFF uses grey.
+- **Plan badge:** 9pt bold uppercase text in the tint colour on the same tint at 18% opacity, capsule, 6pt × 2pt padding. ACTIVE uses cyan text; plan names use secondary; OFF uses grey.
 - **Running indicator:** a 6pt Electric Cyan dot beside "N running" in secondary text: in the panel, 4pt from the surrounding caption; in dashboard card badges, 3pt from 9pt semibold "running" / "N running". The count is never cyan text.
 
 ### Cards / Containers

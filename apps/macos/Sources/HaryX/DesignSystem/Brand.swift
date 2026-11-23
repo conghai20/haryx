@@ -12,8 +12,8 @@ enum Brand {
 
     /// Electric Cyan in dark; a deeper cyan in light so it holds contrast on white.
     static let cyan = Color(nsColor: .dynamic(light: 0x0891B2, dark: cyanHex))
-    /// Cyan for text: 4.5:1 on the light ground.
-    static let cyanText = Color(nsColor: .dynamic(light: 0x0E7490, dark: cyanHex))
+    /// Cyan for text: 4.5:1 or better on light glass down to #DCDCDC (5.3:1 there).
+    static let cyanText = Color(nsColor: .dynamic(light: 0x155E75, dark: cyanHex))
     static let navy = Color(hex: navyHex)
     static let softWhite = Color(hex: softWhiteHex)
     /// Ahead of pace or near a limit.

@@ -113,7 +113,7 @@ private struct LoginView: View {
                         .trimmingCharacters(in: .whitespacesAndNewlines) ?? input
                 }
                 Button("Submit", action: submit)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.glassProminent)
                     .disabled(input.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             .padding(4)

@@ -17,6 +17,11 @@ struct WakePane: View {
                 agentSection(wake)
                 settingsSection
                 accountsSection(wake)
+            } else if store.wakeError != nil {
+                Section {
+                    Label("This haryx has no wake command. Update it (haryx upgrade) to use Wake.",
+                          systemImage: "exclamationmark.triangle")
+                }
             } else {
                 Section { ProgressView("Loading wake status…") }
             }

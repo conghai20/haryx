@@ -8,49 +8,25 @@ extension Color {
     }
 }
 
+/// A labelled usage reading: the label and reset above a tide staff, the % at the right.
 struct UsageBar: View {
     let label: String
     let window: UsageWindow?
-    var compact = false
 
     var body: some View {
         let pct = window?.pct
         VStack(alignment: .leading, spacing: 2) {
-            if !compact {
-                HStack {
-                    Text(label).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
-                    Spacer()
-                    if let reset = resetText { Text(reset).font(.caption2).foregroundStyle(.tertiary) }
-                }
+            HStack {
+                Text(label).font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                Spacer()
+                if let reset = resetText { Text(reset).font(.caption.monospacedDigit()).foregroundStyle(.tertiary) }
             }
-            HStack(spacing: 6) {
-                if compact { Text(label).font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary).frame(width: 14, alignment: .leading) }
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(.quaternary)
-                        if let expected = window?.expectedPct {
-                            Rectangle().fill(.secondary.opacity(0.6))
-                                .frame(width: 1.5)
-                                .offset(x: geo.size.width * min(1, expected / 100))
-                        }
-                        Capsule().fill(Brand.usageFill(window))
-                            .frame(width: max(compact ? 3 : 4, geo.size.width * min(1, (pct ?? 0) / 100)))
-                    }
-                }
-                .frame(height: compact ? 4 : 6)
+            HStack(spacing: 8) {
+                TideStaff(window: window, height: 5)
                 Text(pct.map { "\(Int($0))%" } ?? "—")
-                    .font(.system(size: compact ? 10 : 11, weight: .medium).monospacedDigit())
+                    .font(.callout.weight(.medium).monospacedDigit())
                     .foregroundStyle(pct == nil ? .tertiary : .primary)
-                    .frame(width: 34, alignment: .trailing)
-            }
-            if compact, let c = window?.countdown {
-                Label(c, systemImage: "arrow.clockwise")
-                    .labelStyle(.titleAndIcon)
-                    .font(.system(size: 9).monospacedDigit())
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-                    .padding(.leading, 20)
-                    .help(window?.clock.map { "Resets \($0)" } ?? "")
+                    .frame(width: 40, alignment: .trailing)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -159,6 +135,9 @@ struct SignInAgainButton: View {
 }
 
 extension Account {
+    /// The alias, else the email's local part: enough to tell accounts apart on a button.
+    var shortName: String { alias ?? String(email.split(separator: "@").first ?? Substring(email)) }
+
     /// Whether the UI should offer "Sign In Again" now.
     var offersSignIn: Bool { canRelogin && (needsRelogin || loginDue()) }
 }

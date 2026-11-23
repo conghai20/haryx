@@ -26,11 +26,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar = StatusBarController(store: store)
         DashboardWindow.shared.store = store
         store.start()
-        // Design review: `--open-dashboard` shows the dashboard, `--open-panel` opens the menu bar panel once the first refresh lands;
+        // Design review: `--open-dashboard` shows the dashboard (`--section NAME`, `--select SLOT`), `--open-panel` opens the menu bar panel once the first refresh lands;
         // `--light` / `--dark` force an appearance.
         if CommandLine.arguments.contains("--light") { NSApp.appearance = NSAppearance(named: .aqua) }
         if CommandLine.arguments.contains("--dark") { NSApp.appearance = NSAppearance(named: .darkAqua) }
-        if CommandLine.arguments.contains("--open-dashboard") { DashboardWindow.shared.show() }
+        let args = CommandLine.arguments
+        func value(after flag: String) -> String? {
+            args.firstIndex(of: flag).flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
+        }
+        if let raw = value(after: "--section"), let section = DashboardSection(rawValue: raw) {
+            DashboardRouter.shared.section = section
+        }
+        if let slot = value(after: "--select").flatMap(Int.init) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { DashboardRouter.shared.select(slot) }
+        }
+        if args.contains("--open-dashboard") { DashboardWindow.shared.show() }
+        // `--cycle-panel N`: open and close the panel N times, 3 s apart (settled-memory checks).
+        if let n = value(after: "--cycle-panel").flatMap(Int.init) {
+            for i in 0..<(n * 2) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5 + Double(i) * 3) { [weak self] in
+                    if i.isMultiple(of: 2) { self?.statusBar?.open() } else { self?.statusBar?.close() }
+                }
+            }
+        }
         if CommandLine.arguments.contains("--open-panel") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in self?.statusBar?.open() }
         }

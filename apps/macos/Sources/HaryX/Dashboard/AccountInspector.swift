@@ -160,22 +160,22 @@ private struct UsageSection: View {
     var body: some View {
         Section("Usage") {
             if let u = account.usage {
-                if u.fiveHour != nil { UsageBar(label: "5-HOUR", window: u.fiveHour) }
-                UsageBar(label: "WEEKLY", window: u.sevenDay)
+                if u.fiveHour != nil { UsageBar(label: "5-hour", window: u.fiveHour?.withPace(windowSeconds: UsageWindow.fiveHourSeconds)) }
+                UsageBar(label: "Week", window: u.sevenDay)
                 ForEach(u.scoped ?? [], id: \.name) { s in
-                    UsageBar(label: s.name.uppercased(), window: UsageWindow(pct: s.pct, resetsAt: s.resetsAt))
+                    UsageBar(label: s.name, window: UsageWindow(pct: s.pct, resetsAt: s.resetsAt))
                 }
                 if let w = u.sevenDay, let expected = w.expectedPct {
                     LabeledContent("Weekly pace") {
                         Text(w.aheadOfPace == true ? "Ahead (expected \(Int(expected))%)" : "On track (expected \(Int(expected))%)")
-                            .foregroundStyle(w.aheadOfPace == true ? .orange : .secondary)
+                            .foregroundStyle(w.aheadOfPace == true ? Brand.warn : .secondary)
                     }
                     if let end = w.projectedExhaustionAt, w.willLastToReset == false {
                         LabeledContent("Projected run-out", value: end.formatted(date: .abbreviated, time: .shortened))
                     }
                 }
             }
-            if let note = account.statusNote { Text(note).foregroundStyle(.orange) }
+            if let note = account.statusNote { Text(note).foregroundStyle(Brand.warn) }
             if account.offersSignIn { SignInAgainButton(account: account, prominent: account.needsRelogin) }
             if let err = account.usageError { Text(err).font(.caption).foregroundStyle(.secondary) }
             if let exp = account.loginExpiresAt {

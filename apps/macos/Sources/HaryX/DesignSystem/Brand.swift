@@ -151,23 +151,28 @@ struct BrandLockup: View {
 struct TideStaff: View {
     let window: UsageWindow?
     var height: CGFloat = 6
+    /// How far the pace tick reaches above and below the bar.
+    private let overhang: CGFloat = 3
 
     var body: some View {
         let pct = min(1, max(0, (window?.pct ?? 0) / 100))
         let expected = window?.expectedPct.map { min(1, max(0, $0 / 100)) }
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Rectangle().fill(.quaternary)
-                Rectangle().fill(Brand.usageFill(window)).frame(width: geo.size.width * pct)
+                ZStack(alignment: .leading) {
+                    Rectangle().fill(.quaternary)
+                    Rectangle().fill(Brand.usageFill(window)).frame(width: geo.size.width * pct)
+                }
+                .frame(height: height)
+                .clipShape(.rect(cornerRadius: 1.5))
                 if let expected {
-                    Rectangle().fill(.primary).frame(width: 1, height: height + 6)
+                    Rectangle().fill(.primary).frame(width: 1, height: height + overhang * 2)
                         .offset(x: geo.size.width * expected - 0.5)
                 }
             }
+            .frame(height: geo.size.height)
         }
-        .frame(height: height)
-        .clipShape(.rect(cornerRadius: 1.5))
-        .padding(.vertical, 3)
+        .frame(height: height + overhang * 2)
         .accessibilityHidden(true)
     }
 }
@@ -188,6 +193,18 @@ struct TimeLeftRule: View {
 }
 
 extension UsageWindow {
+    /// This window with an expected pace: the CLI's when it sent one, else linear over the window
+    /// (elapsed share of `windowSeconds`, from the reset time).
+    func withPace(windowSeconds: TimeInterval, now: Date = Date()) -> UsageWindow {
+        guard expectedPct == nil, let resetsAt else { return self }
+        let elapsed = 1 - max(0, min(1, resetsAt.timeIntervalSince(now) / windowSeconds))
+        return UsageWindow(pct: pct, resetsAt: resetsAt, countdown: countdown, clock: clock,
+                           expectedPct: elapsed * 100, aheadOfPace: aheadOfPace,
+                           projectedExhaustionAt: projectedExhaustionAt, willLastToReset: willLastToReset)
+    }
+
+    static let fiveHourSeconds: TimeInterval = 5 * 3600
+
     /// Points ahead (+) or behind (−) the expected pace, when both are known.
     var paceDelta: Int? {
         guard let pct, let expectedPct else { return nil }

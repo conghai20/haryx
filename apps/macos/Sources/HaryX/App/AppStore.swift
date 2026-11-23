@@ -29,6 +29,8 @@ final class AppStore {
     private(set) var version = ""
     /// `haryx ai wake status`; nil with a cswap backend or before the first load.
     private(set) var wake: WakeStatus?
+    /// Why wake status could not be read (an older haryx without `ai wake`), when it could not.
+    private(set) var wakeError: String?
     private(set) var cli: CSwapCLI?
 
     // UI state
@@ -91,7 +93,10 @@ final class AppStore {
     }
 
     func relocateCLI() {
-        cli = CSwapCLI.locate(override: Prefs.d.string(forKey: Prefs.cswapPath)).map(CSwapCLI.init(executable:))
+        // `--cli PATH` (design review) runs another backend without touching the saved preference.
+        let args = CommandLine.arguments
+        let reviewCLI = args.firstIndex(of: "--cli").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
+        cli = CSwapCLI.locate(override: reviewCLI ?? Prefs.d.string(forKey: Prefs.cswapPath)).map(CSwapCLI.init(executable:))
         refreshError = cli == nil ? CLIError.notFound.localizedDescription : nil
     }
 
@@ -194,20 +199,30 @@ final class AppStore {
     }
 
     /// Settings, mappings, priorities, unclaimed, version: cheap, refreshed on demand.
+    /// `haryx ai wake status`; nil with a cswap backend.
+    private static func loadWake(_ cli: CSwapCLI) async -> Result<WakeStatus, Error>? {
+        guard CSwapCLI.selectedFlavor == .haryx else { return nil }
+        do { return .success(try await cli.json(WakeStatus.self, ["ai", "wake", "status", "--json"])) }
+        catch { return .failure(error) }
+    }
+
     func loadExtras() async {
         guard let cli else { return }
         async let configList = try? cli.json(ConfigList.self, ["config", "list", "--json"])
         async let prio = try? cli.checked(["priority"])
         async let uncl = try? cli.checked(["unclaimed"])
         async let ver = try? cli.checked(["--version"])
-        async let wakeStatus = CSwapCLI.selectedFlavor == .haryx
-            ? try? cli.json(WakeStatus.self, ["ai", "wake", "status", "--json"]) : nil
+        async let wakeStatus = Self.loadWake(cli)
         // Keep the previous values when a call fails rather than blanking the UI.
         if let c = await configList { config = c.settings; configPath = c.path }
         if let p = await prio { priorities = TextParsers.priorities(p) }
         if let u = await uncl { unclaimed = TextParsers.unclaimed(u) }
         if let v = await ver { version = v.trimmingCharacters(in: .whitespacesAndNewlines) }
-        if let w = await wakeStatus { wake = w }
+        switch await wakeStatus {
+        case .success(let w)?: wake = w; wakeError = nil
+        case .failure(let e)?: wake = nil; wakeError = e.localizedDescription
+        case nil: wake = nil; wakeError = nil
+        }
         loadMappings()
     }
 

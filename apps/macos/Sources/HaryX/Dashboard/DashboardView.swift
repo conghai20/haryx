@@ -143,15 +143,13 @@ struct AccountsPane: View {
                 }
                 .padding(.top, 80)
             }
-            GlassEffectContainer(spacing: 16) {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 16)], spacing: 16) {
-                    ForEach(store.accounts) { a in
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 16)], spacing: 16) {
+                    ForEach(store.active.map { [$0] + store.nextInLine } ?? store.nextInLine) { a in
                         AccountCard(account: a, selected: router.selectedSlot == a.number)
                             .onTapGesture { router.selectedSlot = a.number }
                     }
                 }
                 .padding(20)
-            }
         }
         .inspector(isPresented: Binding(get: { router.selectedSlot != nil }, set: { if !$0 { router.selectedSlot = nil } })) {
             if let slot = router.selectedSlot, let a = store.account(slot: slot) {
@@ -227,8 +225,8 @@ struct AccountCard: View {
         }
         .padding(14)
         .frame(maxHeight: .infinity, alignment: .top)
-        .glassEffect(.regular.tint(selected ? Brand.cyan.opacity(0.18) : .clear).interactive(), in: .rect(cornerRadius: 20))
-        .overlay { if selected { RoundedRectangle(cornerRadius: 20).strokeBorder(.tint, lineWidth: 1.5) } }
+        .background(selected ? AnyShapeStyle(Color.accentColor.opacity(0.18)) : AnyShapeStyle(.fill.quaternary),
+                    in: .rect(cornerRadius: 16))
         // The whole rounded card is clickable, padding and empty space included (not only its views).
         .contentShape(.rect(cornerRadius: 20))
         .contextMenu { AccountContextMenu(account: account) }
@@ -240,7 +238,7 @@ private struct CardTide: View {
     let account: Account
 
     var body: some View {
-        let five = account.usage?.fiveHour
+        let five = account.usage?.fiveHour?.withPace(windowSeconds: UsageWindow.fiveHourSeconds)
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .lastTextBaseline) {
                 Text(five?.pct.map { "\(Int($0))%" } ?? "—")
@@ -253,6 +251,15 @@ private struct CardTide: View {
                 }
             }
             TideStaff(window: five, height: 5)
+            TimeLeftRule(resetsAt: five?.resetsAt, windowSeconds: UsageWindow.fiveHourSeconds)
+            HStack {
+                if let d = five?.paceDelta, d != 0 {
+                    Text(d > 0 ? "\(d) pts ahead of pace" : "\(-d) pts under pace")
+                        .foregroundStyle(d > 0 ? Brand.warn : .secondary)
+                }
+                Spacer()
+            }
+            .font(.caption)
             HStack {
                 Text("Week \(account.usage?.sevenDay?.pct.map { "\(Int($0))%" } ?? "—")")
                 Spacer()

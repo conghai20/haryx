@@ -63,6 +63,11 @@ struct MenuBarPanel: View {
                     .accessibilityLabel("Sign in a new account")
                 Menu {
                     Button("Open Dashboard") { DashboardWindow.shared.show() }.keyboardShortcut("d")
+                    Section("Switch") {
+                        ForEach(AppStore.SwitchMode.allCases) { mode in
+                            Button(mode.title) { Task { await store.switchNext(mode) } }
+                        }
+                    }
                     Divider()
                     Button("Quit HaryX") { NSApp.terminate(nil) }.keyboardShortcut("q")
                 } label: { Image(systemName: "ellipsis") }
@@ -86,10 +91,9 @@ private struct Hairline: View {
 private struct ActiveTide: View {
     @Environment(AppStore.self) private var store
     let account: Account
-    private static let fiveHours: TimeInterval = 5 * 3600
 
     var body: some View {
-        let five = account.usage?.fiveHour
+        let five = account.usage?.fiveHour?.withPace(windowSeconds: UsageWindow.fiveHourSeconds)
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 MascotView(style: store.style(for: account), mood: store.mood(for: account), size: 36,
@@ -99,7 +103,10 @@ private struct ActiveTide: View {
                     HStack(spacing: 6) {
                         if let plan = account.plan?.label { Text(plan) }
                         if let n = store.sessions[account.number]?.count, n > 0 {
-                            Text(n == 1 ? "1 running" : "\(n) running").foregroundStyle(Brand.cyanText)
+                            HStack(spacing: 4) {
+                                Circle().fill(Brand.cyan).frame(width: 6, height: 6)
+                                Text(n == 1 ? "1 running" : "\(n) running")
+                            }
                         }
                         if let wake = store.wake?.account(account.number)?.summary() { Text(wake) }
                     }
@@ -128,7 +135,7 @@ private struct ActiveTide: View {
                         .monospacedDigit().foregroundStyle(.secondary)
                 }
                 .font(.caption)
-                TimeLeftRule(resetsAt: five?.resetsAt, windowSeconds: Self.fiveHours)
+                TimeLeftRule(resetsAt: five?.resetsAt, windowSeconds: UsageWindow.fiveHourSeconds)
             } else if let note = account.statusNote {
                 Text(note).font(.callout).foregroundStyle(Brand.warn)
             }
@@ -147,7 +154,7 @@ private struct ActiveTide: View {
         } else if let w = account.usage?.sevenDay, w.aheadOfPace == true, w.willLastToReset == false,
                   let end = w.projectedExhaustionAt {
             Text("Weekly runs out \(end.formatted(.relative(presentation: .named)))").foregroundStyle(Brand.warn)
-        } else {
+        } else if w?.paceDelta == 0 {
             Text("on pace").foregroundStyle(.secondary)
         }
     }
@@ -240,25 +247,6 @@ struct AccountRow: View {
     }
 }
 
-/// A section heading in the menu bar panel: a small label with its actions on the right.
-private struct PanelSectionHeader<Accessory: View>: View {
-    let title: String
-    let systemImage: String
-    @ViewBuilder let accessory: Accessory
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Label(title, systemImage: systemImage)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .accessibilityAddTraits(.isHeader)
-            Spacer()
-            accessory
-        }
-        .padding(.horizontal, 4)
-    }
-}
-
 private struct ErrorCard: View {
     let message: String
     var body: some View {
@@ -277,28 +265,21 @@ private struct QuickActions: View {
     var body: some View {
         HStack(spacing: 8) {
             let next = store.nextInLine.first(where: { !$0.isDisabled && !$0.needsRelogin })
-            HStack(spacing: 4) {
-                Button {
-                    if let next { Task { await store.switchTo(next) } } else { Task { await store.switchNext(.best) } }
-                } label: {
-                    Text(next.map { "Switch to \($0.displayName)" } ?? "Switch")
-                        .lineLimit(1).truncationMode(.middle)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.glassProminent)
-                .help("Switch to the next account in line")
-                Menu {
-                    ForEach(AppStore.SwitchMode.allCases) { mode in
-                        Button(mode.title) { Task { await store.switchNext(mode) } }
-                    }
-                } label: { Image(systemName: "chevron.down") }
-                    .menuIndicator(.hidden)
-                    .buttonStyle(.glass)
-                    .fixedSize()
-                    .help("Other ways to switch")
-                    .accessibilityLabel("Other ways to switch")
+            Button {
+                if let next { Task { await store.switchTo(next) } } else { Task { await store.switchNext(.best) } }
+            } label: {
+                Text(next.map { "Switch to \($0.shortName)" } ?? "Switch")
+                    .lineLimit(1).truncationMode(.tail)
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.glassProminent)
             .disabled(store.busy != nil)
+            .help(next.map { "Switch to \($0.email)" } ?? "Switch to the account with most headroom")
+
+            Button { DashboardWindow.shared.show() } label: { Label("Dashboard", systemImage: "macwindow") }
+                .buttonStyle(.glass)
+                .labelStyle(.iconOnly)
+                .help("Open the dashboard (⌘D)")
 
             Menu {
                 Section("New shell") {

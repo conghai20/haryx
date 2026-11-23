@@ -13,6 +13,15 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ### Added
 
+- macOS app: "Claude Desktop follows Use" (Preferences › Claude Desktop, off by default). Pressing Use
+  quits a running Claude Desktop normally and reopens it on that account's own Desktop folder, so
+  Desktop and Claude Code sign in as the same account. Each account signs in to Desktop once with
+  Set Up Desktop in the menu bar panel, whose Desktop line also shows when Desktop was left on
+  another account (auto-switch and AI Wake never quit Desktop). Asks before quitting, with "Don't
+  ask again". A folder signed into another account is left alone. Each folder takes about 750 MB.
+- `haryx ai desktop status [--json]` and `haryx ai desktop path ACCOUNT`: each account's Claude
+  Desktop data folder, keyed by account UUID, and which account it is signed into.
+
 - macOS app: a "Not saved" notice in the bottom-right corner of the Config and Auto-switch panes
   while a typed setting has not been saved with Return, so a value like the auto-switch threshold
   is no longer silently lost. Esc puts the field back to the stored value.

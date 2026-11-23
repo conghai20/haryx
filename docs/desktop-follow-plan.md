@@ -1,6 +1,6 @@
 # Claude Desktop follows the Use button
 
-Status: Phase 0 passed and Phase 1 built (2026-11-24). Phase 2 in progress on branch `feat/desktop-follow`.
+Status: built on branch `feat/desktop-follow` (2026-11-24); awaiting review and a hands-on check in the app.
 
 ## Goal
 
@@ -93,6 +93,20 @@ Logs go to the shared `~/Library/Logs/Claude/`, not into the data folder.
   - "Set up Desktop" for an account with no folder: opens Desktop on a new empty folder so the user
     signs in once.
 - Mismatch guard: if a folder is signed in as a different account, warn and leave the folder alone.
+
+### As built
+
+- Use with a running Desktop on another folder: confirm, quit, reopen, then read the new process's
+  arguments to check it is on the account's folder. Use with Desktop not running leaves it alone.
+- Use for an account with no folder, or a mismatched one, never touches Desktop; a banner points to
+  Set Up Desktop or names the mismatch.
+- The status line follows one rule: it says which account Desktop is on (read from the running
+  process's `--user-data-dir`), and offers one button, "Open" or "Set Up Desktop", whenever that is
+  not the active account. That covers "Desktop still on …" after any automatic switch without
+  tracking what caused it.
+- New folders are created owner-only (0700) right before Desktop opens on them.
+- Swift: `HaryXCore/ClaudeDesktop.swift` (decoding, decisions, status line; unit-tested),
+  `HaryX/Services/DesktopLauncher.swift`, `HaryX/App/AppStore+Desktop.swift`.
 
 ## Phase 3: Finish
 

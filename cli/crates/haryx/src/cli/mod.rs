@@ -21,6 +21,7 @@
 //! upstream spellings without `ai` stay as undocumented aliases, except `login`, which is new and whose
 //! top-level name is kept for a future HaryX account sign-in. `haryx --help` lists the sections.
 
+mod desktop_parser;
 pub mod help;
 mod main_parser;
 mod profile_parser;
@@ -29,6 +30,7 @@ mod top;
 mod wake_parser;
 
 pub use clap::Error;
+pub use desktop_parser::DesktopAction;
 pub use profile_parser::{PartFlags, PluginsChoice, ProfileAction, SecretsChoice};
 pub use wake_parser::WakeAction;
 
@@ -129,6 +131,8 @@ pub enum Command {
     Profile(ProfileAction),
     /// `wake [status|on|off|config|run|install|uninstall]`.
     Wake(WakeAction),
+    /// `desktop [status|path]`.
+    Desktop(DesktopAction),
 }
 
 /// Options of `login`.
@@ -245,6 +249,7 @@ impl Command {
             Self::Login(_) => "login",
             Self::Profile(_) => "profile",
             Self::Wake(_) => "wake",
+            Self::Desktop(_) => "desktop",
         }
     }
 }
@@ -301,7 +306,7 @@ pub const AI_SECTION: &str = "ai";
 
 /// Commands that work only inside the `ai` section: their top-level names are kept for HaryX itself
 /// (`haryx login` will sign in to a HaryX account).
-pub const AI_ONLY: &[&str] = &["login", "profile", "wake"];
+pub const AI_ONLY: &[&str] = &["login", "profile", "wake", "desktop"];
 
 /// Top-level help requests, answered with the section overview instead of the `ai` command list.
 const TOP_HELP: &[&str] = &["help", "--help", "-h"];
@@ -339,6 +344,11 @@ fn parse_ai(argv: &[String], interactive: bool) -> Result<Invocation, Error> {
         && first == "wake"
     {
         return wake_parser::parse(rest);
+    }
+    if let Some((first, rest)) = argv.split_first()
+        && first == "desktop"
+    {
+        return desktop_parser::parse(rest);
     }
     if let Some((first, rest)) = argv.split_first()
         && let Some(parsed) = subparsers::parse(first, rest)

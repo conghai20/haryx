@@ -24,6 +24,7 @@ pub mod printer;
 // Core.
 pub mod autoswitch;
 pub mod credentials;
+pub mod desktop;
 pub mod json_output;
 pub mod mappings;
 pub mod models;

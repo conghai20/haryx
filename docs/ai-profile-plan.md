@@ -26,6 +26,9 @@ by AirDrop, USB, or any file share.
 | Plugins | Chosen per export: `--plugins ref` (default) or `--plugins bundle`. |
 | Third-party folders | Opt-in per export: `--include-dir PATH` (repeatable), e.g. `~/.claude/ecc`, `~/.claude-mem`. |
 | Encryption | Rust `age` crate, scrypt passphrase recipient; files decrypt with the `age` CLI too. |
+| Other files | Entries of `~/.claude` no category claims go to category `other`, exported by default (`--exclude other` to skip). |
+| Credentials on apply | Imported into the haryx store only; the active Claude Code login is not changed. |
+| Home paths | Rewritten to the token `{{HARYX_HOME}}` (and `{{HARYX_HOME_SLUG}}` in project folder names), so an existing `${HOME}` in user files is never touched. |
 
 ### Naming
 
@@ -52,7 +55,7 @@ haryx ai profile rollback [BACKUP_ID]                   # undo the last (or a gi
 - Every read command takes `--json`; shapes land in `packages/contracts/haryx/` first (contracts-first rule).
 - `export` with no NAME exports `default`.
 - `import` refuses an existing NAME unless `--force`.
-- `CATS` is a comma list of categories: `settings,hooks,skills,agents,commands,rules,output-styles,plugins,mcps,memory,history,credentials,signed,claude-json,cache`.
+- `CATS` is a comma list of categories: `settings,hooks,skills,agents,commands,rules,output-styles,plugins,mcps,memory,other,history,credentials,signed,claude-json,cache`.
 - `--no-history` is the same as `--exclude history`; in the macOS app it is an "Include history" box,
   checked by default.
 
@@ -67,6 +70,7 @@ haryx ai profile rollback [BACKUP_ID]                   # undo the last (or a gi
 | plugins | `plugins/installed_plugins.json`, `plugins/known_marketplaces.json` | name, marketplace, version, enabled |
 | mcps | `mcpServers` in `~/.claude.json` (user scope); plugin MCPs; `~/.claude/mcp-configs/` | project-scope `.mcp.json` files are out of scope |
 | memory | `CLAUDE.md`, `AGENTS.md`, `keybindings.json` | |
+| other | every other entry of `~/.claude` (e.g. `ecc/`, `mcp-configs/`, extra docs) | one item per entry |
 | history | `projects/` (conversation transcripts and per-project memory), `history.jsonl` (prompt history), `file-history/` (edit checkpoints), `todos/`, `plans/` | on by default; `show` lists counts and size, not every file |
 
 Item status: `ok`, `broken` (missing hook script, MCP command not on `PATH`), `needs-secret` (placeholder
@@ -76,7 +80,7 @@ without a value), `secret` (contains a detected secret; export will redact or en
 
 | Flag | Part | Notes |
 |---|---|---|
-| `--credentials` | every account in the haryx store plus the active Claude Code login (the `haryx ai export --full` envelope) | Requires `--secrets encrypt`; refused otherwise. Apply imports the accounts as `haryx ai import` does. |
+| `--credentials` | every account in the haryx store (the `haryx ai export --full` envelope) | Requires `--secrets encrypt`; refused otherwise. Apply imports the accounts into the haryx store as `haryx ai import` does and leaves the active login alone. |
 | `--signed` | `policy-limits*`, `remote-settings*` | Anthropic-managed, per account, re-fetched by Claude Code; a copy is usually replaced on next start. |
 | `--claude-json` | the whole `~/.claude.json`, not only `mcpServers` | Includes account identity, onboarding state and folder trust decisions. Apply merges per key; trust decisions are listed in the confirmation. Secrets inside follow `--secrets`. |
 | `--cache` | `cache/`, `paste-cache/`, `statsig/` | Rebuilt by Claude Code anyway; only saves a warm start. |
@@ -87,7 +91,7 @@ warning, and apply prints it again.
 
 **Never exported, with no option:** machine-local runtime state: `sessions/` (records of running
 processes, keyed by PID), `session-env/`, `shell-snapshots/`, `ide/` (lock files of open editors),
-`debug/`, `backups/`. On another machine it points at processes and editors that do not exist, and
+`debug/`, `backups/`, `telemetry/`, `tmp/`, `todos/.lock`-style lock files. On another machine it points at processes and editors that do not exist, and
 Claude Code may act on it. The conversations themselves are in `projects/`, which the history part
 carries.
 
@@ -128,15 +132,17 @@ carries.
 }
 ```
 
-- **Home paths** in text items (hook commands, MCP commands and args, settings) are rewritten from the
-  absolute home to `${HOME}` on export and expanded on apply.
+- **Home paths** in every UTF-8 file are rewritten from the absolute home to `{{HARYX_HOME}}` on export
+  and expanded to the target home on apply.
 - **`requires`**: executables found in hook and MCP commands. Import reports the ones missing on `PATH`.
 - **Secrets, redact**: detected values in MCP `env`/`headers`, settings `env`, and included files are
   replaced by `${HARYX_SECRET_<NAME>}`. On apply, values come from the environment variable of the same
-  name, then the Keychain, then a prompt; with `--yes` and no value the item is applied and marked
-  `needs-secret`.
-- **Secrets, encrypt**: the secret values go into `secrets.age` inside the archive, encrypted with a
-  passphrase; everything else stays readable so `--dry-run` works without the passphrase.
+  name, then a prompt; with `--yes` and no value a new item is written with the placeholder (Claude Code
+  expands `${VAR}` in MCP config, so exporting the variable later works) and marked `needs-secret`, and
+  an existing local item keeps its local value.
+- **Secrets, encrypt**: files carry the same placeholders, and the values go into `secrets.age` inside
+  the archive, encrypted with a passphrase; everything else stays readable so `--dry-run` works without
+  the passphrase. Apply restores every value exactly, history included.
 - **Plugins, ref**: name, marketplace URL, version. Apply runs `claude plugin marketplace add` and
   `claude plugin install`.
 - **Plugins, bundle**: the plugin's files are copied too; apply uses them only when the marketplace
@@ -145,8 +151,7 @@ carries.
   project path (`-Users-me-code-app`); on apply, the source home prefix in those names and in each
   transcript's `cwd` field is rewritten to the target home. Projects outside the home keep their path.
 - **Secrets in history**: transcripts can contain pasted keys. With `redact`, detected values are replaced
-  by `[REDACTED:haryx]` (not restorable). With `encrypt`, the whole history part is encrypted as
-  `history.tar.age`.
+  by `[REDACTED:haryx]` (not restorable). With `encrypt`, they are restored on apply like any secret.
 - **Size**: no fixed cap on export; `export` prints the size per category and warns above 500 MB. The
   reader refuses archives whose extracted size exceeds the manifest's declared total (zip-bomb guard).
 

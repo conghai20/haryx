@@ -34,7 +34,9 @@ struct MenuBarPanel: View {
         .environment(\.mascotsPaused, !store.panelVisible)
         .animation(.snappy, value: store.banner)
         .onChange(of: store.panelVisible) { _, shown in
-            if shown, (store.lastRefresh?.timeIntervalSinceNow ?? -999) < -15 { Task { await store.refresh() } }
+            guard shown else { return }
+            Task { await store.reloadWake() }
+            if (store.lastRefresh?.timeIntervalSinceNow ?? -999) < -15 { Task { await store.refresh() } }
         }
     }
 

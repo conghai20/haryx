@@ -235,12 +235,23 @@ final class AppStore {
         if let p = await prio { priorities = TextParsers.priorities(p) }
         if let u = await uncl { unclaimed = TextParsers.unclaimed(u) }
         if let v = await ver { version = v.trimmingCharacters(in: .whitespacesAndNewlines) }
-        switch await wakeStatus {
+        apply(await wakeStatus)
+        loadMappings()
+    }
+
+    /// Re-read `haryx ai wake status` alone (local files only), so the panel shows what the
+    /// background agent did since the last load.
+    func reloadWake() async {
+        guard let cli else { return }
+        apply(await Self.loadWake(cli))
+    }
+
+    private func apply(_ wakeStatus: Result<WakeStatus, Error>?) {
+        switch wakeStatus {
         case .success(let w)?: wake = w; wakeError = nil
         case .failure(let e)?: wake = nil; wakeError = e.localizedDescription
         case nil: wake = nil; wakeError = nil
         }
-        loadMappings()
     }
 
     func loadMappings() {

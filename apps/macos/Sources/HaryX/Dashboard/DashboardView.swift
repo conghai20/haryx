@@ -228,7 +228,7 @@ struct AccountCard: View {
         .background(selected ? AnyShapeStyle(Color.accentColor.opacity(0.18)) : AnyShapeStyle(.fill.quaternary),
                     in: .rect(cornerRadius: 16))
         // The whole rounded card is clickable, padding and empty space included (not only its views).
-        .contentShape(.rect(cornerRadius: 20))
+        .contentShape(.rect(cornerRadius: 16))
         .contextMenu { AccountContextMenu(account: account) }
     }
 }
@@ -253,7 +253,7 @@ private struct CardTide: View {
             TideStaff(window: five, height: 5)
             TimeLeftRule(resetsAt: five?.resetsAt, windowSeconds: UsageWindow.fiveHourSeconds)
             HStack {
-                if let d = five?.paceDelta, d != 0 {
+                if let d = five?.paceDelta, abs(d) >= UsageWindow.paceThreshold {
                     Text(d > 0 ? "\(d) pts ahead of pace" : "\(-d) pts under pace")
                         .foregroundStyle(d > 0 ? Brand.warn : .secondary)
                 }

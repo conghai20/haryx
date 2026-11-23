@@ -148,13 +148,13 @@ private struct ActiveTide: View {
     }
 
     @ViewBuilder private func paceLine(_ w: UsageWindow?) -> some View {
-        if let d = w?.paceDelta, d != 0 {
+        if let d = w?.paceDelta, abs(d) >= UsageWindow.paceThreshold {
             Text(d > 0 ? "\(d) pts ahead of pace" : "\(-d) pts under pace")
                 .foregroundStyle(d > 0 ? Brand.warn : .secondary)
         } else if let w = account.usage?.sevenDay, w.aheadOfPace == true, w.willLastToReset == false,
                   let end = w.projectedExhaustionAt {
             Text("Weekly runs out \(end.formatted(.relative(presentation: .named)))").foregroundStyle(Brand.warn)
-        } else if w?.paceDelta == 0 {
+        } else if w?.paceDelta != nil {
             Text("on pace").foregroundStyle(.secondary)
         }
     }
@@ -276,10 +276,19 @@ private struct QuickActions: View {
             .disabled(store.busy != nil)
             .help(next.map { "Switch to \($0.email)" } ?? "Switch to the account with most headroom")
 
-            Button { DashboardWindow.shared.show() } label: { Label("Dashboard", systemImage: "macwindow") }
-                .buttonStyle(.glass)
-                .labelStyle(.iconOnly)
-                .help("Open the dashboard (⌘D)")
+            Menu {
+                Button("Open Dashboard") { DashboardWindow.shared.show() }
+            } label: {
+                Label("Dashboard", systemImage: "gauge.with.dots.needle.50percent")
+            } primaryAction: {
+                DashboardWindow.shared.show()
+            }
+            .menuIndicator(.hidden)
+            .buttonStyle(.glass)
+            .labelStyle(.iconOnly)
+            .fixedSize()
+            .help("Open the dashboard (⌘D)")
+            .accessibilityLabel("Open the dashboard")
 
             Menu {
                 Section("New shell") {

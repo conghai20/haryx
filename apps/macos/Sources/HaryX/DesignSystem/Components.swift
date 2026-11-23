@@ -61,7 +61,7 @@ struct RunningBadge: View {
             Text(count > 1 ? "\(count) running" : "running")
         }
         .font(.system(size: 9, weight: .semibold))
-        .foregroundStyle(Brand.cyanText)
+        .foregroundStyle(.secondary)
     }
 }
 

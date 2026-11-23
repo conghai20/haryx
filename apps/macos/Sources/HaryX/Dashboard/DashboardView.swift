@@ -67,6 +67,12 @@ final class DashboardRouter {
         selectedSlot = slot
     }
 
+    /// Opens the dashboard on a section.
+    func open(_ section: DashboardSection) {
+        self.section = section
+        DashboardWindow.shared.show()
+    }
+
     /// Opens the dashboard on this account's detail inspector.
     func reveal(_ slot: Int) {
         select(slot)

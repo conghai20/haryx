@@ -19,6 +19,9 @@ cannot be released without one. Sections, in this order, only when they have ent
   read local files only; a failed login sends one macOS notification.
 - macOS app: Wake controls — a Wake pane (background check, quiet hours, weekly cap, per-account
   switches) and a Wake section in each account's inspector.
+- macOS app: the menu bar panel's Dashboard button has a dropdown that opens the dashboard on any
+  section (AI: Accounts, Auto-Switch, Wake, Folder Mappings, Setup Profiles, CLI Settings, Backup &
+  Maintenance; HaryX: App Preferences).
 
 ### Changed
 
@@ -28,7 +31,8 @@ cannot be released without one. Sections, in this order, only when they have ent
   the same reading. Space Grotesk (bundled, OFL) for the wordmark and large numbers, a deep Electric
   Cyan app accent, flat fills instead of gradients.
 - macOS app: the menu bar shows the Wing H mark (with a dot while the active account runs a
-  session) instead of the animated mascot; the "Animate menu bar mascot" preference is gone.
+  session) by default. The animated mascot is now opt-in: Preferences → "Show animated mascot in
+  the menu bar" (off by default; its walk timer runs only while the active account runs a session).
 - macOS app: idle cost cut — mascots stop while the dashboard is covered or minimized, and the
   session scan slows to every 15 s while nothing is on screen. Measured idle: ~0.1% CPU and 22 MB
   footprint on a fresh launch (was ~6% and 111 MB on a long-running build).
@@ -36,9 +40,8 @@ cannot be released without one. Sections, in this order, only when they have ent
 ### Fixed
 
 - macOS app: opening the dashboard while it is minimized brings it back.
-
-### Fixed
-
+- macOS app: the hover highlight in the menu bar panel's "Next in line" table covers the whole row,
+  and a click anywhere on the row opens the account's menu.
 - macOS app: the menu bar panel closes when you click another app, switch apps (⌘-Tab, Dock) or
   bring the dashboard forward, like system menu bar panels.
 - macOS app: the whole account card is clickable, including its edges and empty space.

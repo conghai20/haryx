@@ -11,6 +11,7 @@ enum Prefs {
     static let autoOnLaunch = "autoOnLaunch"
     static let autoDryRun = "autoDryRun"
     static let menuBarPercent = "menuBarPercent"
+    static let menuBarMascot = "menuBarMascot"
     static let mascotStyles = "mascotStyles"
     static let cliInstallOffered = "cliInstallOffered"
     static let sessionMinSeconds = 60.0
@@ -20,7 +21,7 @@ enum Prefs {
     static func register() {
         var defaults: [String: Any] = [
             refreshSeconds: 60.0, terminal: TerminalApp.terminal.rawValue, shell: "",
-            claudeFolder: CSwapCLI.home, autoOnLaunch: false, autoDryRun: false, menuBarPercent: true,
+            claudeFolder: CSwapCLI.home, autoOnLaunch: false, autoDryRun: false, menuBarPercent: true, menuBarMascot: false,
         ]
         for c in Notice.Category.allCases { defaults[notifyKey(c)] = true }
         UserDefaults.standard.register(defaults: defaults)

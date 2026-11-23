@@ -162,8 +162,19 @@ private struct ActiveTide: View {
 
 /// The other accounts as an almanac: in switch order, columns that never move.
 private struct NextInLine: View {
+    @Environment(AppStore.self) private var store
     let accounts: [Account]
     private static let rowHeight: CGFloat = 30
+    static let space = "nextInLine"
+    /// Modifiers on a GridRow apply to each cell, so a per-row hover fill leaves the column gaps
+    /// bare. The grid draws one full-width fill instead, from each row's measured band.
+    @State private var rowBands: [Int: CGRect] = [:]
+    @State private var pointer: CGPoint?
+
+    private var hoveredSlot: Int? {
+        guard let pointer else { return nil }
+        return rowBands.first { $0.value.minY <= pointer.y && pointer.y < $0.value.maxY }?.key
+    }
 
     var body: some View {
         ScrollView {
@@ -178,19 +189,45 @@ private struct NextInLine: View {
                 .font(.caption2.weight(.medium)).foregroundStyle(.tertiary)
                 .padding(.bottom, 2)
                 .accessibilityHidden(true)
-                ForEach(accounts) { AccountRow(account: $0) }
+                ForEach(accounts) { a in
+                    AccountRow(account: a, hovering: hoveredSlot == a.number) { band in rowBands[a.number] = band }
+                }
+            }
+            .coordinateSpace(.named(Self.space))
+            .background(alignment: .topLeading) { hoverFill }
+            .contentShape(.rect)
+            .onContinuousHover(coordinateSpace: .named(Self.space)) { phase in
+                if case .active(let p) = phase { pointer = p } else { pointer = nil }
+            }
+            .onTapGesture {
+                if let slot = hoveredSlot, let a = accounts.first(where: { $0.number == slot }) {
+                    AccountActionMenu.show(for: a, store: store)
+                }
             }
         }
         .scrollIndicators(.never)
         .scrollBounceBehavior(.basedOnSize)
         .frame(maxHeight: min(CGFloat(accounts.count + 1) * Self.rowHeight, 300))
     }
+
+    @ViewBuilder private var hoverFill: some View {
+        if let slot = hoveredSlot, let band = rowBands[slot] {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(.quaternary.opacity(0.5))
+                .frame(maxWidth: .infinity)
+                .frame(height: band.height)
+                .offset(y: band.minY)
+                .allowsHitTesting(false)
+        }
+    }
 }
 
 struct AccountRow: View {
     @Environment(AppStore.self) private var store
     let account: Account
-    @State private var hovering = false
+    let hovering: Bool
+    /// Reports the row's vertical band (from its tallest cell) in the grid's coordinate space.
+    let onBand: (CGRect) -> Void
 
     var body: some View {
         GridRow {
@@ -201,6 +238,8 @@ struct AccountRow: View {
                 if let plan = account.plan?.label { Text(plan).font(.caption2).foregroundStyle(.tertiary) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 5)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(NextInLine.space)) } action: { onBand($0) }
             if account.usage != nil {
                 pct(account.usage?.fiveHour)
                 pct(account.usage?.sevenDay)
@@ -217,11 +256,6 @@ struct AccountRow: View {
         }
         .font(.callout.monospacedDigit())
         .opacity(account.isDisabled ? 0.5 : 1)
-        .padding(.vertical, 5)
-        .background(hovering ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear))
-        .contentShape(.rect)
-        .onTapGesture { AccountActionMenu.show(for: account, store: store) }
-        .onHover { hovering = $0 }
         .contextMenu { AccountContextMenu(account: account) }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
@@ -277,17 +311,22 @@ private struct QuickActions: View {
             .help(next.map { "Switch to \($0.email)" } ?? "Switch to the account with most headroom")
 
             Menu {
-                Button("Open Dashboard") { DashboardWindow.shared.show() }
+                ForEach(DashboardGroup.allCases) { group in
+                    Section(group.title) {
+                        ForEach(group.sections) { section in
+                            Button(section.title, systemImage: section.icon) { DashboardRouter.shared.open(section) }
+                        }
+                    }
+                }
             } label: {
                 Label("Dashboard", systemImage: "gauge.with.dots.needle.50percent")
             } primaryAction: {
                 DashboardWindow.shared.show()
             }
-            .menuIndicator(.hidden)
             .buttonStyle(.glass)
             .labelStyle(.iconOnly)
             .fixedSize()
-            .help("Open the dashboard (⌘D)")
+            .help("Click: open the dashboard (⌘D). Arrow: jump to a section")
             .accessibilityLabel("Open the dashboard")
 
             Menu {

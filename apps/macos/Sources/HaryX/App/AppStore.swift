@@ -15,6 +15,7 @@ final class AppStore {
     /// Session scan cadence while neither the panel nor the dashboard is on screen.
     static let hiddenSessionScanSeconds = 15.0
     /// Each status-item image change costs a menu bar re-snapshot in AppKit, so keep this low.
+    static let menuBarFPS = 1.0
     static let bannerSeconds = 5.0
 
     // cswap state
@@ -43,12 +44,16 @@ final class AppStore {
     var panelVisible = false
     /// The dashboard window is on screen (not closed, minimized or fully covered).
     var dashboardVisible = false
+    /// The menu bar shows the active account's mascot instead of the Wing H mark (opt-in).
+    private(set) var menuBarMascot = Prefs.d.bool(forKey: Prefs.menuBarMascot)
+    private(set) var menuBarTick = 0
 
     let auto = AutoSwitchRunner()
     let styles = MascotStyles()
     let notifier = Notifier()
 
     @ObservationIgnored private var loops: [Task<Void, Never>] = []
+    @ObservationIgnored private var menuBarLoop: Task<Void, Never>?
     @ObservationIgnored private var bannerTask: Task<Void, Never>?
     @ObservationIgnored private var watcher: DispatchSourceFileSystemObject?
     @ObservationIgnored private var seenSequenceMTime: Date?
@@ -90,6 +95,7 @@ final class AppStore {
     func shutdown() {
         auto.stop()
         loops.forEach { $0.cancel() }
+        menuBarLoop?.cancel()
     }
 
     func relocateCLI() {
@@ -139,8 +145,15 @@ final class AppStore {
     }
 
     /// The Wing H mark as a template image; a dot joins it while the active account runs a session.
+    /// With the mascot preference on, the active account's mascot walks while a session runs instead.
     var menuBarImage: NSImage {
-        (active.map(isRunning) ?? false) ? Self.markRunning : Self.mark
+        let running = active.map(isRunning) ?? false
+        guard menuBarMascot, let a = active else { return running ? Self.markRunning : Self.mark }
+        let mood = mood(for: a)
+        let pose = running && menuBarLoop != nil
+            ? Pose(altLegs: menuBarTick % 2 == 1, squat: menuBarTick % 2 == 0, mood: .running)
+            : Pose(mood: mood == .running ? .idle : mood)
+        return MascotCache.menuBarImage(style(for: a), pose: pose)
     }
     private static let mark = WingH.templateImage()
     private static let markRunning = WingH.templateImage(running: true)
@@ -285,6 +298,30 @@ final class AppStore {
         }
         knownProcesses = current
         if bySlot != sessions { sessions = bySlot }
+        updateMenuBarAnimation()
+    }
+
+    func setMenuBarMascot(_ on: Bool) {
+        Prefs.d.set(on, forKey: Prefs.menuBarMascot)
+        menuBarMascot = on
+        updateMenuBarAnimation()
+    }
+
+    /// The walk timer runs only while the mascot preference is on and the active account runs a session.
+    private func updateMenuBarAnimation() {
+        let animate = menuBarMascot && (active.map(isRunning) ?? false)
+        if animate, menuBarLoop == nil {
+            menuBarLoop = Task { [weak self] in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(1 / Self.menuBarFPS))
+                    self?.menuBarTick &+= 1
+                }
+            }
+        } else if !animate, let loop = menuBarLoop {
+            loop.cancel()
+            menuBarLoop = nil
+            menuBarTick = 0
+        }
     }
 
     private func sessionEnded(_ p: ClaudeProcess, slot: Int?) {

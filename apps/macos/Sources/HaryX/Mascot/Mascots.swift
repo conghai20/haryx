@@ -65,10 +65,16 @@ enum MascotCache {
     }
 
     /// Menu bar glyph: 18 pt drawn at 2× so pixels stay crisp.
+    /// The same NSImage instance comes back per frame, so AppKit can skip redrawing an unchanged glyph.
     static func menuBarImage(_ style: MascotStyle, pose: Pose) -> NSImage {
+        let key = "\(style.species.rawValue)|\(style.hue ?? -1)|\(pose.hashValue)" as NSString
+        if let hit = menuBarImages.object(forKey: key) { return hit }
         guard let cg = image(style, pose: pose, scale: 2) else { return NSImage() }
-        return NSImage(cgImage: cg, size: NSSize(width: 18, height: 18))
+        let img = NSImage(cgImage: cg, size: NSSize(width: 18, height: 18))
+        menuBarImages.setObject(img, forKey: key)
+        return img
     }
+    private static let menuBarImages = NSCache<NSString, NSImage>()
 }
 
 struct MascotsPausedKey: EnvironmentKey { static let defaultValue = false }

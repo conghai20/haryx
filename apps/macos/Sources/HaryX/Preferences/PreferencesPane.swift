@@ -19,6 +19,9 @@ struct PreferencesPane: View {
                 Toggle("Launch at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, on in setLaunchAtLogin(on) }
                 Toggle("Show 5-hour % in the menu bar", isOn: $menuBarPercent)
+                Toggle("Show animated mascot in the menu bar", isOn: Binding(
+                    get: { store.menuBarMascot }, set: { store.setMenuBarMascot($0) }))
+                    .help("Replaces the HaryX mark with the active account's mascot, which walks while Claude runs. Costs a little CPU while it walks.")
                 Picker("Refresh usage every", selection: $refreshSeconds) {
                     Text("30 seconds").tag(30.0)
                     Text("1 minute").tag(60.0)

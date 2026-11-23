@@ -2,9 +2,8 @@
 //! (`run_self_upgrade`). Upstream knows uv and pipx; haryx ships through Homebrew, cargo, pip/uv
 //! wrappers and npm, so detection looks at where the running executable lives.
 
-use std::os::unix::process::ExitStatusExt;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, ExitStatus};
 
 use haryx_core::{PROG, printer};
 
@@ -92,7 +91,7 @@ pub fn run() -> Result<(), CommandError> {
             return Err(CommandError::silent(1));
         }
     };
-    if status.signal() == Some(libc::SIGINT) {
+    if interrupted(&status) {
         println!("\n{}", printer::dimmed("Upgrade cancelled"));
         return Err(CommandError::silent(INTERRUPTED_EXIT));
     }
@@ -114,6 +113,20 @@ pub fn run() -> Result<(), CommandError> {
         None => {}
     }
     Ok(())
+}
+
+/// Whether the package manager was stopped by Ctrl-C.
+#[cfg(unix)]
+fn interrupted(status: &ExitStatus) -> bool {
+    use std::os::unix::process::ExitStatusExt;
+    status.signal() == Some(libc::SIGINT)
+}
+
+/// Windows has no signals; Ctrl-C ends a console child with `STATUS_CONTROL_C_EXIT`.
+#[cfg(not(unix))]
+fn interrupted(status: &ExitStatus) -> bool {
+    const STATUS_CONTROL_C_EXIT: i32 = 0xC000_013A_u32.cast_signed();
+    status.code() == Some(STATUS_CONTROL_C_EXIT)
 }
 
 #[cfg(test)]

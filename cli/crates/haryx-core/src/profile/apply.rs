@@ -393,13 +393,22 @@ pub fn rollback(env: &ProfileEnv, id: Option<&str>) -> Result<(String, String)> 
             )));
         }
     }
+    // TODO(windows): restore links as junctions once `fsutil` can make them. Refuse before touching
+    // anything, so a rollback never removes a file it cannot put back.
+    #[cfg(not(unix))]
+    if let Some(record) = doc.records.iter().find(|r| r.link.is_some()) {
+        return Err(Error::Validation(format!(
+            "Backup {chosen} holds a link at {}; restoring links is not supported on Windows yet",
+            record.path.display()
+        )));
+    }
     for record in &doc.records {
         current.keep(&record.path)?;
         walk::remove_any(&record.path)?;
-        if let Some(target) = &record.link {
+        if let Some(_target) = &record.link {
             walk::ensure_parent(&record.path)?;
             #[cfg(unix)]
-            std::os::unix::fs::symlink(target, &record.path)?;
+            std::os::unix::fs::symlink(_target, &record.path)?;
         } else if let Some(stored) = &record.stored {
             walk::copy_tree(&dir.join(stored), &record.path)?;
         }

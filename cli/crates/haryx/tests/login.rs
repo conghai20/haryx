@@ -1,6 +1,9 @@
 //! `haryx login` end to end with a fake `claude` whose `auth login` "signs in" as `$FAKE_EMAIL`:
 //! it writes the login into `$CLAUDE_CONFIG_DIR` (a staging profile) or the default profile.
 
+// TODO(windows): these tests drive fake `#!/bin/sh` binaries; port them to `.cmd` fakes.
+#![cfg(unix)]
+
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};

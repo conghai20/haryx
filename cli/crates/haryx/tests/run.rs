@@ -1,5 +1,8 @@
 //! `haryx run` end to end with a fake `claude` on PATH (answers `auth status`, echoes its environment).
 
+// TODO(windows): these tests drive fake `#!/bin/sh` binaries; port them to `.cmd` fakes.
+#![cfg(unix)]
+
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;

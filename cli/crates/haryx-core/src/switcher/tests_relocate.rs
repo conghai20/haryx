@@ -1,5 +1,6 @@
 //! `swap` and `move`, ported from upstream `tests/test_swap_accounts.py` and `test_move_accounts.py`.
 
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
 use serde_json::{Value, json};
@@ -36,6 +37,7 @@ fn staging_files(s: &TestSwitcher) -> Vec<String> {
         .unwrap_or_default()
 }
 
+#[cfg(unix)]
 fn not_root() -> bool {
     // SAFETY: geteuid has no preconditions.
     unsafe { libc::geteuid() != 0 }
@@ -164,6 +166,7 @@ fn swap_same_email_partial_failure_rolls_back() {
 }
 
 #[test]
+#[cfg(unix)]
 fn swap_same_email_persistent_failure_keeps_staged_copy() {
     let s = org_sw();
     s.write_account_credentials("1", ORG_EMAIL, "creds-org")
@@ -251,6 +254,7 @@ fn swap_moves_session_profiles() {
 }
 
 #[test]
+#[cfg(unix)]
 fn swap_aborts_on_unreadable_backup_before_anything_changes() {
     if !not_root() {
         return;
@@ -419,6 +423,7 @@ fn move_unbacked_account_clears_stale_target_key() {
 }
 
 #[test]
+#[cfg(unix)]
 fn move_failed_required_clear_aborts_commit() {
     if !not_root() {
         return;

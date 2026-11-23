@@ -79,10 +79,17 @@ fn carried_env() -> Vec<(String, String)> {
         .collect()
 }
 
+#[cfg(unix)]
 fn domain() -> String {
     // SAFETY: getuid has no preconditions and cannot fail.
     let uid = unsafe { libc::getuid() };
     format!("gui/{uid}")
+}
+
+/// Never reached: every caller runs `require_macos` first. Kept so the crate builds on Windows.
+#[cfg(not(unix))]
+fn domain() -> String {
+    String::new()
 }
 
 fn launchctl(args: &[&str]) -> Result<std::process::Output> {

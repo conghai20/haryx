@@ -15,12 +15,16 @@ use std::time::{Duration, Instant};
 
 pub use crate::printer::Theme;
 
+#[cfg_attr(not(unix), allow(dead_code))]
 const QUERY: &[u8] = b"\x1b]11;?\x07"; // OSC 11, BEL-terminated
+#[cfg_attr(not(unix), allow(dead_code))]
 const DA1_QUERY: &[u8] = b"\x1b[c"; // ordered response boundary
 /// DA1 lets unsupported terminals return promptly; the cap mainly covers SSH latency or a
 /// non-conforming terminal that answers neither query.
+#[cfg_attr(not(unix), allow(dead_code))]
 const TIMEOUT: Duration = Duration::from_secs(1);
 const MAX_REPLY: usize = 256;
+#[cfg_attr(not(unix), allow(dead_code))]
 const READ_CHUNK: usize = 32;
 
 // The full `ESC ]11;` opener is required so interleaved or echoed input (e.g. a shell echoing a
@@ -168,6 +172,7 @@ pub fn query_unsupported(env: impl Fn(&str) -> Option<String>) -> bool {
         || env("STY").is_some_and(|v| !v.is_empty())
 }
 
+#[cfg_attr(not(unix), allow(dead_code))]
 fn process_env(name: &str) -> Option<String> {
     std::env::var_os(name).map(|v| v.to_string_lossy().into_owned())
 }

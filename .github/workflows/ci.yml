@@ -29,6 +29,24 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
 
+  cli-windows:
+    # Compile-only until the Windows port lands (docs/windows-app-plan.md, Phase 1); then run the
+    # tests here too and fold this job into the `cli` matrix.
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: cli
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace --no-run
+
   macos-app:
     # The app targets macOS 26, so it needs the macOS 26 SDK.
     runs-on: macos-26

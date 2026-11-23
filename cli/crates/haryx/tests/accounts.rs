@@ -2,6 +2,9 @@
 //! unclaimed, swap/move errors). Each run gets a temp HOME and store and a fake `security` binary, so
 //! the real store and Keychain are never touched. The switcher logic itself is unit-tested in core.
 
+// TODO(windows): these tests drive fake `#!/bin/sh` binaries; port them to `.cmd` fakes.
+#![cfg(unix)]
+
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::Command;

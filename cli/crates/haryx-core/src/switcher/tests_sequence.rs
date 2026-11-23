@@ -2,6 +2,7 @@
 //! (`TestResolveAccountIdentifier`, `TestResolveByAlias`, `TestResolveIdentifierAmbiguity`,
 //! `TestUpgradeMigration`, `TestSalvageCopyMode`) and the `_read_json` / `_write_json` cases.
 
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
 use serde_json::json;
@@ -16,6 +17,7 @@ fn sw() -> TestSwitcher {
 }
 
 #[test]
+#[cfg(unix)]
 fn init_sequence_file_creates_an_empty_roster_once() {
     let s = TestSwitcher::linux();
     s.setup_directories().unwrap();
@@ -74,6 +76,7 @@ fn write_json_is_python_layout_and_ascii() {
 }
 
 #[test]
+#[cfg(unix)]
 fn salvage_copy_is_private_and_never_overwrites() {
     let s = TestSwitcher::linux();
     let path = s.claude_config_path();

@@ -209,6 +209,8 @@ mod tests {
         let rels: Vec<String> = files(&root).unwrap().into_iter().map(|e| e.rel).collect();
         #[cfg(unix)]
         assert_eq!(rels, vec!["a", "b/two", "c/three"]);
+        #[cfg(not(unix))]
+        assert_eq!(rels, vec!["a", "b/two"]);
     }
 
     #[test]

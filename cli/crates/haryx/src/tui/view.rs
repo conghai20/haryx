@@ -414,7 +414,7 @@ fn draw_accounts(frame: &mut Frame, app: &App, area: Rect, p: &Palette, show_cur
     if snapshot.accounts.is_empty() {
         frame.render_widget(
             Paragraph::new(Span::styled(
-                " No managed accounts yet. Log in with Claude Code, then run: haryx add",
+                " No managed accounts yet. Sign in to add one: haryx login",
                 Style::default().fg(p.muted),
             )),
             area,

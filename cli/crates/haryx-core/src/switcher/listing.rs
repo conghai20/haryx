@@ -40,9 +40,9 @@ pub fn sentinel_note(sentinel: &str) -> String {
         }
         USAGE_API_KEY => "API key (no quota)".into(),
         USAGE_KEYCHAIN_UNAVAILABLE => "keychain unavailable — locked or in use; try again".into(),
-        USAGE_RELOGIN_REQUIRED => format!(
-            "re-login needed — refresh token dead; log in with Claude Code, then run: {PROG} add"
-        ),
+        USAGE_RELOGIN_REQUIRED => {
+            format!("re-login needed — refresh token dead; sign in again: {PROG} login <num>")
+        }
         other => other.to_owned(),
     }
 }

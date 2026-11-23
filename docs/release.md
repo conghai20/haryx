@@ -11,11 +11,17 @@ One tag builds every artifact; publishing the resulting draft release pushes to 
 | crates.io | `haryx-core`, then `haryx` (`cargo install --locked haryx`) | `publish.yml` → `crates` | `cli/` |
 | PyPI | binary-only wheels per platform (`pipx`/`uv tool install haryx`) | `release.yml` → `wheels`, `publish.yml` → `pypi` | `packaging/pypi` (maturin) |
 | npm | `haryx`: a shim that downloads the release binary for the platform and verifies its SHA-256 | `publish.yml` → `npm` | `packaging/npm` |
-| DMG | `HaryX-<app ver>.dmg`: the menu bar app with `haryx` bundled in `Contents/Resources/bin` | `release.yml` → `dmg` | `apps/macos/scripts/package-dmg.sh` |
+| DMG | `HaryX-<app ver>.dmg`: the menu bar app with `haryx` bundled in `Contents/Resources/bin`; the app offers to link it onto the PATH | `release.yml` → `dmg` | `apps/macos/scripts/package-dmg.sh` |
+| Homebrew cask (planned) | the DMG's app; `binary "#{appdir}/HaryX.app/Contents/Resources/bin/haryx"` links the CLI | — | tap repo `Casks/haryx.rb` |
 
 npm 12 no longer runs install scripts by default, so the npm shim downloads the binary on its first
 run when `postinstall` was skipped. The app finds the bundled CLI last, so a Homebrew/cargo/pip
 install always wins and stays upgradable with `haryx upgrade`.
+
+The DMG installs the CLI too: on first launch the app offers to link the bundled `haryx` into
+`/usr/local/bin` (admin prompt) or `~/.local/bin` (no prompt); Preferences › Terminal command does
+the same later. It is a symlink into the app, so updating the app updates the command, and it never
+replaces a `haryx` installed another way. A future cask's `binary` stanza links the same file.
 
 ## Steps
 

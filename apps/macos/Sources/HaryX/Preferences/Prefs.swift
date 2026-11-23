@@ -13,6 +13,7 @@ enum Prefs {
     static let menuBarPercent = "menuBarPercent"
     static let menuBarAnimate = "menuBarAnimate"
     static let mascotStyles = "mascotStyles"
+    static let cliInstallOffered = "cliInstallOffered"
     static let sessionMinSeconds = 60.0
 
     static func notifyKey(_ c: Notice.Category) -> String { "notify.\(c.rawValue)" }

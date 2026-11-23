@@ -63,6 +63,8 @@ struct PreferencesPane: View {
                 Text("HaryX isn't allowed to post notifications. Allow them in System Settings › Notifications › HaryX.")
             }
 
+            CommandLineToolSection()
+
             Section {
                 TextField("CLI path", text: $cswapPath, prompt: Text(CSwapCLI.locate(override: nil)?.path ?? "auto-detect"))
                     .onSubmit { store.relocateCLI(); Task { await store.refresh() } }
@@ -94,6 +96,35 @@ struct PreferencesPane: View {
             store.flash("Launch at login: \(error.localizedDescription)", error: true)
             launchAtLogin = SMAppService.mainApp.status == .enabled
         }
+    }
+}
+
+/// The `haryx` command: whether the app's bundled CLI is linked onto the PATH, and buttons to change it.
+private struct CommandLineToolSection: View {
+    @Environment(AppStore.self) private var store
+    @State private var state = CLIInstaller.current.state
+
+    var body: some View {
+        Section {
+            switch state {
+            case .linked(let path):
+                LabeledContent("Installed", value: path)
+                Button("Remove Command") { store.removeCLI(at: path); state = CLIInstaller.current.state }
+            case .otherInstall(let path):
+                LabeledContent("Using your own install", value: path)
+            case .notInstalled:
+                HStack {
+                    Button("Install in /usr/local/bin…") { store.installCLI(systemWide: true); state = CLIInstaller.current.state }
+                    Button("Install for Me Only") { store.installCLI(systemWide: false); state = CLIInstaller.current.state }
+                }
+            case .notBundled:
+                Text("This build has no bundled haryx; install it with `cargo install haryx` (Homebrew, pipx and npm are coming).")
+                    .foregroundStyle(.secondary)
+            }
+        } header: { Text("Terminal command") } footer: {
+            Text("Links `haryx` from inside HaryX.app, so updating the app updates the command. Another haryx (Homebrew, cargo, pipx, npm) is never replaced.")
+        }
+        .onAppear { state = CLIInstaller.current.state }
     }
 }
 

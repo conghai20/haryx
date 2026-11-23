@@ -78,6 +78,7 @@ final class AppStore {
         watchBackupDir()
         Task { await loadExtras() }
         if Prefs.d.bool(forKey: Prefs.autoOnLaunch) { startAuto() }
+        DispatchQueue.main.async { [weak self] in self?.offerCLIInstallIfNeeded() }
     }
 
     func shutdown() {

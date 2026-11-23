@@ -49,7 +49,8 @@ pipx install haryx                   # or: uv tool install haryx
 npm install --global haryx
 ```
 
-The macOS app's DMG bundles the same `haryx`. Publishing is set up but not yet live; see
+The macOS app's DMG bundles the same `haryx` and offers to put it on your PATH on first launch
+(Preferences › Terminal command later). Publishing is set up but not yet live; see
 [docs/release.md](docs/release.md). Until then, build from source (below).
 
 ## Repository

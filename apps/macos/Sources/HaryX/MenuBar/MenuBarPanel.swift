@@ -9,13 +9,7 @@ struct MenuBarPanel: View {
         GlassEffectContainer(spacing: 12) {
             VStack(spacing: 10) {
                 header
-                if let active = store.active {
-                    HeroCard(account: active)
-                } else if let error = store.refreshError {
-                    ErrorCard(message: error)
-                }
-                accountList
-                QuickActions()
+                aiSection
                 if let banner = store.banner { BannerView(banner: banner) }
                 footer
             }
@@ -44,6 +38,27 @@ struct MenuBarPanel: View {
             Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") }
                 .buttonStyle(.borderless).help("Refresh")
                 .keyboardShortcut("r")
+        }
+    }
+
+    /// Everything about AI coding accounts (the `haryx ai` commands), under one heading whose "+"
+    /// signs in a new account. Later sections (DevSecOps, SRE, Cloud…) sit beside it.
+    private var aiSection: some View {
+        VStack(spacing: 8) {
+            PanelSectionHeader(title: "AI", systemImage: "sparkles") {
+                Button { store.signInNew() } label: { Image(systemName: "plus") }
+                    .buttonStyle(.borderless)
+                    .disabled(store.addLoginPending)
+                    .help(store.addLoginPending ? "A new-account sign-in is already open" : "Sign in a new account")
+                    .accessibilityLabel("Sign in a new account")
+            }
+            if let active = store.active {
+                HeroCard(account: active)
+            } else if let error = store.refreshError {
+                ErrorCard(message: error)
+            }
+            accountList
+            QuickActions()
         }
     }
 
@@ -151,6 +166,25 @@ struct AccountRow: View {
         .onTapGesture { AccountActionMenu.show(for: account, store: store) }
         .onHover { hovering = $0 }
         .contextMenu { AccountContextMenu(account: account) }
+    }
+}
+
+/// A section heading in the menu bar panel: a small label with its actions on the right.
+private struct PanelSectionHeader<Accessory: View>: View {
+    let title: String
+    let systemImage: String
+    @ViewBuilder let accessory: Accessory
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Label(title, systemImage: systemImage)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            accessory
+        }
+        .padding(.horizontal, 4)
     }
 }
 

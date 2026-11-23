@@ -1,9 +1,32 @@
 import HaryXCore
 import SwiftUI
 
+/// Sidebar groups. AI holds everything about AI coding accounts (the `haryx ai` commands); later
+/// sections (DevSecOps, SRE, Cloud…) become siblings of it. App holds the app's own settings.
+enum DashboardGroup: String, CaseIterable, Identifiable {
+    case ai, app
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .ai: "AI"
+        case .app: "HaryX"
+        }
+    }
+
+    var sections: [DashboardSection] { DashboardSection.allCases.filter { $0.group == self } }
+}
+
 enum DashboardSection: String, CaseIterable, Identifiable {
     case accounts, autoSwitch, mappings, config, maintenance, preferences
     var id: String { rawValue }
+
+    var group: DashboardGroup {
+        switch self {
+        case .accounts, .autoSwitch, .mappings, .config, .maintenance: .ai
+        case .preferences: .app
+        }
+    }
 
     var title: String {
         switch self {
@@ -53,8 +76,14 @@ struct DashboardView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(DashboardSection.allCases, selection: $router.section) { section in
-                Label(section.title, systemImage: section.icon).tag(section)
+            List(selection: $router.section) {
+                ForEach(DashboardGroup.allCases) { group in
+                    Section(group.title) {
+                        ForEach(group.sections) { section in
+                            Label(section.title, systemImage: section.icon).tag(section)
+                        }
+                    }
+                }
             }
             .navigationSplitViewColumnWidth(min: 190, ideal: 210)
         } detail: {

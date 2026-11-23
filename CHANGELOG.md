@@ -13,6 +13,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   sections; `haryx ai help` lists the commands. Hints and help text use the `ai` form.
   The cswap spellings without `ai` (`haryx list`, `haryx --list`) keep working, so scripts written
   for `cswap` are unaffected. Bare `haryx` in a terminal still opens the dashboard.
+- macOS app: the menu bar panel and the dashboard sidebar group everything about AI coding
+  accounts under an **AI** section; the sidebar's app preferences sit under **HaryX**.
 
 ### Added
 
@@ -21,7 +23,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   `claude auth login` in an isolated profile. The active login is left untouched. It exists only as
   `haryx ai login`: the top-level `haryx login` is kept for a future HaryX account.
 - macOS app: **Sign In Again** on accounts that need a re-login, and **Sign In New Account**, in
-  the account inspector, the menu bar Terminal dropdown and the dashboard toolbar.
+  the account inspector, the menu bar Terminal dropdown and the dashboard toolbar. The menu bar's
+  AI section has a **+** button that signs in a new account.
 - macOS app: sign-in runs in the background in its own window, which shows the sign-in link
   (Open / Copy), a field to paste the code, the live output and the outcome. Closing the window
   cancels the sign-in.

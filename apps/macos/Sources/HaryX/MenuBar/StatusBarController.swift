@@ -10,6 +10,9 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
     private var lastTitle = ""
+    /// Close triggers that `.transient` misses for an accessory app (installed while the panel shows).
+    private var dismissMonitors: [Any] = []
+    private var dismissObservers: [NSObjectProtocol] = []
     private let log = Logger(subsystem: "dev.haryx.app", category: "statusbar")
 
     init(store: AppStore) {
@@ -47,8 +50,48 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     func popoverDidShow(_ notification: Notification) {
         log.notice("popover shown")
         store.panelVisible = true
+        installDismissTriggers()
     }
-    func popoverDidClose(_ notification: Notification) { store.panelVisible = false }
+    func popoverDidClose(_ notification: Notification) {
+        store.panelVisible = false
+        removeDismissTriggers()
+    }
+
+    /// Close like a system menu bar panel: on a click in another app, on switching apps (⌘-Tab, Dock),
+    /// and when another HaryX window (the dashboard) becomes key.
+    private func installDismissTriggers() {
+        removeDismissTriggers()
+        let mask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        if let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] _ in
+            MainActor.assumeIsolated { self?.close() }
+        }) {
+            dismissMonitors.append(global)
+        }
+        let center = NotificationCenter.default
+        dismissObservers.append(center.addObserver(forName: NSApplication.didResignActiveNotification,
+                                                   object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.close() }
+        })
+        dismissObservers.append(center.addObserver(forName: NSWindow.didBecomeKeyNotification,
+                                                   object: nil, queue: .main) { [weak self] note in
+            // Delivered on the main queue; the window is only touched there.
+            let keyWindow = note.object as? NSWindow
+            MainActor.assumeIsolated {
+                guard let self, let window = keyWindow,
+                      window != self.popover.contentViewController?.view.window,
+                      !window.className.contains("StatusBar") else { return }
+                // Sheets and alerts the panel itself opens keep it open.
+                if window.sheetParent == nil, !(window is NSPanel) { self.close() }
+            }
+        })
+    }
+
+    private func removeDismissTriggers() {
+        dismissMonitors.forEach(NSEvent.removeMonitor)
+        dismissMonitors.removeAll()
+        dismissObservers.forEach(NotificationCenter.default.removeObserver)
+        dismissObservers.removeAll()
+    }
 
     /// Re-renders whenever an observed store property it reads changes.
     private func render() {

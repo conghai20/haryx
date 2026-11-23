@@ -219,6 +219,8 @@ struct AccountCard: View {
         .padding(14)
         .glassEffect(.regular.tint(selected ? Color.accentColor.opacity(0.18) : .clear).interactive(), in: .rect(cornerRadius: 20))
         .overlay { if selected { RoundedRectangle(cornerRadius: 20).strokeBorder(.tint, lineWidth: 1.5) } }
+        // The whole rounded card is clickable, padding and empty space included (not only its views).
+        .contentShape(.rect(cornerRadius: 20))
         .contextMenu { AccountContextMenu(account: account) }
     }
 }

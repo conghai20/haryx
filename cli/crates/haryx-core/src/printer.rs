@@ -125,9 +125,6 @@ pub fn detect_color_support_with(
     if !stdout_is_tty {
         return false;
     }
-    if !enable_windows_vt() {
-        return false;
-    }
     env("TERM").as_deref() != Some("dumb")
 }
 
@@ -159,10 +156,12 @@ fn enable_windows_vt() -> bool {
 }
 
 fn detect_color_support() -> bool {
+    // A Windows console must also accept ANSI processing; checked only once colour is otherwise on,
+    // so the pure rules above stay testable without a console.
     detect_color_support_with(
         |name| std::env::var_os(name).map(|v| v.to_string_lossy().into_owned()),
         std::io::stdout().is_terminal(),
-    )
+    ) && enable_windows_vt()
 }
 
 /// Whether colour output is active. Detected on the first call and cached for the process.

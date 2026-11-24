@@ -46,6 +46,36 @@ jobs:
       - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - run: cargo test --workspace --all-features
 
+  windows-app:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/windows
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/windows/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/windows/src-tauri
+      - name: Mascot sprites match the macOS app
+        run: python scripts/brand/export_sprites.py --check
+        working-directory: .
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - run: cargo clippy --all-targets -- -D warnings
+        working-directory: apps/windows/src-tauri
+      - run: cargo test
+        working-directory: apps/windows/src-tauri
+
   macos-app:
     # The app targets macOS 26, so it needs the macOS 26 SDK.
     runs-on: macos-26

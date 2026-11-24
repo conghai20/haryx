@@ -136,48 +136,21 @@ pub fn run(opts: &AutoOptions, debug: bool) -> Result<(), CommandError> {
     }
 }
 
-/// Set by a host app (HaryX for macOS) so the loop ends when the app is gone instead of
-/// auto-switching unattended forever; macOS has no parent-death signal to do this for us.
+/// Set by a host app (the HaryX app on macOS or Windows) so the loop ends when the app is gone instead
+/// of auto-switching unattended forever; neither OS has a parent-death signal to do this for us.
 const EXIT_WITH_PARENT_ENV: &str = "HARYX_EXIT_WITH_PARENT";
-
-/// Whether the process that started us has exited: we were re-parented, or adopted by launchd
-/// (PID 1), which also covers a parent that exited before we first looked.
-#[cfg(unix)]
-fn parent_gone(original_parent: u32) -> bool {
-    let parent = parent_pid();
-    parent == 1 || parent != original_parent
-}
-
-/// TODO(windows): open the parent with `OpenProcess(SYNCHRONIZE)` once and poll it; Windows never
-/// re-parents, so the PID comparison above does not apply. Until then the loop keeps running.
-#[cfg(not(unix))]
-fn parent_gone(_original_parent: u32) -> bool {
-    false
-}
-
-#[cfg(unix)]
-fn parent_pid() -> u32 {
-    // SAFETY: getppid takes no arguments, cannot fail and touches no memory.
-    let pid = unsafe { libc::getppid() };
-    u32::try_from(pid).unwrap_or(0)
-}
-
-#[cfg(not(unix))]
-fn parent_pid() -> u32 {
-    0
-}
 
 /// Relay SIGINT/SIGTERM flags, and the host app's exit when asked to, to the engine's stop handle.
 fn spawn_signal_watcher(stop: Arc<AtomicBool>) -> std::thread::JoinHandle<()> {
     let watch_parent = std::env::var_os(EXIT_WITH_PARENT_ENV).is_some_and(|v| v == "1");
-    let original_parent = parent_pid();
+    let parent = watch_parent.then(haryx_core::process::ParentWatch::start);
     std::thread::spawn(move || {
         while !stop.load(Ordering::SeqCst) {
             if INTERRUPTED.load(Ordering::SeqCst) || TERMINATED.load(Ordering::SeqCst) {
                 stop.store(true, Ordering::SeqCst);
                 return;
             }
-            if watch_parent && parent_gone(original_parent) {
+            if parent.as_ref().is_some_and(|p| p.is_gone()) {
                 log::info!("auto: parent process exited; stopping ({EXIT_WITH_PARENT_ENV})");
                 stop.store(true, Ordering::SeqCst);
                 return;

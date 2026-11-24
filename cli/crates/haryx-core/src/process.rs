@@ -101,6 +101,131 @@ pub fn is_pid_alive(_pid: i64) -> bool {
     false
 }
 
+/// Watches the process that started this one, so a helper started by a host app (the HaryX app's
+/// `haryx auto`) can stop when the app is gone instead of running unattended.
+#[derive(Debug)]
+pub struct ParentWatch {
+    #[cfg(unix)]
+    original: i64,
+    /// The parent's process handle, opened for `SYNCHRONIZE`, as an integer so the watch is `Send`.
+    #[cfg(windows)]
+    handle: Option<isize>,
+}
+
+impl ParentWatch {
+    /// Start watching the current parent.
+    pub fn start() -> Self {
+        #[cfg(unix)]
+        {
+            ParentWatch {
+                original: unix_parent_pid(),
+            }
+        }
+        #[cfg(windows)]
+        {
+            ParentWatch {
+                handle: windows_parent::open(),
+            }
+        }
+        #[cfg(not(any(unix, windows)))]
+        {
+            ParentWatch {}
+        }
+    }
+
+    /// Whether the parent has exited. Unix: we were re-parented, or adopted by PID 1, which also covers
+    /// a parent that exited before we first looked. Windows (which never re-parents): the parent's handle
+    /// is signalled, or the parent could not be opened at all.
+    pub fn is_gone(&self) -> bool {
+        #[cfg(unix)]
+        {
+            let parent = unix_parent_pid();
+            parent == 1 || parent != self.original
+        }
+        #[cfg(windows)]
+        {
+            self.handle.is_none_or(windows_parent::has_exited)
+        }
+        #[cfg(not(any(unix, windows)))]
+        {
+            false
+        }
+    }
+}
+
+#[cfg(windows)]
+impl Drop for ParentWatch {
+    fn drop(&mut self) {
+        if let Some(handle) = self.handle.take() {
+            windows_parent::close(handle);
+        }
+    }
+}
+
+#[cfg(unix)]
+fn unix_parent_pid() -> i64 {
+    // SAFETY: getppid takes no arguments, cannot fail and touches no memory.
+    i64::from(unsafe { libc::getppid() })
+}
+
+#[cfg(windows)]
+mod windows_parent {
+    use windows_sys::Win32::Foundation::{
+        CloseHandle, HANDLE, INVALID_HANDLE_VALUE, WAIT_OBJECT_0,
+    };
+    use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
+        TH32CS_SNAPPROCESS,
+    };
+    use windows_sys::Win32::System::Threading::{
+        OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject,
+    };
+
+    /// This process's parent PID from a process snapshot (Windows keeps no live parent link).
+    fn parent_pid() -> Option<u32> {
+        let me = std::process::id();
+        // SAFETY: a snapshot of all processes; the handle is checked and closed below.
+        let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+        if snapshot == INVALID_HANDLE_VALUE {
+            return None;
+        }
+        // SAFETY: an all-zero PROCESSENTRY32W is valid plain data; dwSize is set as the API requires.
+        let mut entry: PROCESSENTRY32W = unsafe { std::mem::zeroed() };
+        entry.dwSize = u32::try_from(std::mem::size_of::<PROCESSENTRY32W>()).unwrap_or(0);
+        let mut found = None;
+        // SAFETY: `snapshot` is live and `entry` is a properly sized, writable entry.
+        let mut more = unsafe { Process32FirstW(snapshot, &mut entry) } != 0;
+        while more {
+            if entry.th32ProcessID == me {
+                found = Some(entry.th32ParentProcessID);
+                break;
+            }
+            // SAFETY: as above.
+            more = unsafe { Process32NextW(snapshot, &mut entry) } != 0;
+        }
+        // SAFETY: `snapshot` came from CreateToolhelp32Snapshot and is closed once.
+        unsafe { CloseHandle(snapshot) };
+        found
+    }
+
+    pub fn open() -> Option<isize> {
+        let pid = parent_pid()?;
+        // SAFETY: plain values in; a null result means the parent is gone or not ours.
+        let handle = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, pid) };
+        (!handle.is_null()).then_some(handle as isize)
+    }
+
+    pub fn has_exited(handle: isize) -> bool {
+        // SAFETY: `handle` is the live process handle `open` returned; a zero timeout only polls.
+        unsafe { WaitForSingleObject(handle as HANDLE, 0) == WAIT_OBJECT_0 }
+    }
+
+    pub fn close(handle: isize) {
+        // SAFETY: closes the handle `open` returned, exactly once (from Drop).
+        unsafe { CloseHandle(handle as HANDLE) };
+    }
+}
+
 /// `ps -o <columns> -p <pid>` under `LC_ALL=C TZ=UTC` like claude's own reading, or `None` when unknowable.
 /// Every failure answers `None`: not knowing must never be read as "not the recorded process".
 fn ps(pid: i32, columns: &[&str]) -> Option<String> {
@@ -505,6 +630,14 @@ mod tests {
     fn write_record(dir: &Path, name: &str, body: &str) {
         std::fs::create_dir_all(dir).unwrap();
         std::fs::write(dir.join(name), body).unwrap();
+    }
+
+    #[test]
+    fn parent_watch_sees_a_live_parent() {
+        // The test harness that started this process is still running.
+        let watch = ParentWatch::start();
+        assert!(!watch.is_gone());
+        assert!(!watch.is_gone(), "polling twice does not change the answer");
     }
 
     #[test]

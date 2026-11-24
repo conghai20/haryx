@@ -30,8 +30,7 @@ jobs:
       - run: cargo test --workspace
 
   cli-windows:
-    # Tests run but do not gate until the Windows port lands (docs/windows-app-plan.md, Phase 1);
-    # then drop continue-on-error and fold this job into the `cli` matrix.
+    # Separate from the `cli` matrix: it also builds the Windows-only haryxw (windowless feature).
     runs-on: windows-latest
     defaults:
       run:
@@ -45,10 +44,7 @@ jobs:
         with:
           workspaces: cli
       - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
-      - run: cargo test --workspace --no-run
-      # Runs for the failure list while the port is in progress; does not fail the job yet.
-      - run: cargo test --workspace --no-fail-fast
-        continue-on-error: true
+      - run: cargo test --workspace --all-features
 
   macos-app:
     # The app targets macOS 26, so it needs the macOS 26 SDK.

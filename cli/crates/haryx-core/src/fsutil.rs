@@ -342,13 +342,16 @@ pub fn atomic_write_text(path: &Path, text: &str, opts: WriteOptions) -> io::Res
 // Links
 // ---------------------------------------------------------------------------------------------------------
 //
-// A link, here, is a directory entry that leads somewhere else and holds no data of its own: a symlink (or,
-// once Windows is supported, a directory junction). Code that must tell a haryx-made link from real user
+// A link, here, is a directory entry that leads somewhere else and holds no data of its own: a symlink or,
+// on Windows, a directory junction. Code that must tell a haryx-made link from real user
 // data goes through `is_link`.
 
-/// Whether `path` is a symlink, dangling or not.
-// TODO(windows): also count a directory junction (upstream `is_link`).
+/// Whether `path` is a symlink or a Windows junction, dangling or not (upstream `is_link`).
 pub fn is_link(path: &Path) -> bool {
+    #[cfg(windows)]
+    if junction::exists(path).unwrap_or(false) {
+        return true;
+    }
     is_symlink(path)
 }
 
@@ -358,7 +361,17 @@ pub fn is_link(path: &Path) -> bool {
 /// worse) link than one to the resolved file even though both end at the same place. False for anything
 /// that is not a link.
 pub fn link_points_at(link: &Path, target: &Path) -> bool {
-    std::fs::read_link(link).is_ok_and(|stored| strip_verbatim(&stored) == strip_verbatim(target))
+    read_link_target(link).is_some_and(|stored| strip_verbatim(&stored) == strip_verbatim(target))
+}
+
+/// The destination a link stores: `read_link` for a symlink, the junction's target on Windows. `None`
+/// for anything that is not a link.
+pub fn read_link_target(link: &Path) -> Option<PathBuf> {
+    #[cfg(windows)]
+    if junction::exists(link).unwrap_or(false) {
+        return junction::get_target(link).ok();
+    }
+    std::fs::read_link(link).ok()
 }
 
 /// Remove a symlink itself, never what it leads to. `rmdir` is the fallback for a platform that answers
@@ -389,34 +402,93 @@ pub fn make_file_link(target: &Path, link: &Path) -> io::Result<()> {
     std::os::unix::fs::symlink(target, link)
 }
 
-// TODO(windows): `make_dir_link` creates a junction, `make_file_link` a file symlink (needs Developer Mode).
-#[cfg(not(unix))]
+/// A junction on Windows: it needs no privilege, stores an absolute path, and Claude Code reads and
+/// writes through it exactly as through a symlink. `target` must be absolute and on a local volume; a
+/// file system without reparse points (FAT, a network share) refuses, which [`can_junction`] says first.
+#[cfg(windows)]
+pub fn make_dir_link(target: &Path, link: &Path) -> io::Result<()> {
+    junction::create(target, link)
+}
+
+/// A file symlink: the one link that needs a privilege on Windows (Developer Mode or an elevated
+/// token). [`can_symlink`] says so in advance.
+#[cfg(windows)]
+pub fn make_file_link(target: &Path, link: &Path) -> io::Result<()> {
+    std::os::windows::fs::symlink_file(target, link)
+}
+
+#[cfg(not(any(unix, windows)))]
 pub fn make_dir_link(_target: &Path, _link: &Path) -> io::Result<()> {
     Err(io::Error::new(
         io::ErrorKind::Unsupported,
-        "links are not supported on this platform yet",
+        "links are not supported on this platform",
     ))
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 pub fn make_file_link(_target: &Path, _link: &Path) -> io::Result<()> {
     Err(io::Error::new(
         io::ErrorKind::Unsupported,
-        "links are not supported on this platform yet",
+        "links are not supported on this platform",
     ))
 }
 
-/// Whether this process may create a file symlink in `directory`. Always true off Windows, where trying is
-/// the check.
-// TODO(windows): probe once per directory (upstream `_probe_link`).
-pub fn can_symlink(_directory: &Path) -> bool {
-    cfg!(unix)
+/// A directory link for a directory target, a file link otherwise.
+pub fn make_link(target: &Path, link: &Path) -> io::Result<()> {
+    if target.is_dir() {
+        make_dir_link(target, link)
+    } else {
+        make_file_link(target, link)
+    }
 }
 
-/// Whether a directory link from `directory` to `target` can be made. Always true off Windows (a symlink).
-// TODO(windows): probe a junction once per directory and target (upstream `can_junction`).
-pub fn can_junction(_directory: &Path, _target: Option<&Path>) -> bool {
-    cfg!(unix)
+/// Whether this process may create a file symlink in `directory`. Always true off Windows, where trying is
+/// the check. On Windows one dangling probe link is made and removed, once per directory per process.
+pub fn can_symlink(directory: &Path) -> bool {
+    if !cfg!(windows) {
+        return true;
+    }
+    probe_link(directory, "symlink".into(), |probe| {
+        make_file_link(Path::new("haryx-link-probe"), probe)
+    })
+}
+
+/// Whether a directory link from `directory` to `target` (`directory` itself when `None`) can be made.
+/// Always true off Windows. On Windows a junction is made and removed, once per directory and target.
+pub fn can_junction(directory: &Path, target: Option<&Path>) -> bool {
+    if !cfg!(windows) {
+        return true;
+    }
+    let to = std::path::absolute(target.unwrap_or(directory)).unwrap_or_else(|_| directory.into());
+    let kind = format!("junction:{}", to.to_string_lossy().to_lowercase());
+    probe_link(directory, kind, |probe| make_dir_link(&to, probe))
+}
+
+type ProbeKey = (PathBuf, String);
+
+/// Each probe runs once per process (upstream `_probe_link`): the answer cannot change within one.
+fn probe_link(directory: &Path, kind: String, make: impl Fn(&Path) -> io::Result<()>) -> bool {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+    static PROBES: OnceLock<Mutex<HashMap<ProbeKey, bool>>> = OnceLock::new();
+
+    let key = (
+        std::path::absolute(directory).unwrap_or_else(|_| directory.into()),
+        kind,
+    );
+    let probes = PROBES.get_or_init(Mutex::default);
+    if let Some(known) = probes.lock().unwrap_or_else(|e| e.into_inner()).get(&key) {
+        return *known;
+    }
+    let probe = directory.join(format!(".haryx-link-probe-{}", std::process::id()));
+    let _ = remove_link(&probe); // left by an interrupted probe
+    let works = make(&probe).is_ok();
+    let _ = remove_link(&probe);
+    probes
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(key, works);
+    works
 }
 
 #[cfg(all(test, unix))]
@@ -704,6 +776,12 @@ mod tests {
         assert!(can_junction(tmp.path(), None));
         assert_eq!(entries(tmp.path()), Vec::<String>::new());
     }
+}
+
+/// Tests that run on every OS, Windows included.
+#[cfg(test)]
+mod portable_tests {
+    use super::*;
 
     #[test]
     fn strip_verbatim_handles_drive_unc_and_leaves_the_rest() {
@@ -735,5 +813,44 @@ mod tests {
             resolved.display()
         );
         assert!(resolved.is_absolute());
+    }
+
+    #[test]
+    fn dir_link_is_a_link_points_at_its_target_and_removes_alone() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = canonicalize(tmp.path()).unwrap();
+        let target = root.join("target");
+        std::fs::create_dir_all(&target).unwrap();
+        std::fs::write(target.join("keep"), "data").unwrap();
+        assert!(can_junction(&root, Some(&root)));
+        let link = root.join("link");
+        make_link(&target, &link).unwrap();
+        assert!(is_link(&link));
+        assert!(!is_link(&target));
+        assert!(link_points_at(&link, &target));
+        assert_eq!(std::fs::read_to_string(link.join("keep")).unwrap(), "data");
+        remove_link(&link).unwrap();
+        assert!(!link.exists());
+        assert!(
+            target.join("keep").is_file(),
+            "removing a link never touches its target"
+        );
+    }
+
+    #[test]
+    fn file_link_works_when_allowed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = canonicalize(tmp.path()).unwrap();
+        if !can_symlink(&root) {
+            return; // Windows without Developer Mode: callers keep the account's own copy.
+        }
+        let file = root.join("file");
+        std::fs::write(&file, "x").unwrap();
+        let link = root.join("flink");
+        make_link(&file, &link).unwrap();
+        assert!(is_link(&link));
+        assert!(link_points_at(&link, &file));
+        remove_link(&link).unwrap();
+        assert!(file.is_file());
     }
 }

@@ -1167,17 +1167,11 @@ fn remove_managed(dest: &Path) {
     }
 }
 
-#[cfg(unix)]
+/// The link for `target` at `dest` (upstream `_make_link`): a symlink, except that a directory on Windows
+/// gets a junction. A file link needs Developer Mode on Windows; a failure is reported by the caller and
+/// the account keeps its own copy.
 fn make_link(target: &Path, dest: &Path) -> std::io::Result<()> {
-    std::os::unix::fs::symlink(target, dest)
-}
-
-#[cfg(not(unix))]
-fn make_link(_target: &Path, _dest: &Path) -> std::io::Result<()> {
-    // TODO(windows): junctions / file symlinks (upstream `_make_link`, `_can_link`).
-    Err(std::io::Error::other(
-        "linking is not supported on this platform yet",
-    ))
+    crate::fsutil::make_link(target, dest)
 }
 
 #[cfg(unix)]

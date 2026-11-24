@@ -81,10 +81,7 @@ impl Backup {
         if self.doc.records.iter().any(|r| r.path == path) {
             return Ok(());
         }
-        let link = std::fs::symlink_metadata(path)
-            .ok()
-            .filter(|m| m.file_type().is_symlink())
-            .and_then(|_| std::fs::read_link(path).ok());
+        let link = crate::fsutil::read_link_target(path);
         let stored = if link.is_none() && std::fs::metadata(path).is_ok() {
             let rel = format!("data/{}", self.doc.records.len());
             walk::copy_tree(path, &self.dir.join(&rel))?;
@@ -169,8 +166,7 @@ pub fn apply(
 
 /// Where writes go: through a symlink at the item root, so a linked skill stays linked.
 fn write_target(live: &Path) -> PathBuf {
-    let is_link = std::fs::symlink_metadata(live).is_ok_and(|m| m.file_type().is_symlink());
-    if is_link {
+    if crate::fsutil::is_link(live) {
         crate::fsutil::canonicalize(live).unwrap_or_else(|_| live.to_path_buf())
     } else {
         live.to_path_buf()
@@ -393,22 +389,12 @@ pub fn rollback(env: &ProfileEnv, id: Option<&str>) -> Result<(String, String)> 
             )));
         }
     }
-    // TODO(windows): restore links as junctions once `fsutil` can make them. Refuse before touching
-    // anything, so a rollback never removes a file it cannot put back.
-    #[cfg(not(unix))]
-    if let Some(record) = doc.records.iter().find(|r| r.link.is_some()) {
-        return Err(Error::Validation(format!(
-            "Backup {chosen} holds a link at {}; restoring links is not supported on Windows yet",
-            record.path.display()
-        )));
-    }
     for record in &doc.records {
         current.keep(&record.path)?;
         walk::remove_any(&record.path)?;
-        if let Some(_target) = &record.link {
+        if let Some(target) = &record.link {
             walk::ensure_parent(&record.path)?;
-            #[cfg(unix)]
-            std::os::unix::fs::symlink(_target, &record.path)?;
+            crate::fsutil::make_link(target, &record.path)?;
         } else if let Some(stored) = &record.stored {
             walk::copy_tree(&dir.join(stored), &record.path)?;
         }

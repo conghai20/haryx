@@ -55,6 +55,7 @@ final class AppStore {
     private(set) var menuBarTick = 0
 
     let auto = AutoSwitchRunner()
+    let updates = UpdateController()
     let styles = MascotStyles()
     let notifier = Notifier()
 
@@ -71,6 +72,8 @@ final class AppStore {
         relocateCLI()
         auto.onEvent = { [weak self] event in self?.handleAutoEvent(event) }
         TerminalLauncher.onError = { [weak self] message in self?.flash(message, error: true) }
+        updates.cliProvider = { [weak self] in self?.cli }
+        updates.onError = { [weak self] message in self?.flash(message, error: true) }
     }
 
     // MARK: lifecycle
@@ -93,6 +96,7 @@ final class AppStore {
             }
         })
         watchBackupDir()
+        updates.start()
         Task { await loadExtras() }
         if Prefs.d.bool(forKey: Prefs.autoOnLaunch) || Prefs.d.bool(forKey: Prefs.autoWasOn) { startAuto() }
         DispatchQueue.main.async { [weak self] in self?.offerCLIInstallIfNeeded() }
@@ -100,6 +104,8 @@ final class AppStore {
 
     func shutdown() {
         auto.stop()
+        updates.stop()
+        updates.installOnQuit()
         loops.forEach { $0.cancel() }
         menuBarLoop?.cancel()
     }

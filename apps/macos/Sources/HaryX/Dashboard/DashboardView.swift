@@ -18,13 +18,13 @@ enum DashboardGroup: String, CaseIterable, Identifiable {
 }
 
 enum DashboardSection: String, CaseIterable, Identifiable {
-    case accounts, autoSwitch, wake, mappings, profiles, config, maintenance, preferences
+    case accounts, autoSwitch, wake, mappings, profiles, config, maintenance, preferences, about
     var id: String { rawValue }
 
     var group: DashboardGroup {
         switch self {
         case .accounts, .autoSwitch, .wake, .mappings, .profiles, .config, .maintenance: .ai
-        case .preferences: .app
+        case .preferences, .about: .app
         }
     }
 
@@ -38,6 +38,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         case .config: "CLI Settings"
         case .maintenance: "Backup & Maintenance"
         case .preferences: "App Preferences"
+        case .about: "About & Updates"
         }
     }
 
@@ -51,6 +52,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         case .config: "slider.horizontal.3"
         case .maintenance: "externaldrive.badge.timemachine"
         case .preferences: "gearshape"
+        case .about: "info.circle"
         }
     }
 }
@@ -118,6 +120,7 @@ struct DashboardView: View {
                 case .config: ConfigPane()
                 case .maintenance: MaintenancePane()
                 case .preferences: PreferencesPane()
+                case .about: AboutPane()
                 }
             }
             .navigationTitle((router.section ?? .accounts).title)

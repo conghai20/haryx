@@ -17,6 +17,12 @@ cannot be released without one. Sections, in this order, only when they have ent
   account ticked. The export list there is now a checklist, so any set of accounts can go in one
   file (Select All / Select None).
 - `haryx ai export PATH --account 1,3` takes several comma-separated numbers or emails.
+- macOS app: HaryX › About & Updates shows the app and CLI versions and the latest release notes,
+  and updates HaryX in place. Choose Install automatically (download in the background, install on
+  quit or Restart Now), Notify me (the default: a daily check and an "is available" row in the menu
+  bar) or Only when I check; Skip This Version hides one release. Each download is checked against
+  its SHA-256 and the app's signature first; the bundled haryx updates with the app. When HaryX
+  cannot write to its own folder it opens the disk image in Finder instead.
 - `haryx upgrade --check [--json] [--refresh]` reports the latest GitHub release: its version,
   notes and the app and CLI downloads for this machine. The apps use it for their own updates.
 - `haryx upgrade` updates a standalone install (a release tarball unpacked by hand) in place: it

@@ -374,7 +374,15 @@ impl UsageStore {
             accepted.insert(num.clone());
         }
         if !accepted.is_empty() {
+            let samples: Vec<(i64, Value)> = accepted
+                .iter()
+                .filter_map(|n| Some((n.parse().ok()?, rows.get(n)?.clone())))
+                .collect();
             self.write_rows(rows)?;
+            if let Some(store_root) = self.path.parent().and_then(Path::parent) {
+                let refs: Vec<(i64, &Value)> = samples.iter().map(|(n, v)| (*n, v)).collect();
+                crate::usage_history::quota::record(store_root, &refs);
+            }
         }
         Ok(accepted)
     }

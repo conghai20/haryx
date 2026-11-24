@@ -10,6 +10,7 @@ mod profile;
 mod profile_view;
 mod sessions;
 mod upgrade;
+mod usage;
 mod wake;
 
 use std::fmt;
@@ -85,6 +86,7 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Wake(action) => wake::run(&action, debug),
         Command::Desktop(action) => desktop::run(&action, debug),
         Command::Sessions { json } => sessions::run(json, debug),
+        Command::Usage { action, json } => usage::run(&action, json, debug),
         Command::SessionsContinue {
             session,
             to,

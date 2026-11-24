@@ -1,0 +1,11 @@
+{
+  "by": "account",
+  "since": 1794907679,
+  "pricesAsOf": "2026-11-03",
+  "rows": [
+    {"key": "2", "replies": 1395, "input": 2847, "output": 1836197, "cacheRead": 329874995, "cacheWrite": 7510242, "tokens": 339224281, "cost": 157.64, "unpricedTokens": 0, "share": 72.3, "approximate": true, "lastActive": 1795510800, "accounts": [2]},
+    {"key": "unknown", "replies": 12, "input": 30, "output": 5000, "cacheRead": 120000, "cacheWrite": 9000, "tokens": 134030, "cost": null, "unpricedTokens": 134030, "share": 0.1, "approximate": false, "lastActive": null, "accounts": []}
+  ],
+  "total": {"key": null, "replies": 1407, "input": 2877, "output": 1841197, "cacheRead": 329994995, "cacheWrite": 7519242, "tokens": 339358311, "cost": 157.64, "unpricedTokens": 134030, "share": 100.0, "approximate": true, "lastActive": 1795510800, "accounts": [2]},
+  "history": {"enabled": true, "needsChoice": false, "readReplies": 7, "keepDays": 90}
+}

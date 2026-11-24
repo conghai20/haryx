@@ -216,6 +216,12 @@ pub fn run(json: bool, debug: bool) -> Result<(), CommandError> {
         .unwrap_or_default();
     let default_profile = paths::claude_config_home_in(switcher.path_env());
     let scan = running::scan(switcher.backup_dir(), &default_profile, &roster);
+    let live: Vec<(String, i64, &str)> = scan
+        .sessions
+        .iter()
+        .filter_map(|s| Some((s.session.session_id.clone(), s.account?, s.profile)))
+        .collect();
+    haryx_core::usage_history::attribution::record_sessions(switcher.backup_dir(), &live);
     if json {
         print_json(&running::to_json(&scan));
     } else {

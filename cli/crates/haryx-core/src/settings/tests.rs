@@ -314,12 +314,34 @@ fn usage_settings() {
     assert!(!load_usage_settings(dir.path()).fable_probe);
 }
 
+#[test]
+fn history_settings_round_trip_and_fall_back() {
+    let dir = root();
+    assert_eq!(
+        load_history_settings(dir.path()),
+        HistorySettings::default()
+    );
+    set_setting(dir.path(), "history.import", "all").unwrap();
+    set_setting(dir.path(), "history.keepDays", "365").unwrap();
+    let loaded = load_history_settings(dir.path());
+    assert_eq!((loaded.import.as_str(), loaded.keep_days), ("all", 365));
+    assert!(set_setting(dir.path(), "history.import", "sometimes").is_err());
+    write_json(
+        dir.path(),
+        json!({"history": {"keepDays": -4, "enabled": "yes"}}),
+    );
+    assert_eq!(
+        load_history_settings(dir.path()),
+        HistorySettings::default()
+    );
+}
+
 // ------------------------------------------------------------------------------------------ registry
 
 #[test]
 fn registry_defaults_match_the_structs() {
     let keys: Vec<String> = SETTING_SPECS.iter().map(SettingSpec::dotted).collect();
-    assert_eq!(keys.len(), 15);
+    assert_eq!(keys.len(), 18);
     let defaults: Vec<(String, SettingValue)> = SETTING_SPECS
         .iter()
         .map(|spec| (spec.dotted(), spec.default()))
@@ -343,6 +365,9 @@ fn registry_defaults_match_the_structs() {
         ("updates.check", SettingValue::Bool(true)),
         ("usage.headerProbe", SettingValue::Bool(false)),
         ("usage.fableProbe", SettingValue::Bool(false)),
+        ("history.enabled", SettingValue::Bool(true)),
+        ("history.import", SettingValue::Str("ask".into())),
+        ("history.keepDays", SettingValue::Int(90)),
     ];
     let expected: Vec<(String, SettingValue)> = expected
         .into_iter()

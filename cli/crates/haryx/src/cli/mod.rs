@@ -25,6 +25,7 @@ mod desktop_parser;
 pub mod help;
 mod main_parser;
 mod profile_parser;
+mod sessions_parser;
 mod subparsers;
 mod top;
 mod wake_parser;
@@ -133,6 +134,8 @@ pub enum Command {
     Wake(WakeAction),
     /// `desktop [status|path]`.
     Desktop(DesktopAction),
+    /// `sessions [--json]`.
+    Sessions { json: bool },
 }
 
 /// Options of `login`.
@@ -250,6 +253,7 @@ impl Command {
             Self::Profile(_) => "profile",
             Self::Wake(_) => "wake",
             Self::Desktop(_) => "desktop",
+            Self::Sessions { .. } => "sessions",
         }
     }
 }
@@ -306,7 +310,7 @@ pub const AI_SECTION: &str = "ai";
 
 /// Commands that work only inside the `ai` section: their top-level names are kept for HaryX itself
 /// (`haryx login` will sign in to a HaryX account).
-pub const AI_ONLY: &[&str] = &["login", "profile", "wake", "desktop"];
+pub const AI_ONLY: &[&str] = &["login", "profile", "wake", "desktop", "sessions"];
 
 /// Top-level help requests, answered with the section overview instead of the `ai` command list.
 const TOP_HELP: &[&str] = &["help", "--help", "-h"];
@@ -349,6 +353,11 @@ fn parse_ai(argv: &[String], interactive: bool) -> Result<Invocation, Error> {
         && first == "desktop"
     {
         return desktop_parser::parse(rest);
+    }
+    if let Some((first, rest)) = argv.split_first()
+        && first == "sessions"
+    {
+        return sessions_parser::parse(rest);
     }
     if let Some((first, rest)) = argv.split_first()
         && let Some(parsed) = subparsers::parse(first, rest)

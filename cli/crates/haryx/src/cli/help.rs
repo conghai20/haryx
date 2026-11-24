@@ -107,6 +107,7 @@ Commands:
   {ai} profile [show|export|import|apply]  move your Claude Code setup between machines
   {ai} wake [on|off|status|install]  start the next 5h window right after a reset
   {ai} desktop [status|path]      each account's Claude Desktop data folder
+  {ai} sessions [--json]          running Claude Code sessions and their accounts
   {ai} tui                        interactive dashboard (also: bare {prog})
   {ai} watch                      dashboard, opened on the live watch page
   {ai} purge                      remove all {prog} data
@@ -131,7 +132,7 @@ pub fn main_epilog() -> String {
   {ai} config set autoswitch.threshold 80
 
 The original spellings keep working: without 'ai' ({prog} list, {prog} switch 2) and as flags
-({prog} --switch, {prog} --list, ...). Only 'login', 'profile', 'wake' and 'desktop' need 'ai': their top-level names are kept for HaryX itself.")
+({prog} --switch, {prog} --list, ...). Only 'login', 'profile', 'wake', 'desktop' and 'sessions' need 'ai': their top-level names are kept for HaryX itself.")
 }
 
 pub fn run_epilog() -> String {

@@ -1,0 +1,29 @@
+{
+  "sessions": [
+    {
+      "pid": 41872,
+      "account": 1,
+      "email": "alice@example.com",
+      "profile": "default",
+      "sessionId": "6f1d2c3b-0a9e-4b8f-9c7d-1e2f3a4b5c6d",
+      "cwd": "C:\\Users\\alice\\code\\app",
+      "startedAt": 1795996800000,
+      "kind": "interactive",
+      "entrypoint": "cli",
+      "status": "busy"
+    },
+    {
+      "pid": 52210,
+      "account": 2,
+      "email": "bob@example.com",
+      "profile": "session",
+      "sessionId": "0b9a8c7d-6e5f-4a3b-8c2d-1e0f9a8b7c6d",
+      "cwd": "/Users/bob/work/api",
+      "startedAt": 1795997400000,
+      "kind": "interactive",
+      "entrypoint": "claude-vscode",
+      "status": null
+    }
+  ],
+  "unreadable": 0
+}

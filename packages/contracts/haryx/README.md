@@ -17,3 +17,10 @@ keeps decoding haryx output as well as cswap's (`../cswap`).
   number, `quietHours`, `weeklyCapPct`), `agentInstalled`, one row per account (`on`, `lastWakeAt`,
   `lastCheckAt`, `nextDue`, `lastResult`: `woke`, `not-due`, `skip:<reason>`, `failed:<kind>`) and the last
   `events`.
+- `sessions.json` — `haryx ai sessions --json` (synthetic): every live Claude Code session with `pid`,
+  `account` (slot number, `null` when a default-profile session has no active account), `email`, `profile`
+  (`default` for `~/.claude`, `session` for a slot's own profile), `sessionId`, `cwd`, `startedAt` (epoch ms),
+  `kind`, `entrypoint`, `status` (`busy`, `idle`, `waiting` or `null`), plus `unreadable` (records that
+  could not be read). Read from Claude Code's `sessions/{pid}.json` records, so it works on every OS; the
+  Windows app uses it in place of the macOS app's native process scan.
+

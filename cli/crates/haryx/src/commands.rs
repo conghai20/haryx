@@ -8,6 +8,7 @@ mod guard;
 mod listing;
 mod profile;
 mod profile_view;
+mod sessions;
 mod upgrade;
 mod wake;
 
@@ -83,6 +84,7 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Profile(action) => profile::run(&action, debug),
         Command::Wake(action) => wake::run(&action, debug),
         Command::Desktop(action) => desktop::run(&action, debug),
+        Command::Sessions { json } => sessions::run(json, debug),
         Command::Map { account, path } => accounts::map(account.as_deref(), path.as_deref(), debug),
         Command::Unmap { path } => accounts::unmap(path.as_deref(), debug),
         Command::Unclaimed { purge } => accounts::unclaimed(purge.as_deref(), debug),

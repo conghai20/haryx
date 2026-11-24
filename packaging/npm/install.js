@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
-const { assetUrl, binaryPath } = require("./platform.js");
+const { assetUrl, binaryNames, binaryPath, vendor } = require("./platform.js");
 
 async function fetchBuffer(url) {
   const res = await fetch(url, { redirect: "follow" });
@@ -25,10 +25,14 @@ async function install() {
     const file = path.join(tmp, "haryx.tar.gz");
     fs.writeFileSync(file, archive);
     execFileSync("tar", ["-xzf", file, "-C", tmp]);
-    const unpacked = path.join(tmp, "haryx");
-    fs.mkdirSync(path.dirname(binaryPath), { recursive: true });
-    fs.copyFileSync(unpacked, binaryPath);
-    fs.chmodSync(binaryPath, 0o755);
+    fs.mkdirSync(vendor, { recursive: true });
+    for (const name of binaryNames()) {
+      const unpacked = path.join(tmp, name);
+      if (!fs.existsSync(unpacked)) continue; // haryxw.exe is optional
+      fs.copyFileSync(unpacked, path.join(vendor, name));
+      fs.chmodSync(path.join(vendor, name), 0o755);
+    }
+    if (!fs.existsSync(binaryPath)) throw new Error(`${url} has no ${path.basename(binaryPath)}`);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

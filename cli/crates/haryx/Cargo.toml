@@ -14,9 +14,15 @@ description.workspace = true
 name = "haryx"
 path = "src/main.rs"
 
+# The windowless build for the Windows wake task. Built only with `--features windowless` (the
+# Windows release), so macOS and Linux installs do not carry it.
 [[bin]]
 name = "haryxw"
 path = "src/bin/haryxw.rs"
+required-features = ["windowless"]
+
+[features]
+windowless = []
 
 [dependencies]
 haryx-core.workspace = true

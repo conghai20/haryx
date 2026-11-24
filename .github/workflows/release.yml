@@ -20,7 +20,12 @@ jobs:
           - { target: x86_64-apple-darwin, os: macos-26, tool: cargo }
           - { target: x86_64-unknown-linux-musl, os: ubuntu-24.04, tool: cross }
           - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04, tool: cross }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest, tool: cargo, features: windowless }
+          - { target: aarch64-pc-windows-msvc, os: windows-latest, tool: cargo, features: windowless }
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -32,7 +37,7 @@ jobs:
           tool: cross
       - name: Build
         working-directory: cli
-        run: ${{ matrix.tool }} build --release --locked -p haryx --target ${{ matrix.target }}
+        run: ${{ matrix.tool }} build --release --locked -p haryx --target ${{ matrix.target }} ${{ matrix.features && format('--features {0}', matrix.features) || '' }}
       - name: Package
         run: scripts/release/package.sh ${{ matrix.target }}
       - uses: actions/upload-artifact@v7
@@ -49,6 +54,8 @@ jobs:
           - { target: x86_64-apple-darwin, os: macos-26 }
           - { target: x86_64-unknown-linux-musl, os: ubuntu-24.04 }
           - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04 }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest, features: windowless }
+          - { target: aarch64-pc-windows-msvc, os: windows-latest, features: windowless }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -56,8 +63,8 @@ jobs:
         with:
           working-directory: packaging/pypi
           target: ${{ matrix.target }}
-          manylinux: musllinux_1_2
-          args: --release --locked --out dist
+          manylinux: ${{ contains(matrix.target, 'linux') && 'musllinux_1_2' || 'off' }}
+          args: --release --locked --out dist ${{ matrix.features && format('--features {0}', matrix.features) || '' }}
       - uses: actions/upload-artifact@v7
         with:
           name: wheel-${{ matrix.target }}

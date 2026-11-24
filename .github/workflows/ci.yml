@@ -44,7 +44,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: cli
-      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - run: cargo test --workspace --no-run
       # Runs for the failure list while the port is in progress; does not fail the job yet.
       - run: cargo test --workspace --no-fail-fast

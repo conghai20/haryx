@@ -17,6 +17,7 @@ classifiers = [
     "Environment :: Console",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Rust",
     "Topic :: Software Development",
 ]

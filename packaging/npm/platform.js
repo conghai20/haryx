@@ -8,6 +8,8 @@ const TARGETS = {
   "darwin-x64": "x86_64-apple-darwin",
   "linux-arm64": "aarch64-unknown-linux-musl",
   "linux-x64": "x86_64-unknown-linux-musl",
+  "win32-arm64": "aarch64-pc-windows-msvc",
+  "win32-x64": "x86_64-pc-windows-msvc",
 };
 
 function target(platform = process.platform, arch = process.arch) {
@@ -22,6 +24,12 @@ function assetUrl(t = target()) {
   return `${RELEASES}/v${version}/haryx-v${version}-${t}.tar.gz`;
 }
 
-const binaryPath = path.join(__dirname, "vendor", "haryx");
+/// The program files in a release archive for `platform`: Windows also carries the windowless wake runner.
+function binaryNames(platform = process.platform) {
+  return platform === "win32" ? ["haryx.exe", "haryxw.exe"] : ["haryx"];
+}
 
-module.exports = { TARGETS, target, assetUrl, binaryPath, version };
+const vendor = path.join(__dirname, "vendor");
+const binaryPath = path.join(vendor, binaryNames()[0]);
+
+module.exports = { TARGETS, target, assetUrl, binaryNames, binaryPath, vendor, version };

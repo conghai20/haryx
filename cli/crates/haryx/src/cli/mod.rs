@@ -142,6 +142,13 @@ pub enum Command {
     Desktop(DesktopAction),
     /// `sessions [--json]`.
     Sessions { json: bool },
+    /// `ai sessions continue SESSION [--to NUM|EMAIL|best] [--no-launch] [--json]`.
+    SessionsContinue {
+        session: String,
+        to: String,
+        json: bool,
+        no_launch: bool,
+    },
 }
 
 /// Options of `login`.
@@ -260,6 +267,7 @@ impl Command {
             Self::Wake(_) => "wake",
             Self::Desktop(_) => "desktop",
             Self::Sessions { .. } => "sessions",
+            Self::SessionsContinue { .. } => "sessions continue",
         }
     }
 }

@@ -691,3 +691,25 @@ fn auto_started_by_an_app_stops_when_the_app_is_gone() {
         "a plain background `haryx auto` keeps running"
     );
 }
+
+#[test]
+fn continuing_an_unknown_session_changes_nothing() {
+    let s = Sandbox::new();
+    let run = s.run(&["ai", "sessions", "continue", "999999", "--to", "2"]);
+    assert_eq!(run.code, 1);
+    assert!(
+        run.err.contains("no running Claude Code session"),
+        "{}",
+        run.err
+    );
+    let json = s.run(&["ai", "sessions", "continue", "999999", "--json"]);
+    assert_eq!(json.code, 1);
+    let v: Value = serde_json::from_str(&json.out).unwrap();
+    assert!(
+        v["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("no running")
+    );
+    assert_eq!(s.roster()["activeAccountNumber"], 1, "no switch happened");
+}

@@ -1,0 +1,187 @@
+---
+// HaryX as one control center with sections. AI is live; the rest are being
+// explored (docs/roadmap.md: undecided, after the AI core ships). No promises.
+const SECTIONS = [
+  {
+    name: "AI",
+    live: true,
+    line: "Claude accounts, usage, sessions and setup profiles.",
+    cmd: "haryx ai",
+  },
+  { name: "DevOps", live: false, line: "The pipelines and deploys you check between tasks." },
+  { name: "Cloud", live: false, line: "The cloud accounts and contexts you switch between." },
+  { name: "SRE", live: false, line: "On-call signals and service health, without a new tab." },
+  { name: "DevSecOps", live: false, line: "Secrets and security findings across your repositories." },
+] as const;
+---
+
+<section class="sections frame" id="sections" aria-labelledby="sections-title">
+  <div class="intro" data-reveal>
+    <h2 id="sections-title" class="section-title">One control center. More&nbsp;sections&nbsp;to&nbsp;come.</h2>
+    <p class="lede">
+      AI is the first section, and the only one built. DevOps, Cloud, SRE and DevSecOps are being explored. Which comes
+      next is undecided; work starts after the AI core ships.
+    </p>
+  </div>
+
+  <ol class="index">
+    {
+      SECTIONS.map((s, i) => (
+        <li class:list={["entry", { "entry--live": s.live }]} data-reveal="wipe" style={`--i:${i}`}>
+          <span class="name" data-text={s.name}>
+            {s.name}
+          </span>
+          <span class="meta">
+            <span class:list={["state", { "state--live": s.live }]}>
+              <span class="pip" aria-hidden="true" />
+              {s.live ? "Live" : "Exploring, not built"}
+            </span>
+            <span class="what">{s.line}</span>
+            {"cmd" in s && <code class="cmd">{s.cmd}</code>}
+          </span>
+        </li>
+      ))
+    }
+  </ol>
+</section>
+
+<style>
+  .sections {
+    padding-top: var(--space-section);
+    display: grid;
+    gap: clamp(40px, 6vw, 72px);
+  }
+  .intro {
+    display: grid;
+    gap: 22px;
+    max-width: 52rem;
+  }
+
+  .index {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--rule-strong);
+  }
+
+  .entry {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    align-items: center;
+    column-gap: clamp(20px, 4vw, 64px);
+    row-gap: 10px;
+    padding-block: clamp(14px, 2vw, 22px);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* Exhibition-index type: the live section in ink, the rest as outlines that fill on hover. */
+  .name {
+    position: relative;
+    display: inline-block;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(3rem, 9vw, 7.5rem);
+    line-height: 0.95;
+    letter-spacing: -0.045em;
+    color: transparent;
+    -webkit-text-stroke: 1.25px var(--ink-3);
+    width: max-content;
+    max-width: 100%;
+  }
+  .name::after {
+    content: attr(data-text);
+    position: absolute;
+    inset: 0;
+    color: var(--ink);
+    -webkit-text-stroke: 0;
+    clip-path: inset(0 100% 0 0);
+    transition: clip-path 0.9s var(--ease-out);
+  }
+  .entry:hover .name::after {
+    clip-path: inset(0 0 0 0);
+  }
+  .entry--live .name {
+    color: var(--ink);
+    -webkit-text-stroke: 0;
+  }
+  .entry--live .name::after {
+    display: none;
+  }
+
+  .meta {
+    display: grid;
+    gap: 6px;
+    align-content: center;
+  }
+  .state {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8125rem;
+    color: var(--ink-3);
+  }
+  .state--live {
+    color: var(--live);
+    font-weight: 600;
+  }
+  .pip {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+  }
+  .pip {
+    position: relative;
+  }
+  .state--live .pip {
+    background: currentColor;
+  }
+  /* Live signal: a ring that leaves the pip like a ripple. */
+  .state--live .pip::after {
+    content: "";
+    position: absolute;
+    inset: -1.5px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    animation: ripple 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+  .what {
+    color: var(--ink-2);
+    max-width: 40ch;
+  }
+  .cmd {
+    font-size: 0.875rem;
+    color: var(--ink-2);
+  }
+  .cmd::before {
+    content: "$ ";
+    color: var(--live);
+  }
+
+  @keyframes ripple {
+    from {
+      transform: scale(1);
+      opacity: 0.8;
+    }
+    to {
+      transform: scale(3.2);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .state--live .pip::after {
+      animation: none;
+      opacity: 0;
+    }
+    .name::after {
+      transition: none;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .entry {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

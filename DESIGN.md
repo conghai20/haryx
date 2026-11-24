@@ -10,6 +10,19 @@ colors:
   soft-white: "#F1F5F9"
   pace-amber: "#FF9F0A"
   limit-red: "#FF453A"
+  web-ink-2: "#3D4A5E"
+  web-ink-3: "#5B6A80"
+  web-ink-2-dark: "#B4C0D0"
+  web-ink-3-dark: "#8A98AD"
+  web-amber-text-light: "#C26A00"
+  web-rule: "rgb(16 24 39 / 0.14)"
+  web-rule-strong: "rgb(16 24 39 / 0.32)"
+  web-rule-dark: "rgb(241 245 249 / 0.12)"
+  web-rule-strong-dark: "rgb(241 245 249 / 0.3)"
+  web-track: "rgb(16 24 39 / 0.08)"
+  web-track-dark: "rgb(241 245 249 / 0.1)"
+  web-live-wash: "rgb(8 145 178 / 0.12)"
+  web-live-wash-dark: "rgb(34 211 238 / 0.14)"
 typography:
   display:
     fontFamily: "Space Grotesk, SF Pro Display, system-ui"
@@ -50,11 +63,68 @@ typography:
     fontFamily: "SF Pro Text, system-ui"
     fontSize: "9pt"
     fontWeight: 700
+  web-display:
+    fontFamily: "Space Grotesk Variable, Space Grotesk, system-ui, sans-serif"
+    fontSize: "clamp(3rem, min(7.4vw, 10.5vh), 6rem)"
+    fontWeight: 500
+    lineHeight: 0.96
+    letterSpacing: "-0.04em"
+  web-close:
+    fontFamily: "Space Grotesk Variable, Space Grotesk, system-ui, sans-serif"
+    fontSize: "clamp(2.75rem, 6vw, 5rem)"
+    fontWeight: 500
+    lineHeight: 1
+    letterSpacing: "-0.035em"
+  web-headline:
+    fontFamily: "Space Grotesk Variable, Space Grotesk, system-ui, sans-serif"
+    fontSize: "clamp(2.25rem, 5vw, 4rem)"
+    fontWeight: 500
+    lineHeight: 1.02
+    letterSpacing: "-0.03em"
+  web-figure:
+    fontFamily: "Space Grotesk Variable, Space Grotesk, system-ui, sans-serif"
+    fontSize: "clamp(1.75rem, 3vw, 2.5rem)"
+    fontWeight: 500
+    lineHeight: 1
+    letterSpacing: "-0.02em"
+    fontFeature: "tnum"
+  web-title:
+    fontFamily: "Space Grotesk Variable, Space Grotesk, system-ui, sans-serif"
+    fontSize: "1.375rem"
+    fontWeight: 500
+    letterSpacing: "-0.01em"
+  web-statement:
+    fontFamily: "Geist Variable, Geist, system-ui, sans-serif"
+    fontSize: "clamp(1.375rem, 2.3vw, 2rem)"
+    fontWeight: 450
+    lineHeight: 1.2
+    letterSpacing: "-0.015em"
+  web-lede:
+    fontFamily: "Geist Variable, Geist, system-ui, sans-serif"
+    fontSize: "clamp(1.0625rem, 1.4vw, 1.25rem)"
+    fontWeight: 400
+    lineHeight: 1.6
+  web-body:
+    fontFamily: "Geist Variable, Geist, system-ui, sans-serif"
+    fontSize: "1.0625rem"
+    fontWeight: 400
+    lineHeight: 1.6
+    fontFeature: "tnum"
+  web-small:
+    fontFamily: "Geist Variable, Geist, system-ui, sans-serif"
+    fontSize: "0.875rem"
+    fontWeight: 400
+  web-command:
+    fontFamily: "Geist Mono Variable, Geist Mono, ui-monospace, monospace"
+    fontSize: "0.875rem"
+    fontWeight: 400
+    lineHeight: 1.5
 rounded:
   staff: "1.5px"
   banner: "10px"
   card: "16px"
   pill: "999px"
+  web-field: "2px"
 spacing:
   hair: "2px"
   row: "5px"
@@ -63,6 +133,10 @@ spacing:
   panel: "14px"
   grid: "16px"
   pane: "20px"
+  web-gutter: "clamp(16px, 4.5vw, 72px)"
+  web-column-gap: "clamp(16px, 2vw, 32px)"
+  web-section: "clamp(96px, 14vw, 200px)"
+  web-max: "1440px"
 components:
   button-primary:
     backgroundColor: "{colors.cyan-ink}"
@@ -101,6 +175,44 @@ components:
     padding: "5px 0"
   brand-tile:
     backgroundColor: "{colors.midnight-navy}"
+  web-command-field:
+    textColor: "{colors.midnight-navy}"
+    typography: "{typography.web-command}"
+    rounded: "{rounded.web-field}"
+    padding: "14px 16px"
+  web-command-field-dark:
+    textColor: "{colors.soft-white}"
+    typography: "{typography.web-command}"
+    rounded: "{rounded.web-field}"
+    padding: "14px 16px"
+  web-copy-button:
+    backgroundColor: "{colors.midnight-navy}"
+    textColor: "{colors.soft-white}"
+    rounded: "{rounded.web-field}"
+    padding: "0 22px"
+    height: "48px"
+  web-copy-button-dark:
+    backgroundColor: "{colors.soft-white}"
+    textColor: "{colors.midnight-navy}"
+    rounded: "{rounded.web-field}"
+    padding: "0 22px"
+    height: "48px"
+  web-copy-button-hover-dark:
+    backgroundColor: "{colors.electric-cyan}"
+    textColor: "{colors.midnight-navy}"
+  web-tide-staff:
+    backgroundColor: "{colors.electric-cyan-light}"
+    rounded: "{rounded.staff}"
+    height: "6px"
+  web-tide-staff-dark:
+    backgroundColor: "{colors.electric-cyan}"
+    rounded: "{rounded.staff}"
+    height: "6px"
+  web-badge-active:
+    backgroundColor: "{colors.web-live-wash}"
+    textColor: "{colors.cyan-ink}"
+    rounded: "{rounded.pill}"
+    padding: "2px 8px"
 ---
 
 # Design System: HaryX
@@ -247,3 +359,110 @@ Wing H mark on its Midnight Navy tile (upper half Electric Cyan, lower half Soft
 - **Don't** put borders or rings on containers, including for selection; selection is the accent fill at 18%.
 - **Don't** draw a usage reading as a capsule progress bar or label it in uppercase; use the Tide Staff and sentence case.
 - **Don't** use Midnight Navy as a surface or text colour; it exists as the mark's tile.
+
+## Web (site/)
+
+The landing page in `site/` (Astro, tokens in `site/src/styles/global.css`) is the one surface outside the macOS app. It keeps the app's brand palette, its display face and its Tide Staff, and replaces the system's glass and appearance with a printed page: a gallery poster with one drawn mark, one tide line and a lot of empty ground. Everything above this section is the app system and still governs the app; this section governs `site/` only, and where the two differ it says so.
+
+### Colors (web)
+
+Brand palette only: Midnight Navy, Electric Cyan and Soft White, with Pace Amber inside the tide illustration. Both themes follow `prefers-color-scheme`, and `data-theme="light|dark"` on `<html>` (set from `?theme=`) forces one.
+
+| Role (CSS token) | Light | Dark |
+|---|---|---|
+| Ground (`--ground`) | Soft White | Midnight Navy |
+| Ink (`--ink`) | Midnight Navy | Soft White |
+| Secondary ink (`--ink-2`) | Web Ink 2 | Web Ink 2 Dark |
+| Tertiary ink (`--ink-3`) | Web Ink 3 | Web Ink 3 Dark |
+| Row rule (`--rule`) | Web Rule | Web Rule Dark |
+| List head rule (`--rule-strong`) | Web Rule Strong | Web Rule Strong Dark |
+| Live text and strokes (`--live`) | Cyan Ink | Electric Cyan |
+| Staff fill (`--live-fill`) | Electric Cyan Light | Electric Cyan |
+| Live wash (`--live-wash`) | Web Live Wash | Web Live Wash Dark |
+| Staff track (`--track`) | Web Track | Web Track Dark |
+| Mark upper half (`--mark-a`) | Electric Cyan | Electric Cyan |
+| Mark lower half (`--mark-b`) | Midnight Navy | Soft White |
+| Amber figure (`--amber`) | Web Amber Text Light | Pace Amber |
+| Amber fill (`--amber-fill`) | Pace Amber | Pace Amber |
+| Text selection | Electric Cyan at 45% | Electric Cyan at 35% |
+
+`theme-color` follows the ground (Soft White light, Midnight Navy dark). Body text carries tabular figures by default.
+
+**The Navy Ground Rule (web only).** In the dark theme the whole page ground is Midnight Navy with Soft White ink; in the light theme it is Soft White paper with Midnight Navy ink. This is a deliberate exception, for `site/` only, to the app's rule that Midnight Navy is only the mark's tile. App surfaces keep the system appearance and never use navy as a surface.
+
+**The One Accent Rule (web).** Cyan is the page's only accent: the tide line, the active account and the route in the tide illustration, the `$`/`>` prompt before a command, the selected OS underline, link-hover underlines, the focus ring (2px, 3px offset), and the Copy button's hover and copied fill. Amber appears only inside the tide illustration, as a staff fill and its figure. No red ships on the page.
+
+### Typography (web)
+
+**Display Font:** Space Grotesk (variable, self-hosted via Fontsource)
+**Text Font:** Geist (variable)
+**Mono Font:** Geist Mono (variable)
+
+- **Web Display** (Space Grotesk 500, up to 6rem, 0.96, -0.04em, max 11ch): the hero headline only.
+- **Web Close** (Space Grotesk 500, up to 5rem): the closing "Install HaryX." headline.
+- **Web Headline** (Space Grotesk 500, up to 4rem, 1.02, -0.03em): section titles, one per section.
+- **Web Figure** (Space Grotesk 500, up to 2.5rem, tabular): percentages in the tide illustration; its reset times use Space Grotesk at text size, tabular.
+- **Web Title** (Space Grotesk 500, 1.375rem): platform names.
+- **Web Statement** (Geist 450, up to 2rem, 1.2): the one-sentence claim on each "What it does" line.
+- **Web Lede** (Geist, up to 1.25rem, secondary ink, 38ch, 46ch in the hero): the paragraph under a headline.
+- **Web Body** (Geist 400, 1.0625rem, 1.6): running text; 58 to 62ch where it sets its own measure.
+- **Web Small** (Geist, 0.875rem, tertiary ink): notes, requirements, the sample-data line; 0.8125rem for column heads and the footer.
+- **Web Command** (Geist Mono, 0.875rem): commands.
+
+The wordmark on the page is not set in type: it is the drawn HARYX stroke lettering (`assets/brand/haryx-wordmark.svg`, 7-unit butt strokes, bevel joins) in the current ink colour, 18px tall in the header and 14px in the footer in secondary ink.
+
+**The Web Display Rule.** On the web, Space Grotesk carries headlines, figures, reset times and platform names, wider than the app's Display-Only Rule, which stays in force for the app. Running text, statements, buttons, the OS switch and nav stay in Geist.
+
+**The Real Command Rule.** Geist Mono is for commands a visitor can run (the install lines, the `haryx …` commands beside each feature, the cswap import line) and nothing else: no mono labels, captions or decorative code.
+
+### Layout (web)
+
+One centred frame (max 1440px) with a fluid gutter (16 to 72px) and a 12-column grid with a fluid gap (16 to 32px). Sections are separated by space alone (96 to 200px), not by bands or fills. Headlines take the left 5 to 6 columns; lists and the illustration run wide or sit to the right. The hero fills the first viewport (min 640px, max 1000px) with the copy at the bottom-left and the mark offset right; the install command is above the fold. Breakpoints at 900px (all columns stack), 760px (the hero mark moves into flow at the top right, 26vh max), 720px (the tide illustration drops its header row and reset column) and 560px (the header keeps only its last link).
+
+### Elevation & Depth (web)
+
+Flat. No shadows, no gradients, no glass, no fills behind content. Depth comes only from stacking in the hero: the mark sits behind the copy and the tide line sits behind the mark.
+
+**The Hairline, Not Card Rule.** Lists are divided by 1px rules: a strong rule at the head of a list, a light rule under each row. Nothing is boxed as a card. The only outlined element is the command field.
+
+### Shapes (web)
+
+Square-cut. 2px corners on the command field and the Copy button, 1.5px on tide staffs, a circle for the account dot, a capsule only for the "active" badge. Curves belong to the water: the tide line and the route are the page's only free curves.
+
+### Components (web)
+
+#### Drawn Mark (signature)
+The Wing H's two halves drawn straight on the ground, with no tile: upper half Electric Cyan, lower half in ink (navy on paper, Soft White on navy). In the hero it is tall (360px to 78vh, capped at 860px), anchored top-right in the frame, behind the copy. Entrance: each half is first traced as a 1.25px outline (1.7s, `cubic-bezier(0.65, 0, 0.35, 1)`; upper half at 0.2s, lower half at 0.45s), then floods with its fill from the bottom up (clip-path, 1.1s, `cubic-bezier(0.16, 1, 0.3, 1)`, 1.35s after its trace starts) while the trace fades out. With reduced motion the mark is simply filled. The closing section repeats the mark static, 340px max (120px when stacked).
+
+#### Tide Line (signature)
+One full-bleed cyan stroke (2.25px, round caps, non-scaling) running edge to edge of the viewport between the hero headline and the lede, behind the mark. It draws left to right (2.4s, from 1.9s, as the mark finishes), then swells slowly forever (7s, alternate, 4px drop and 0.82 vertical scale). With reduced motion it is static and drawn.
+
+#### Tide Staff Illustration (signature)
+A table of three sample accounts that shows auto-switch: rows 84px tall between hairlines, columns for account, 5-hour staff, used % and reset time. Each staff is a 6px flat bar, 1.5px corners, on the track colour, with a 2px ink pace tick overhanging 4px above and below, and a 1px dashed tertiary threshold line overhanging 7px. Under it, "Week N%" in 0.75rem tertiary. When the figure scrolls 60% into view the active account's figure and staff rise from 62% to 91% (1.6s, ease-out cubic), the fill and figure turn amber, and a cyan route curve draws from the active row's dot to the next row, whose dot fills cyan and gains the "active" badge (0.75rem 600, cyan text on the live wash, capsule). A live caption narrates the switch, with account names and the reached percentage in cyan semibold. It must always carry its plain sample-data line ("Illustration with sample accounts, not live data…") and a text Replay link; with reduced motion it jumps to the end state.
+
+**The Sample Data Rule.** Any usage reading on the web is an illustration and says so on the page, next to it, in plain words.
+
+#### Install Switch
+The primary action, used in the hero and again at the close, kept in sync across instances and defaulting to the visitor's OS. An OS switch of plain text buttons ("macOS", "Windows", 22px apart, tertiary ink, ink when pressed) with a 2px cyan underline that grows from the left (0.45s) under the pressed one. Below it, one row: the command field (1px strong rule, 2px corners, 14px 16px padding, Geist Mono, a cyan `$` or `>` prompt that is not selectable) and Copy (ink fill, ground text, 2px corners, 48px tall, Geist 500). Copy turns cyan with navy text on hover and for 1.8s after copying ("Copied"); if the clipboard is blocked it selects the command and says "Selected". Under the row, a small tertiary note with the requirements and a line linking the latest release. The closing instance sets the command at 0.9375rem with 18px 20px padding.
+
+#### Captioned Lines
+"What it does" is a list, not a grid of cards: each line holds a Web Statement and a secondary caption on the left seven columns and its real commands on the right four, each command led by a cyan `$`. Platforms and terms use the same hairline list, with the name in Web Title.
+
+#### Header and Footer
+Header: wordmark left, text links right (What it does, Install, Releases, GitHub) with transparent underlines that turn cyan on hover. Footer: wordmark, project links, and the fine print, above a light rule.
+
+### Do's and Don'ts (web)
+
+#### Do:
+- **Do** use the navy ground in dark and Soft White paper in light on `site/`, and only there.
+- **Do** let the drawn mark and the tide line be the page's only illustration, with the tide line full-bleed and behind the mark.
+- **Do** divide every list with 1px hairlines and leave sections separated by space.
+- **Do** label every usage illustration as sample data, in plain words beside it.
+- **Do** keep the install command, with its OS switch and Copy, above the fold and repeat it at the close.
+- **Do** honour reduced motion: every entrance resolves to its end state, and `?still` renders that end state for captures.
+
+#### Don't:
+- **Don't** box content in cards, add shadows, gradients or glass, or fill a section band.
+- **Don't** set anything but a runnable command in Geist Mono.
+- **Don't** add a second accent: cyan is the only one, amber lives only inside the tide illustration.
+- **Don't** present a usage figure as live data.

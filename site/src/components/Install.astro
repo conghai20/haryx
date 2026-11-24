@@ -1,0 +1,254 @@
+---
+// One-line install with a macOS / Windows switch and Copy. Several instances on
+// the page stay in sync; the default follows the visitor's OS.
+import type { Release } from "../lib/release";
+import { RELEASES_URL } from "../lib/release";
+
+interface Props {
+  release: Release | null;
+  size?: "hero" | "close";
+}
+const { release, size = "hero" } = Astro.props;
+
+const TARGETS = [
+  {
+    id: "mac",
+    label: "macOS",
+    command: "curl -fsSL https://raw.githubusercontent.com/conghai20/haryx/main/scripts/install.sh | sh",
+    note: "Terminal. macOS 26 or later. Installs HaryX.app with the haryx command.",
+  },
+  {
+    id: "win",
+    label: "Windows",
+    command: "irm https://raw.githubusercontent.com/conghai20/haryx/main/scripts/install.ps1 | iex",
+    note: "PowerShell. Windows 10 22H2 or 11, x64 or ARM64. No admin rights.",
+  },
+] as const;
+---
+
+<div class:list={["install", `install--${size}`]} data-install>
+  <div class="switch" role="group" aria-label="Operating system">
+    {
+      TARGETS.map((t, i) => (
+        <button type="button" class="os" data-os={t.id} aria-pressed={i === 0 ? "true" : "false"}>
+          {t.label}
+        </button>
+      ))
+    }
+  </div>
+
+  {
+    TARGETS.map((t, i) => (
+      <div class="cmd" data-target={t.id} hidden={i !== 0}>
+        <code class="line">
+          <span class="prompt" aria-hidden="true">
+            {t.id === "mac" ? "$" : ">"}
+          </span>
+          <span class="text">{t.command}</span>
+        </code>
+        <button type="button" class="copy" data-copy={t.command}>
+          <span class="copy-label">Copy</span>
+        </button>
+        <p class="note">{t.note}</p>
+      </div>
+    ))
+  }
+
+  <p class="alt">
+    Or download {release ? <a href={release.url}>HaryX {release.version}</a> : "the latest build"} from{" "}
+    <a href={RELEASES_URL}>GitHub Releases</a>.
+  </p>
+  <p class="visually-hidden" aria-live="polite" data-status></p>
+</div>
+
+<style>
+  .install {
+    display: grid;
+    gap: 14px;
+    max-width: 52rem;
+  }
+
+  .switch {
+    display: flex;
+    gap: 22px;
+  }
+
+  .os {
+    appearance: none;
+    border: 0;
+    background: none;
+    padding: 6px 0;
+    font: inherit;
+    font-size: 0.9375rem;
+    color: var(--ink-3);
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s var(--ease-out);
+  }
+  .os::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--live);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.45s var(--ease-out);
+  }
+  .os:hover {
+    color: var(--ink);
+  }
+  .os[aria-pressed="true"] {
+    color: var(--ink);
+  }
+  .os[aria-pressed="true"]::after {
+    transform: scaleX(1);
+  }
+
+  .cmd {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 10px;
+    row-gap: 10px;
+    align-items: stretch;
+  }
+  .cmd[hidden] {
+    display: none;
+  }
+
+  .line {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    padding: 14px 16px;
+    border: 1px solid var(--rule-strong);
+    border-radius: 2px;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--ink);
+    min-width: 0;
+  }
+  .prompt {
+    color: var(--live);
+    user-select: none;
+  }
+  .text {
+    overflow-wrap: anywhere;
+  }
+
+  .copy {
+    appearance: none;
+    border: 0;
+    border-radius: 2px;
+    padding: 0 22px;
+    min-height: 48px;
+    background: var(--ink);
+    color: var(--ground);
+    font: inherit;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+      background-color 0.25s var(--ease-out),
+      transform 0.15s var(--ease-out);
+  }
+  .copy:hover {
+    background: var(--live);
+    color: var(--ground);
+  }
+  .copy:active {
+    transform: translateY(1px);
+  }
+  .copy[data-state="done"] {
+    background: var(--live);
+    color: var(--ground);
+  }
+
+  .note,
+  .alt {
+    grid-column: 1 / -1;
+    font-size: 0.875rem;
+    color: var(--ink-3);
+  }
+
+  .install--close .line {
+    font-size: 0.9375rem;
+    padding: 18px 20px;
+  }
+
+  @media (max-width: 560px) {
+    .line {
+      padding: 12px;
+      font-size: 0.8125rem;
+    }
+    .copy {
+      padding: 0 16px;
+    }
+  }
+</style>
+
+<script>
+  type Os = "mac" | "win";
+
+  const roots = Array.from(document.querySelectorAll<HTMLElement>("[data-install]"));
+
+  function select(os: Os): void {
+    for (const root of roots) {
+      root.querySelectorAll<HTMLButtonElement>("[data-os]").forEach((b) => {
+        b.setAttribute("aria-pressed", String(b.dataset.os === os));
+      });
+      root.querySelectorAll<HTMLElement>("[data-target]").forEach((panel) => {
+        panel.hidden = panel.dataset.target !== os;
+      });
+    }
+  }
+
+  async function writeClipboard(text: string): Promise<boolean> {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function selectText(el: Element | null): void {
+    if (!el) return;
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  }
+
+  for (const root of roots) {
+    const status = root.querySelector<HTMLElement>("[data-status]");
+    root.querySelectorAll<HTMLButtonElement>("[data-os]").forEach((b) => {
+      b.addEventListener("click", () => select(b.dataset.os === "win" ? "win" : "mac"));
+    });
+    root.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((b) => {
+      const label = b.querySelector(".copy-label");
+      b.addEventListener("click", async () => {
+        const ok = await writeClipboard(b.dataset.copy ?? "");
+        if (!ok) {
+          selectText(b.parentElement?.querySelector(".text") ?? null);
+          if (label) label.textContent = "Selected";
+          if (status) status.textContent = "Copy is blocked here. The command is selected; press Command-C or Ctrl-C.";
+          return;
+        }
+        b.dataset.state = "done";
+        if (label) label.textContent = "Copied";
+        if (status) status.textContent = "Install command copied.";
+        window.setTimeout(() => {
+          delete b.dataset.state;
+          if (label) label.textContent = "Copy";
+        }, 1800);
+      });
+    });
+  }
+
+  const isWindows = /Windows/i.test(navigator.userAgent);
+  select(isWindows ? "win" : "mac");
+</script>

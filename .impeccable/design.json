@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-24T03:15:00Z",
+  "generatedAt": "2026-11-24T12:00:00Z",
   "title": "Design System: HaryX",
   "extensions": {
     "colorMeta": {
@@ -110,6 +110,214 @@
           "#FFAAA5",
           "#FFDAD7"
         ]
+      },
+      "web-ink-2": {
+        "role": "neutral",
+        "displayName": "Web Ink 2",
+        "canonical": "#3D4A5E",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "site/ --ink-2, light theme: ledes, captions."
+      },
+      "web-ink-3": {
+        "role": "neutral",
+        "displayName": "Web Ink 3",
+        "canonical": "#5B6A80",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "site/ --ink-3, light theme: notes, column heads, inactive OS label (5.0:1 on Soft White)."
+      },
+      "web-ink-2-dark": {
+        "role": "neutral",
+        "displayName": "Web Ink 2 Dark",
+        "canonical": "#B4C0D0",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "site/ --ink-2 on the navy ground."
+      },
+      "web-ink-3-dark": {
+        "role": "neutral",
+        "displayName": "Web Ink 3 Dark",
+        "canonical": "#8A98AD",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "site/ --ink-3 on the navy ground (6.1:1)."
+      },
+      "web-amber-text-light": {
+        "role": "tertiary",
+        "displayName": "Web Amber Text",
+        "canonical": "#C26A00",
+        "tonalRamp": [
+          "#4A2A03",
+          "#7A4405",
+          "#B36200",
+          "#E07F00",
+          "#FF9F0A",
+          "#FFB547",
+          "#FFD08A",
+          "#FFEBCC"
+        ],
+        "note": "site/ --amber, light theme: the amber figure in the tide illustration (display size only)."
+      },
+      "web-rule": {
+        "role": "neutral",
+        "displayName": "Web Rule",
+        "canonical": "rgb(16 24 39 / 0.14)",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "Row hairline, light."
+      },
+      "web-rule-strong": {
+        "role": "neutral",
+        "displayName": "Web Rule Strong",
+        "canonical": "rgb(16 24 39 / 0.32)",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "List-head hairline and command field outline, light."
+      },
+      "web-rule-dark": {
+        "role": "neutral",
+        "displayName": "Web Rule Dark",
+        "canonical": "rgb(241 245 249 / 0.12)",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "Row hairline on navy."
+      },
+      "web-rule-strong-dark": {
+        "role": "neutral",
+        "displayName": "Web Rule Strong Dark",
+        "canonical": "rgb(241 245 249 / 0.3)",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "List-head hairline and command field outline on navy."
+      },
+      "web-track": {
+        "role": "neutral",
+        "displayName": "Web Track",
+        "canonical": "rgb(16 24 39 / 0.08)",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "Empty tide staff, light."
+      },
+      "web-track-dark": {
+        "role": "neutral",
+        "displayName": "Web Track Dark",
+        "canonical": "rgb(241 245 249 / 0.1)",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "Empty tide staff on navy."
+      },
+      "web-live-wash": {
+        "role": "primary",
+        "displayName": "Web Live Wash",
+        "canonical": "rgb(8 145 178 / 0.12)",
+        "tonalRamp": [
+          "#164E63",
+          "#155E75",
+          "#0E7490",
+          "#0891B2",
+          "#06B6D4",
+          "#22D3EE",
+          "#67E8F9",
+          "#CFFAFE"
+        ],
+        "note": "Fill of the 'active' badge, light."
+      },
+      "web-live-wash-dark": {
+        "role": "primary",
+        "displayName": "Web Live Wash Dark",
+        "canonical": "rgb(34 211 238 / 0.14)",
+        "tonalRamp": [
+          "#164E63",
+          "#155E75",
+          "#0E7490",
+          "#0891B2",
+          "#06B6D4",
+          "#22D3EE",
+          "#67E8F9",
+          "#CFFAFE"
+        ],
+        "note": "Fill of the 'active' badge on navy."
       }
     },
     "typographyMeta": {
@@ -144,6 +352,46 @@
       "badge": {
         "displayName": "Badge",
         "purpose": "Uppercase plan/state badges."
+      },
+      "web-display": {
+        "displayName": "Web Display",
+        "purpose": "site/: hero headline only."
+      },
+      "web-close": {
+        "displayName": "Web Close",
+        "purpose": "site/: closing 'Install HaryX.' headline."
+      },
+      "web-headline": {
+        "displayName": "Web Headline",
+        "purpose": "site/: section titles."
+      },
+      "web-figure": {
+        "displayName": "Web Figure",
+        "purpose": "site/: percentages in the tide illustration (tabular)."
+      },
+      "web-title": {
+        "displayName": "Web Title",
+        "purpose": "site/: platform names."
+      },
+      "web-statement": {
+        "displayName": "Web Statement",
+        "purpose": "site/: the claim on each 'What it does' line (Geist 450)."
+      },
+      "web-lede": {
+        "displayName": "Web Lede",
+        "purpose": "site/: paragraph under a headline, secondary ink."
+      },
+      "web-body": {
+        "displayName": "Web Body",
+        "purpose": "site/: running text, tabular figures."
+      },
+      "web-small": {
+        "displayName": "Web Small",
+        "purpose": "site/: notes, requirements, sample-data line."
+      },
+      "web-command": {
+        "displayName": "Web Command",
+        "purpose": "site/: runnable commands only (Geist Mono)."
       }
     },
     "shadows": [
@@ -151,6 +399,11 @@
         "name": "none",
         "value": "no authored shadows",
         "purpose": "Content is flat (quaternary fill, accent 18% when selected). Controls, navigation and floating notices use system Liquid Glass; notices may tint it (cyan/red 12% banner, red 10% error notice)."
+      },
+      {
+        "name": "web-none",
+        "value": "none",
+        "purpose": "site/ is flat: no shadows, gradients, glass or content fills; hairline rules only."
       }
     ],
     "motion": [
@@ -163,6 +416,36 @@
         "name": "hidden-is-still",
         "value": "no animation while the panel or dashboard is hidden",
         "purpose": "Idle CPU budget; mascots pause when their surface is not visible."
+      },
+      {
+        "name": "web-ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "site/ state transitions (links, OS underline 0.45s, Copy 0.25s, badge and dot 0.4s) and the mark's fill flood."
+      },
+      {
+        "name": "web-ease-draw",
+        "value": "cubic-bezier(0.65, 0, 0.35, 1)",
+        "purpose": "site/ stroke drawing: mark trace 1.7s, tide line 2.4s, route 0.9s."
+      },
+      {
+        "name": "web-mark-entrance",
+        "value": "trace 1.7s at 0.2s / 0.45s; fill floods bottom-up 1.1s at +1.35s; trace fades at +1.9s",
+        "purpose": "Hero mark drawn stroke-first then filled; static under reduced motion."
+      },
+      {
+        "name": "web-tide-line",
+        "value": "draw 2.4s at 1.9s; swell 7s ease-in-out alternate infinite from 4.3s (4px, scaleY 0.82)",
+        "purpose": "Full-bleed hero tide line; static under reduced motion."
+      },
+      {
+        "name": "web-tide-demo",
+        "value": "rise 1.6s ease-out cubic at 60% in view, switch 350ms after",
+        "purpose": "Tide illustration plays once on scroll, Replay re-runs; reduced motion jumps to end state."
+      },
+      {
+        "name": "web-still",
+        "value": "?still query",
+        "purpose": "Zeroes every animation duration and delay to render settled end states for captures."
       }
     ],
     "breakpoints": [
@@ -177,6 +460,26 @@
       {
         "name": "window-min",
         "value": "860 x 560pt"
+      },
+      {
+        "name": "web-max",
+        "value": "1440px frame"
+      },
+      {
+        "name": "web-stack",
+        "value": "900px (columns stack)"
+      },
+      {
+        "name": "web-hero-flow",
+        "value": "760px (mark moves into flow)"
+      },
+      {
+        "name": "web-tide-compact",
+        "value": "720px (tide table drops head row and reset column)"
+      },
+      {
+        "name": "web-narrow",
+        "value": "560px (header keeps one link)"
       }
     ]
   },
@@ -260,6 +563,38 @@
       "description": "Wing H on its Midnight Navy tile plus the HARYX wordmark.",
       "html": "<span class=\"ds-lockup\"><span class=\"ds-tile\"><svg viewBox=\"0 0 64 64\" width=\"14\" height=\"14\"><path fill=\"#22D3EE\" d=\"M11.4 4L20.3 4L20.3 14.8L27.1 24.1C35.9 16.5 46.8 13.2 52.6 4C50 13.4 41 22.6 26.2 35.7L11.4 14.8Z\"/><path fill=\"#F1F5F9\" d=\"M52.6 60L43.7 60L43.7 49.2L36.9 39.9C28.1 47.5 17.2 50.8 11.4 60C14 50.6 23 41.4 37.8 28.3L52.6 49.2Z\"/></svg></span>HARYX</span>",
       "css": ".ds-lockup{display:inline-flex;align-items:center;gap:7px;font:700 13px/1 'Space Grotesk',system-ui;letter-spacing:1.44px;color:#F1F5F9}.ds-tile{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:4.3px;background:#101827}"
+    },
+    {
+      "name": "Web Install Switch",
+      "kind": "input",
+      "refersTo": "web-command-field",
+      "description": "site/ primary action: OS text switch with a growing cyan underline, mono command field with a cyan prompt, and Copy.",
+      "html": "<div class=\"ds-web ds-inst\"><div class=\"ds-inst-sw\"><button class=\"ds-os\" aria-pressed=\"true\">macOS</button><button class=\"ds-os\" aria-pressed=\"false\">Windows</button></div><div class=\"ds-inst-row\"><code class=\"ds-inst-line\"><span>$</span>curl -fsSL https://…/install.sh | sh</code><button class=\"ds-copy\">Copy</button></div><p class=\"ds-inst-note\">Terminal. macOS 26 or later.</p></div>",
+      "css": ":host,.ds-web{--ground:#F1F5F9;--ink:#101827;--ink-2:#3D4A5E;--ink-3:#5B6A80;--rule:rgb(16 24 39/.14);--rule-strong:rgb(16 24 39/.32);--live:#0E7490;--live-fill:#0891B2;--live-wash:rgb(8 145 178/.12);--track:rgb(16 24 39/.08);--amber:#C26A00;--amber-fill:#FF9F0A}.ds-inst{display:grid;gap:14px;max-width:560px;background:var(--ground);color:var(--ink);font:400 17px/1.6 'Geist Variable','Geist',system-ui,sans-serif;padding:16px}.ds-inst-sw{display:flex;gap:22px}.ds-os{appearance:none;border:0;background:none;padding:6px 0;font:inherit;font-size:15px;color:var(--ink-3);position:relative;cursor:pointer}.ds-os::after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--live);transform:scaleX(0);transform-origin:left;transition:transform .45s cubic-bezier(.16,1,.3,1)}.ds-os:hover,.ds-os[aria-pressed=true]{color:var(--ink)}.ds-os[aria-pressed=true]::after{transform:scaleX(1)}.ds-os:focus-visible,.ds-copy:focus-visible{outline:2px solid var(--live);outline-offset:3px}.ds-inst-row{display:grid;grid-template-columns:1fr auto;gap:10px}.ds-inst-line{display:flex;gap:12px;padding:14px 16px;border:1px solid var(--rule-strong);border-radius:2px;font:14px/1.5 'Geist Mono Variable','Geist Mono',ui-monospace,monospace;min-width:0;overflow-wrap:anywhere}.ds-inst-line span{color:var(--live);user-select:none}.ds-copy{border:0;border-radius:2px;padding:0 22px;min-height:48px;background:var(--ink);color:var(--ground);font:500 15px 'Geist Variable','Geist',system-ui,sans-serif;cursor:pointer;transition:background-color .25s cubic-bezier(.16,1,.3,1)}.ds-copy:hover{background:#22D3EE;color:#101827}.ds-copy:active{transform:translateY(1px)}.ds-inst-note{margin:0;font-size:14px;color:var(--ink-3)}"
+    },
+    {
+      "name": "Web Tide Staff Row",
+      "kind": "custom",
+      "refersTo": "web-tide-staff",
+      "description": "site/ sample-data illustration row: dot, name, active badge, 6px staff with ink pace tick and dashed threshold, Space Grotesk figure, between hairlines.",
+      "html": "<div class=\"ds-web ds-tr\"><div class=\"ds-tr-row\"><span class=\"ds-tr-dot\"></span><span class=\"ds-tr-name\">work <b class=\"ds-tr-badge\">active</b></span><span class=\"ds-tr-c\"><span class=\"ds-tr-staff\"><i style=\"width:62%\"></i><em style=\"left:71%\"></em><s style=\"left:90%\"></s></span><small>Week 41%</small></span><span class=\"ds-tr-pct\">62<small>%</small></span></div><p class=\"ds-tr-fine\">Illustration with sample accounts, not live data.</p></div>",
+      "css": ":host,.ds-web{--ground:#F1F5F9;--ink:#101827;--ink-2:#3D4A5E;--ink-3:#5B6A80;--rule:rgb(16 24 39/.14);--rule-strong:rgb(16 24 39/.32);--live:#0E7490;--live-fill:#0891B2;--live-wash:rgb(8 145 178/.12);--track:rgb(16 24 39/.08);--amber:#C26A00;--amber-fill:#FF9F0A}.ds-tr{width:560px;background:var(--ground);color:var(--ink);font:400 17px/1.6 'Geist Variable','Geist',system-ui,sans-serif;padding:16px}.ds-tr-row{position:relative;display:grid;grid-template-columns:28px 9rem 1fr 5rem;align-items:center;column-gap:20px;height:84px;border-top:1px solid var(--rule-strong);border-bottom:1px solid var(--rule)}.ds-tr-dot{width:10px;height:10px;border-radius:50%;background:var(--live);margin-left:9px;transform:scale(1.25)}.ds-tr-name{display:flex;gap:10px;align-items:center}.ds-tr-badge{font-size:12px;font-weight:600;color:var(--live);padding:2px 8px;border-radius:999px;background:var(--live-wash)}.ds-tr-c{display:grid;gap:6px}.ds-tr-c small{font-size:12px;color:var(--ink-3)}.ds-tr-staff{position:relative;display:block;height:6px;border-radius:1.5px;background:var(--track)}.ds-tr-staff i{position:absolute;left:0;top:0;bottom:0;border-radius:1.5px;background:var(--live-fill)}.ds-tr-staff em{position:absolute;top:-4px;bottom:-4px;width:2px;border-radius:1px;background:var(--ink)}.ds-tr-staff s{position:absolute;top:-7px;bottom:-7px;border-left:1px dashed var(--ink-3)}.ds-tr-pct{text-align:right;font:500 40px/1 'Space Grotesk Variable','Space Grotesk',system-ui;letter-spacing:-.02em;font-variant-numeric:tabular-nums}.ds-tr-pct small{font:400 17px 'Geist Variable',system-ui;color:var(--ink-3);margin-left:2px}.ds-tr-fine{margin:22px 0 0;font-size:14px;color:var(--ink-3)}"
+    },
+    {
+      "name": "Web Drawn Mark and Tide Line",
+      "kind": "custom",
+      "refersTo": "brand-tile",
+      "description": "site/ hero signature: the Wing H halves on the bare ground (cyan over ink), with a full-bleed cyan tide line passing behind.",
+      "html": "<div class=\"ds-web ds-hero\"><svg class=\"ds-hero-tide\" viewBox=\"0 0 1440 80\" preserveAspectRatio=\"none\"><path d=\"M0 50 C 180 50, 300 18, 520 20 S 860 70, 1080 62 S 1340 30, 1440 34\"/></svg><svg class=\"ds-hero-mark\" viewBox=\"-22 -30 44 60\"><g transform=\"scale(1.228)\"><g transform=\"rotate(180) scale(1.05 1.2)\" fill=\"var(--ink)\"><path d=\"M-16 -19 L-9.1 -19 L-9.1 -11.7 L-3.8 -5.4 C3 -10.5 11.5 -12.8 16 -19 C14 -12.5 7 -6.2 -4.5 2.5 L-16 -11.7 Z\"/></g><g transform=\"scale(1.05 1.2)\" fill=\"#22D3EE\"><path d=\"M-16 -19 L-9.1 -19 L-9.1 -11.7 L-3.8 -5.4 C3 -10.5 11.5 -12.8 16 -19 C14 -12.5 7 -6.2 -4.5 2.5 L-16 -11.7 Z\"/></g></g></svg><h1>Route your AI accounts like water.</h1></div>",
+      "css": ":host,.ds-web{--ground:#F1F5F9;--ink:#101827;--ink-2:#3D4A5E;--ink-3:#5B6A80;--rule:rgb(16 24 39/.14);--rule-strong:rgb(16 24 39/.32);--live:#0E7490;--live-fill:#0891B2;--live-wash:rgb(8 145 178/.12);--track:rgb(16 24 39/.08);--amber:#C26A00;--amber-fill:#FF9F0A}.ds-hero{position:relative;isolation:isolate;width:560px;height:300px;background:var(--ground);color:var(--ink);overflow:hidden}.ds-hero-mark{position:absolute;z-index:-1;right:24px;top:12px;height:260px}.ds-hero-tide{position:absolute;z-index:-2;left:0;width:100%;top:150px;height:50px}.ds-hero-tide path{fill:none;stroke:var(--live);stroke-width:2.25px;stroke-linecap:round;vector-effect:non-scaling-stroke}.ds-hero h1{position:absolute;left:24px;bottom:16px;margin:0;max-width:11ch;font:500 44px/.96 'Space Grotesk Variable','Space Grotesk',system-ui;letter-spacing:-.04em}"
+    },
+    {
+      "name": "Web Captioned Line",
+      "kind": "custom",
+      "refersTo": "web-command-field",
+      "description": "site/ 'What it does' row: Geist statement and caption left, real commands right with a cyan $; hairline below, no card.",
+      "html": "<ul class=\"ds-web ds-cl\"><li><div><h3>Choose which account Claude Code is logged in as.</h3><p>By number, email or alias, or let HaryX pick.</p></div><div class=\"ds-cl-cmds\"><code>haryx ai switch 2</code><code>haryx ai switch --strategy best</code></div></li></ul>",
+      "css": ":host,.ds-web{--ground:#F1F5F9;--ink:#101827;--ink-2:#3D4A5E;--ink-3:#5B6A80;--rule:rgb(16 24 39/.14);--rule-strong:rgb(16 24 39/.32);--live:#0E7490;--live-fill:#0891B2;--live-wash:rgb(8 145 178/.12);--track:rgb(16 24 39/.08);--amber:#C26A00;--amber-fill:#FF9F0A}.ds-cl{list-style:none;margin:0;padding:16px;width:640px;background:var(--ground);color:var(--ink);font:400 17px/1.6 'Geist Variable','Geist',system-ui,sans-serif}.ds-cl li{display:grid;grid-template-columns:7fr 4fr;gap:24px;padding:32px 0;border-top:1px solid var(--rule-strong);border-bottom:1px solid var(--rule)}.ds-cl h3{margin:0 0 10px;font-weight:450;font-size:24px;line-height:1.2;letter-spacing:-.015em}.ds-cl p{margin:0;color:var(--ink-2)}.ds-cl-cmds{display:grid;gap:8px;align-content:start;padding-top:6px}.ds-cl-cmds code{font:14px 'Geist Mono Variable','Geist Mono',ui-monospace,monospace;color:var(--ink-2)}.ds-cl-cmds code::before{content:'$ ';color:var(--live)}"
     }
   ],
   "narrative": {
@@ -270,7 +605,8 @@
       "Electric Cyan marks the active account, live state and on-pace usage. Amber means ahead of pace or past 85%; red only at the limit.",
       "Space Grotesk only for the wordmark, large percentages and reset clocks; SF Pro everywhere else.",
       "Tabular figures in every number that sits in a column or updates in place.",
-      "1pt hairline rules divide sections; flat fills, no gradients, no authored shadows."
+      "1pt hairline rules divide sections; flat fills, no gradients, no authored shadows.",
+      "Web (site/) only: navy ground in dark, Soft White paper in light; drawn mark and full-bleed tide line as the only illustration; Space Grotesk headlines and figures, Geist text, Geist Mono for real commands; hairlines, no cards."
     ],
     "rules": [
       {
@@ -297,6 +633,42 @@
         "name": "The Glass Is Chrome Rule",
         "body": "Glass is for controls, navigation and floating notices. Content (account cards and readings) sits on flat system fills, and selection is a fill change, not a ring or a glass tint. Never author shadows or gradients.",
         "section": "elevation"
+      },
+      {
+        "name": "The Navy Ground Rule (web only)",
+        "body": "In the dark theme the whole page ground is Midnight Navy with Soft White ink; in the light theme it is Soft White paper with Midnight Navy ink. This is a deliberate exception, for `site/` only, to the app's rule that Midnight Navy is only the mark's tile. App surfaces keep the system appearance and never use navy as a surface.",
+        "section": "colors",
+        "scope": "site/"
+      },
+      {
+        "name": "The One Accent Rule (web)",
+        "body": "Cyan is the page's only accent: the tide line, the active account and the route in the tide illustration, the `$`/`>` prompt before a command, the selected OS underline, link-hover underlines, the focus ring (2px, 3px offset), and the Copy button's hover and copied fill. Amber appears only inside the tide illustration, as a staff fill and its figure. No red ships on the page.",
+        "section": "colors",
+        "scope": "site/"
+      },
+      {
+        "name": "The Web Display Rule",
+        "body": "On the web, Space Grotesk carries headlines, figures, reset times and platform names, wider than the app's Display-Only Rule, which stays in force for the app. Running text, statements, buttons, the OS switch and nav stay in Geist.",
+        "section": "typography",
+        "scope": "site/"
+      },
+      {
+        "name": "The Real Command Rule",
+        "body": "Geist Mono is for commands a visitor can run (the install lines, the `haryx …` commands beside each feature, the cswap import line) and nothing else: no mono labels, captions or decorative code.",
+        "section": "typography",
+        "scope": "site/"
+      },
+      {
+        "name": "The Hairline, Not Card Rule",
+        "body": "Lists are divided by 1px rules: a strong rule at the head of a list, a light rule under each row. Nothing is boxed as a card. The only outlined element is the command field.",
+        "section": "elevation",
+        "scope": "site/"
+      },
+      {
+        "name": "The Sample Data Rule",
+        "body": "Any usage reading on the web is an illustration and says so on the page, next to it, in plain words.",
+        "section": "components",
+        "scope": "site/"
       }
     ],
     "dos": [
@@ -304,7 +676,13 @@
       "**Do** draw every usage reading as a Tide Staff (flat fill, 1.5pt radius, pace tick) coloured cyan / amber / red by the Three-Step Fill Rule.",
       "**Do** use tabular figures for every percentage, clock and countdown.",
       "**Do** divide panel sections with 1pt system-separator rules and 10pt of space on each side.",
-      "**Do** use the system label tiers for all neutral text, keep content on flat system fills, and show selection as the accent fill at 18%."
+      "**Do** use the system label tiers for all neutral text, keep content on flat system fills, and show selection as the accent fill at 18%.",
+      "**Do** use the navy ground in dark and Soft White paper in light on `site/`, and only there.",
+      "**Do** let the drawn mark and the tide line be the page's only illustration, with the tide line full-bleed and behind the mark.",
+      "**Do** divide every list with 1px hairlines and leave sections separated by space.",
+      "**Do** label every usage illustration as sample data, in plain words beside it.",
+      "**Do** keep the install command, with its OS switch and Copy, above the fold and repeat it at the close.",
+      "**Do** honour reduced motion: every entrance resolves to its end state, and `?still` renders that end state for captures."
     ],
     "donts": [
       "**Don't** set labels, buttons, headings or table text in Space Grotesk; it is reserved for the wordmark, large figures and clocks.",
@@ -312,7 +690,11 @@
       "**Don't** put content on glass or add gradients and authored shadows; cards are flat system fills and glass is for controls, navigation and floating notices.",
       "**Don't** put borders or rings on containers, including for selection; selection is the accent fill at 18%.",
       "**Don't** draw a usage reading as a capsule progress bar or label it in uppercase; use the Tide Staff and sentence case.",
-      "**Don't** use Midnight Navy as a surface or text colour; it exists as the mark's tile."
+      "**Don't** use Midnight Navy as a surface or text colour; it exists as the mark's tile.",
+      "**Don't** box content in cards, add shadows, gradients or glass, or fill a section band.",
+      "**Don't** set anything but a runnable command in Geist Mono.",
+      "**Don't** add a second accent: cyan is the only one, amber lives only inside the tide illustration.",
+      "**Don't** present a usage figure as live data."
     ]
   }
 }

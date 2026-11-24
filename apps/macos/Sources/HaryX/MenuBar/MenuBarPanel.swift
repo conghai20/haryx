@@ -168,6 +168,8 @@ private struct NextInLine: View {
     @Environment(AppStore.self) private var store
     let accounts: [Account]
     private static let rowHeight: CGFloat = 30
+    /// About two and a half rows: the cut-off row shows there is more to scroll to.
+    private static let maxListHeight: CGFloat = 140
     static let space = "nextInLine"
     /// Rows sit inside the hover fill, not flush with its edges.
     private static let rowInset: CGFloat = 8
@@ -178,7 +180,7 @@ private struct NextInLine: View {
     /// The grid's height, so a hovered row near the bottom shows its email above instead.
     @State private var gridHeight: CGFloat = 0
     /// The row mascot (18 pt) plus its spacing: where a row's name text starts.
-    private static let nameOffset: CGFloat = 24
+    static let nameOffset: CGFloat = 24
     /// The email label's height (caption text plus padding) and its gap from the row.
     private static let labelHeight: CGFloat = 22
     private static let labelGap: CGFloat = 2
@@ -220,9 +222,11 @@ private struct NextInLine: View {
                 }
             }
         }
-        .scrollIndicators(.never)
+        .scrollIndicators(.automatic)
         .scrollBounceBehavior(.basedOnSize)
-        .frame(maxHeight: min(CGFloat(accounts.count + 1) * Self.rowHeight, 300))
+        // Rows are not all one line tall, so size to the measured grid; estimate until measured.
+        .frame(height: min(gridHeight > 0 ? gridHeight : CGFloat(accounts.count + 1) * Self.rowHeight,
+                           Self.maxListHeight))
     }
 
     @ViewBuilder private var hoverFill: some View {
@@ -240,7 +244,7 @@ private struct NextInLine: View {
     /// bottom of the list), shown at once instead of after the system tooltip delay.
     @ViewBuilder private var hoveredEmail: some View {
         if let slot = hoveredSlot, let band = rowBands[slot],
-           let account = accounts.first(where: { $0.number == slot }) {
+           let account = accounts.first(where: { $0.number == slot }), !account.showsSignInRow {
             let fitsBelow = band.maxY + Self.labelGap + Self.labelHeight <= gridHeight
             Text(account.email)
                 .font(.caption)
@@ -266,24 +270,65 @@ struct AccountRow: View {
     let onBand: (CGRect) -> Void
 
     var body: some View {
-        GridRow {
-            HStack(spacing: 6) {
-                MascotView(style: store.style(for: account), mood: store.mood(for: account), size: 18,
-                           phase: store.phase(for: account))
-                Text(account.displayName).lineLimit(1).truncationMode(.middle)
-                if let plan = account.plan?.label { Text(plan).font(.caption2).foregroundStyle(.tertiary) }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 5)
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(NextInLine.space)) } action: { onBand($0) }
-            usageCells
-            trailing
+        Group {
+            if account.showsSignInRow { signInRow } else { usageRow }
         }
         .font(.callout.monospacedDigit())
         .opacity(account.isDisabled ? 0.5 : 1)
         .contextMenu { AccountContextMenu(account: account) }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
+    }
+
+    private var usageRow: some View {
+        GridRow {
+            identity
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 5)
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(NextInLine.space)) } action: { onBand($0) }
+            usageCells
+            trailing
+        }
+    }
+
+    /// One cell across every column: name over email, then Sign In. It has no usage to show, and
+    /// a single spanning cell leaves the column widths to the rows that do.
+    private var signInRow: some View {
+        GridRow {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 1) {
+                    identity
+                    // The name is the email unless the account has an alias; then name both.
+                    if account.alias != nil {
+                        Text(account.email)
+                            .font(.caption).foregroundStyle(.secondary)
+                            .lineLimit(1).truncationMode(.middle)
+                            .padding(.leading, NextInLine.nameOffset)
+                    }
+                    Label(account.signInReason, systemImage: "exclamationmark.triangle.fill")
+                        .labelStyle(.titleAndIcon)
+                        .imageScale(.small)
+                        .font(.caption).foregroundStyle(Brand.warn)
+                        .lineLimit(1).truncationMode(.tail)
+                        .padding(.leading, NextInLine.nameOffset)
+                }
+                Spacer(minLength: 0)
+                CompactSignInButton(account: account)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 5)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(NextInLine.space)) } action: { onBand($0) }
+            .gridCellColumns(5)
+        }
+    }
+
+    private var identity: some View {
+        HStack(spacing: 6) {
+            MascotView(style: store.style(for: account), mood: store.mood(for: account), size: 18,
+                       phase: store.phase(for: account))
+            Text(account.displayName).lineLimit(1).truncationMode(.middle)
+            if let plan = account.plan?.label { Text(plan).font(.caption2).foregroundStyle(.tertiary) }
+        }
     }
 
     /// The 5h, 7d and reset columns, or the account's status across them.
@@ -319,17 +364,14 @@ struct AccountRow: View {
             .gridColumnAlignment(.trailing)
     }
 
-    @ViewBuilder private var trailing: some View {
-        if account.needsRelogin && account.canRelogin {
-            SignInAgainButton(account: account, prominent: false).controlSize(.mini)
-        } else {
-            Button("Use") { Task { await store.switchTo(account) } }
-                .buttonStyle(.glassProminent)
-                .controlSize(.mini)
-                .font(.caption.weight(.semibold))
-                .disabled(store.busy != nil || account.isDisabled)
-                .help("Switch to \(account.displayName)")
-        }
+    private var trailing: some View {
+        // Not a glass style: glass draws outside the scroll view's clip, over the panel's buttons.
+        Button("Use") { Task { await store.switchTo(account) } }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.mini)
+            .font(.caption.weight(.semibold))
+            .disabled(store.busy != nil || account.isDisabled)
+            .help("Switch to \(account.displayName)")
     }
 }
 
@@ -475,4 +517,40 @@ struct SignInMenuSection: View {
 private extension Account {
     /// The alias and email together (or just the email), for hover help where names are cut short.
     var fullIdentity: String { alias.map { "\($0) — \(email)" } ?? email }
+}
+
+/// "Sign In" sized like the row's "Use" button, so it does not widen the last column; a bare
+/// spinner while that account's sign-in is open.
+private struct CompactSignInButton: View {
+    @Environment(AppStore.self) private var store
+    let account: Account
+
+    var body: some View {
+        if store.loginPending(for: account) {
+            ProgressView()
+                .controlSize(.mini)
+                .help("Waiting for sign-in: finish it in its window and your browser")
+                .accessibilityLabel("Waiting for sign-in")
+        } else {
+            Button("Sign In") { store.signInAgain(account) }
+                .buttonStyle(.borderedProminent).tint(.orange)
+                .controlSize(.mini)
+                .font(.caption.weight(.semibold))
+                .help("Sign in again as \(account.email)")
+        }
+    }
+}
+
+extension Account {
+    /// The menu bar row shows email and Sign In in place of usage.
+    fileprivate var showsSignInRow: Bool { needsRelogin && canRelogin }
+
+    /// Why the row asks for a sign-in, short enough for one line under the name.
+    fileprivate var signInReason: String {
+        switch usageStatus {
+        case "no_credentials": "No saved login: sign in again"
+        case "foreign_credential": "Saved login is another account's: sign in again"
+        default: "Login expired: sign in again"
+        }
+    }
 }

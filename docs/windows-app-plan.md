@@ -1,6 +1,34 @@
 # HaryX for Windows: tray app plan
 
-Status: planned, no code yet (2026-11-24).
+Status: built (2026-11-24), all four phases, on branch `feat/windows-plan`. Tested by CI on
+`windows-latest` (CLI tests, app backend tests, UI type check and tests) and by running the app on
+macOS. **Not yet run on a real Windows machine**: the tray, toasts, terminals, the wake task and the
+installer need the manual checklist below before a release.
+
+Built as planned, with these differences:
+- The app does not link `haryx-core`: it decodes the CLI's `--json` output with its own types, tested
+  against `packages/contracts/`, as the macOS app does. Fewer couplings, same contract.
+- Running sessions come from the new `haryx ai sessions --json`, which reads Claude Code's own
+  `sessions/{pid}.json` records (already cross-platform), not from reading process environments. No
+  process-memory reading was needed.
+- Mascot sprites stay defined in the macOS app's `Sprites.swift`; `scripts/brand/export_sprites.py`
+  writes `packages/mascots/sprites.json` for Windows and CI fails if the two drift. Moving the macOS app
+  onto the JSON is left for later.
+- No Mica backdrop: a transparent window shows through on Windows 10, so the dashboard uses flat fills.
+- `haryx run` needs no Windows terminal code: the app opens the terminal and runs `haryx run N` in it.
+- `haryxw` is built only with the `windowless` feature (Windows releases), so other platforms do
+  not ship it. A `cargo install` on Windows has no `haryxw`; the wake task then runs `haryx.exe` and
+  a console window flashes each minute.
+
+Still open:
+- **Updates inside the app** (`tauri-plugin-updater`) need an update-signing key pair: the owner
+  generates it (`npx tauri signer generate`), stores the private key as a release secret, and the
+  public key goes into `tauri.conf.json`. Until then, run `install.ps1` again or `winget upgrade`.
+- **Code signing**: unsigned by decision for now.
+- **winget**: the release renders the manifests; submitting them to `microsoft/winget-pkgs` is a
+  manual pull request.
+- **Claude Desktop follow** on Windows still needs its sign-in test; the app does not offer it.
+- **Unclaimed credentials** are read from `haryx unclaimed` text (no `--json` yet), as on macOS.
 
 ## Goal
 

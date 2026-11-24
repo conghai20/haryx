@@ -31,5 +31,5 @@ The Rust CLI targets macOS, Linux and Windows, but these parts are macOS/Linux-s
 - **Paths:** `~/.claude-swap-backup` and `~/.claude` locations under `%USERPROFILE%`.
 - **Packaging:** Windows builds of the prebuilt binaries for the pip/npm wrappers.
 
-The design for each item, and the Windows tray app (Tauri) built on top, is in
-[windows-app-plan.md](windows-app-plan.md).
+All five are built (2026-11-24), together with the Windows tray app on top; see
+[windows-app-plan.md](windows-app-plan.md) for what changed from the plan and what is still open.

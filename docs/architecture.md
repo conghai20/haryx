@@ -7,7 +7,8 @@
 | `apps/macos/` | HaryX macOS app (SwiftUI menu bar + dashboard) | shipping |
 | `cli/` | `haryx` Rust CLI, drop-in replacement for `cswap`; owns accounts and credentials on the device | in progress |
 | `server/` | HaryX server: sync, team view, API for web and mobile (Go) | future |
-| `apps/windows/` | HaryX Windows tray app (Tauri 2), plan in `docs/windows-app-plan.md` | planned |
+| `apps/windows/` | HaryX Windows tray app (Tauri 2 + Svelte 5), plan in `docs/windows-app-plan.md` | built, untested on hardware |
+| `packages/mascots/` | mascot sprites exported from the macOS app for the Windows app | active |
 | `apps/web/` | web dashboard | future |
 | `apps/ios/`, `apps/android/` | native mobile apps | future |
 | `packages/contracts/` | language-neutral JSON fixtures/schemas shared by every part | active |

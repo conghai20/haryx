@@ -63,7 +63,18 @@ On first launch it offers to install the `haryx` command in `/usr/local/bin` (as
 password) or `~/.local/bin`; Preferences › Terminal command does the same later. The command is a
 link into the app, so updating the app updates the command.
 
-**CLI only.** Each release also has `haryx-v<version>-<target>.tar.gz` for macOS and Linux
+**Windows app (includes the CLI).** In PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/conghai20/haryx/main/scripts/install.ps1 | iex
+```
+
+It downloads the latest `HaryX-<version>-<x64|arm64>-setup.exe`, checks its SHA-256 and installs HaryX
+for your user (no admin rights), then starts it in the tray. Run it again to update. The installer is
+not code-signed yet: a copy downloaded with a browser gets a SmartScreen warning (More info › Run
+anyway), which the script avoids. `HARYX_VERSION=0.1.3` pins a version. Needs Windows 10 22H2 or 11.
+
+**CLI only.** Each release also has `haryx-v<version>-<target>.tar.gz` for macOS, Linux and Windows
 (Apple silicon, Intel, ARM64, x86_64). Or build it:
 
 ```sh
@@ -114,6 +125,7 @@ confirmation before it is applied. Details: [docs/ai-profile-plan.md](docs/ai-pr
 |---|---|
 | [`cli/`](cli) | `haryx` CLI and dashboard (Rust workspace: `haryx-core`, `haryx`) |
 | [`apps/macos/`](apps/macos) | HaryX macOS app (SwiftUI, macOS 26+) |
+| [`apps/windows/`](apps/windows) | HaryX Windows tray app (Tauri 2 + Svelte 5) |
 | [`packaging/`](packaging), `scripts/release/` | PyPI and npm wrappers, release tarballs, Homebrew formula |
 | [`packages/contracts/`](packages/contracts) | JSON contracts shared by the app and the CLI |
 | `assets/brand/`, `scripts/brand/` | logo sources, exports and generators |
@@ -130,8 +142,26 @@ cargo install --path crates/haryx   # → ~/.cargo/bin/haryx
 ```
 
 See [cli/README.md](cli/README.md) for the commands. haryx keeps its own data folder
-(`~/Library/Application Support/HaryX`, `$XDG_DATA_HOME/haryx` on Linux, or `HARYX_HOME`);
+(`~/Library/Application Support/HaryX`, `$XDG_DATA_HOME/haryx` on Linux, `%LOCALAPPDATA%\haryx` on
+Windows, or `HARYX_HOME`);
 `haryx ai import --from-cswap` copies an existing cswap setup and leaves cswap untouched.
+
+## Windows app
+
+A tray icon with a flyout (the active account's usage, the next accounts with Use, Switch, a
+terminal menu) and a dashboard (accounts, running sessions, auto-switch, wake, setup profiles,
+tools, settings), over the same `haryx` CLI. Windows 10 22H2 or 11, x64 or ARM64.
+
+```sh
+cd apps/windows
+npm ci
+npm test && npm run check            # UI tests and type check
+(cd src-tauri && cargo test)         # backend tests
+npx tauri dev                        # run from source (also runs on macOS for UI work)
+npx tauri build                      # NSIS installer (on Windows)
+```
+
+Plan and design notes: [docs/windows-app-plan.md](docs/windows-app-plan.md).
 
 ## macOS app
 

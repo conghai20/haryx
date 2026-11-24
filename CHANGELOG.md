@@ -22,9 +22,31 @@ cannot be released without one. Sections, in this order, only when they have ent
 - `haryx ai desktop status [--json]` and `haryx ai desktop path ACCOUNT`: each account's Claude
   Desktop data folder, keyed by account UUID, and which account it is signed into.
 
+- HaryX for Windows: a tray app over the `haryx` CLI (Tauri 2). The flyout shows the active account's
+  5-hour reading and the next accounts with Use; the dashboard has accounts, running sessions,
+  auto-switch with its live log, wake, setup profiles, tools and settings. Toasts for switches,
+  usage, sign-in and resets (the macOS rules), launch at login, terminals (Windows Terminal,
+  PowerShell 7, Windows PowerShell, Command Prompt, Git Bash), and the account mascot in the tray.
+  Installs per user with `irm .../scripts/install.ps1 | iex`; winget manifests are in each release.
+- The `haryx` CLI runs on Windows: the store is `%LOCALAPPDATA%\haryx`, saved logins are sealed
+  with DPAPI for your Windows user, folders are shared through junctions (files through symlinks
+  when Developer Mode allows), `claude` is found through PATHEXT (`claude.exe` or npm's
+  `claude.cmd`), and `haryx ai wake install` registers a per-user Task Scheduler task. Releases
+  carry x64 and ARM64 Windows binaries, wheels and npm support.
+- `haryx ai sessions [--json]`: every running Claude Code session and the account it runs as, read
+  from Claude Code's own session records (contract: `packages/contracts/haryx/sessions.json`).
+- `haryxw`, a build of haryx without a console window (Windows releases only), used by the wake
+  task. Leading `--env NAME=VALUE` pairs set the store variables a scheduled task cannot carry.
+
 - macOS app: a "Not saved" notice in the bottom-right corner of the Config and Auto-switch panes
   while a typed setting has not been saved with Return, so a value like the auto-switch threshold
   is no longer silently lost. Esc puts the field back to the stored value.
+
+### Fixed
+
+- A profile rollback on Windows refused to run instead of deleting a link it could not put back.
+- Included folders in setup profiles were refused on Windows as "outside your home folder" because of
+  the drive prefix.
 
 ## [0.1.2] - 2026-11-24
 

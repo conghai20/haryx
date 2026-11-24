@@ -180,7 +180,7 @@ fn skip_existing(sources: &[Source], state: &mut Map<String, Value>) {
         for path in transcripts(&source.projects) {
             if let Ok(meta) = std::fs::metadata(&path) {
                 files.insert(
-                    path.display().to_string(),
+                    file_key(&path),
                     json!({"offset": meta.len(), "head": head_of(&path), "recent": []}),
                 );
             }
@@ -212,6 +212,12 @@ pub fn transcripts(projects: &Path) -> Vec<PathBuf> {
     out
 }
 
+/// A file's key in `index.json`: rebuilt from its components so `a/b` and `a\\b` (both legal on
+/// Windows) name the same file.
+fn file_key(path: &Path) -> String {
+    path.components().collect::<PathBuf>().display().to_string()
+}
+
 /// The first bytes of a file, to tell a replaced transcript from one that only grew.
 const HEAD_BYTES: usize = 256;
 
@@ -235,7 +241,7 @@ pub fn mark_read(store_root: &Path, path: &Path) -> Result<(), String> {
     let files = state.entry("files").or_insert_with(|| json!({}));
     if let Some(files) = files.as_object_mut() {
         files.insert(
-            path.display().to_string(),
+            file_key(path),
             json!({"offset": len, "head": head_of(path), "recent": []}),
         );
     }
@@ -248,7 +254,7 @@ fn read_file(
     files: &mut Map<String, Value>,
     mut sink: impl FnMut(&super::transcript::Reply),
 ) -> u64 {
-    let key = path.display().to_string();
+    let key = file_key(path);
     let Ok(meta) = std::fs::metadata(path) else {
         return 0;
     };
@@ -580,5 +586,17 @@ mod tests {
         let found = sources(&store, &default);
         assert_eq!(found.len(), 2);
         assert_eq!(found[1].account, Some(3));
+    }
+}
+
+#[cfg(all(test, windows))]
+mod windows_tests {
+    #[test]
+    fn mixed_separators_name_the_same_file() {
+        use std::path::Path;
+        assert_eq!(
+            super::file_key(Path::new(r"C:\u\claude\projects/-w-api/s1.jsonl")),
+            super::file_key(Path::new(r"C:\u\claude\projects\-w-api\s1.jsonl"))
+        );
     }
 }

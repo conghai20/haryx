@@ -51,6 +51,8 @@
   let groups = $derived(CATEGORIES.map(([c, title, on]) => ({ c, title: on ? title : `${title} (opt-in)`, list: (items ?? []).filter((i) => i.category === c) })).filter((g) => g.list.length > 0));
   let changes = $derived(plan?.entries.filter((e) => CHANGES.includes(e.action)) ?? []);
   let encrypted = $derived(summary?.secrets === "encrypt");
+  /** Opens an encrypted profile; passed to the CLI in its environment only, never kept. */
+  let passphrase = $state("");
   let nameOk = $derived(/^[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}$/.test(name) && name !== DEFAULT);
 
   const titleOf = (c: string) => CATEGORIES.find(([n]) => n === c)?.[1] ?? c;
@@ -154,7 +156,8 @@
   async function applyProfile() {
     const ok = await ask(`Apply '${selected}' to your live .claude? ${changes.length} change(s). A backup is made first; Undo last apply restores it.`, { title: "Apply profile", kind: "warning", okLabel: "Apply", cancelLabel: "Cancel" });
     if (!ok) return;
-    if (await store.run("Applying profile", ["ai", "profile", "apply", selected, "--yes", ...(prune ? ["--prune"] : []), ...(history ? [] : ["--no-history"])], { success: `Applied '${selected}'` })) {
+    if (await store.run("Applying profile", ["ai", "profile", "apply", selected, "--yes", ...(prune ? ["--prune"] : []), ...(history ? [] : ["--no-history"])], { success: `Applied '${selected}'`, passphrase: encrypted ? passphrase : undefined })) {
+      passphrase = "";
       mode = "view";
       await reload();
     }
@@ -219,7 +222,10 @@
     {#if mode === "apply"}
       <label class="line"><input type="checkbox" bind:checked={history} onchange={loadPlan} /> Include history</label>
       <label class="line"><input type="checkbox" bind:checked={prune} onchange={loadPlan} /> Remove local items the profile does not have (history is always kept)</label>
-      {#if encrypted}<div class="banner error" role="alert">This profile's secrets are encrypted. Apply it from a terminal with <code>haryx ai profile apply {selected}</code> to enter the passphrase.</div>{/if}
+      {#if encrypted}
+        <label class="line">Passphrase <input type="password" bind:value={passphrase} autocomplete="off" aria-label="Profile passphrase" /></label>
+        <p class="caption secondary">This profile's secrets are encrypted. The passphrase goes to haryx for this apply only.</p>
+      {/if}
       {#if sideError}<div class="banner error" role="alert">{sideError}</div>
       {:else if !plan}<p class="secondary" role="status">Planning…</p>
       {:else}
@@ -254,7 +260,7 @@
       {#if mode === "save"}<button class="primary" disabled={!nameOk || !!store.busy} onclick={saveProfile}>Save</button>{/if}
       {#if mode === "import"}<button class="primary" disabled={!nameOk || !!store.busy} onclick={importProfile}>Import</button>{/if}
       {#if mode === "export"}<button class="primary" disabled={!!store.busy} onclick={exportProfile}>Export…</button>{/if}
-      {#if mode === "apply"}<button class="primary" disabled={changes.length === 0 || encrypted || !!store.busy} onclick={applyProfile}>Apply</button>{/if}
+      {#if mode === "apply"}<button class="primary" disabled={changes.length === 0 || (encrypted && passphrase.length === 0) || !!store.busy} onclick={applyProfile}>Apply</button>{/if}
     </div>
   </section>
 {/if}

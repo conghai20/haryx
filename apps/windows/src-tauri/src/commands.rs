@@ -60,12 +60,14 @@ pub struct RunResult {
 }
 
 /// Run `haryx <args>` (with optional stdin, e.g. a token or a `y` confirmation the UI already asked
-/// for). Refreshes the accounts afterwards, since most commands change them.
+/// for). `passphrase` opens an encrypted setup profile; it reaches the CLI only as
+/// `HARYX_PROFILE_PASSPHRASE`, never in argv. Refreshes the accounts afterwards.
 #[tauri::command]
 pub async fn haryx(
     state: State<'_, Arc<AppState>>,
     args: Vec<String>,
     stdin: Option<String>,
+    passphrase: Option<String>,
 ) -> Result<RunResult, String> {
     if !is_allowed(&args) {
         return Err(format!(
@@ -77,8 +79,13 @@ pub async fn haryx(
     tauri::async_runtime::spawn_blocking(move || {
         let cli = state.cli()?;
         let argv: Vec<&str> = args.iter().map(String::as_str).collect();
+        let env: Vec<(&str, &str)> = passphrase
+            .as_deref()
+            .filter(|p| !p.is_empty())
+            .map(|p| vec![("HARYX_PROFILE_PASSPHRASE", p)])
+            .unwrap_or_default();
         let out = cli
-            .run(&argv, stdin.as_deref(), &[], DEFAULT_TIMEOUT)
+            .run(&argv, stdin.as_deref(), &env, DEFAULT_TIMEOUT)
             .map_err(|e| e.to_string())?;
         state.refresh_soon();
         Ok(RunResult {

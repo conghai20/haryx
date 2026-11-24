@@ -6,7 +6,8 @@ import type { Job, Prefs, RunResult, Snapshot, TerminalId } from "./types";
 export const api = {
   snapshot: () => invoke<Snapshot>("snapshot"),
   refresh: () => invoke<void>("refresh"),
-  haryx: (args: string[], stdin?: string) => invoke<RunResult>("haryx", { args, stdin: stdin ?? null }),
+  haryx: (args: string[], stdin?: string, passphrase?: string) =>
+    invoke<RunResult>("haryx", { args, stdin: stdin ?? null, passphrase: passphrase ?? null }),
   json: <T>(args: string[]) => invoke<T>("haryx_json", { args }),
   setPrefs: (prefs: Prefs) => invoke<void>("set_prefs", { prefs }),
   autoStart: () => invoke<void>("auto_start"),

@@ -73,10 +73,14 @@ class Store {
   }
 
   /** Run a haryx command with a busy label; flash the CLI's last line or the given success text. */
-  async run(label: string, args: string[], opts: { stdin?: string; success?: string } = {}): Promise<boolean> {
+  async run(
+    label: string,
+    args: string[],
+    opts: { stdin?: string; success?: string; passphrase?: string } = {},
+  ): Promise<boolean> {
     this.busy = label;
     try {
-      const r = await api.haryx(args, opts.stdin);
+      const r = await api.haryx(args, opts.stdin, opts.passphrase);
       if (r.ok) this.flash(opts.success ?? (r.message || `${label}: done`));
       else this.flash(r.message, true);
       return r.ok;

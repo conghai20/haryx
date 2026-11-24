@@ -1,0 +1,24 @@
+---
+// HARYX wordmark, stroke lettering from assets/brand/haryx-wordmark.svg.
+interface Props {
+  class?: string;
+}
+const { class: className } = Astro.props;
+const S = { fill: "none", stroke: "currentColor", "stroke-width": 7, "stroke-linecap": "butt", "stroke-linejoin": "bevel" };
+---
+
+<svg class:list={["wordmark", className]} viewBox="-2 -2 190 44" role="img" aria-label="HARYX">
+  <g><path d="M3.5 0 V40" {...S} /><path d="M26.5 0 V40" {...S} /><path d="M3.5 20 H26.5" {...S} /></g>
+  <g transform="translate(38 0)"><path d="M3.5 40 L16.5 3 L29.5 40" {...S} /><path d="M9.2 27 H23.8" {...S} /></g>
+  <g transform="translate(79 0)"><path d="M3.5 40 V3.5 H15 A9.5 9.5 0 0 1 15 22.5 H3.5" {...S} /><path d="M14.5 22.5 L26 40" {...S} /></g>
+  <g transform="translate(116 0)"><path d="M3.5 0 L15.5 18 L27.5 0" {...S} /><path d="M15.5 18 V40" {...S} /></g>
+  <g transform="translate(155 0)"><path d="M3.5 0 L27.5 40" {...S} /><path d="M27.5 0 L3.5 40" {...S} /></g>
+</svg>
+
+<style>
+  .wordmark {
+    display: block;
+    height: 1em;
+    width: auto;
+  }
+</style>

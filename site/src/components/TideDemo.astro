@@ -1,0 +1,408 @@
+---
+// Illustration of auto-switch on sample accounts: the active account's 5-hour
+// tide rises past its threshold and the route crosses to the next account.
+// Sample data only; labelled as such on the page.
+
+const THRESHOLD = 90;
+const ACCOUNTS = [
+  { name: "work", from: 62, to: 91, pace: 71, reset: "1:48", week: 41 },
+  { name: "personal", from: 18, to: 18, pace: 40, reset: "3:12", week: 22 },
+  { name: "side project", from: 47, to: 47, pace: 58, reset: "0:36", week: 66 },
+] as const;
+---
+
+<figure class="tide" data-tide data-threshold={THRESHOLD}>
+  <div class="table" role="table" aria-label="Sample accounts, 5-hour usage">
+    <div class="head" role="row">
+      <span role="columnheader" class="c-name">Account</span>
+      <span role="columnheader" class="c-staff">5-hour window</span>
+      <span role="columnheader" class="c-pct">Used</span>
+      <span role="columnheader" class="c-reset">Resets in</span>
+    </div>
+
+    <svg class="route" viewBox="0 0 28 100" preserveAspectRatio="none" aria-hidden="true">
+      <path class="route-path" d="M14 0 C 27 32, 1 68, 14 100" pathLength="1" />
+    </svg>
+
+    {
+      ACCOUNTS.map((a, i) => (
+        <div
+          class="row"
+          role="row"
+          data-row={i}
+          data-from={a.from}
+          data-to={a.to}
+          data-pace={a.pace}
+          data-active={i === 0 ? "true" : "false"}
+        >
+          <span role="cell" class="c-name">
+            <span class="dot" aria-hidden="true" />
+            <span class="name">{a.name}</span>
+            <span class="badge">active</span>
+          </span>
+          <span role="cell" class="c-staff">
+            <span class="staff" style={`--v:${a.from / 100}; --pace:${a.pace}%; --thr:${THRESHOLD}%`}>
+              <span class="fill" />
+              <span class="pace" title="Where usage should be by now" />
+              <span class="thr" />
+            </span>
+            <span class="week">Week {a.week}%</span>
+          </span>
+          <span role="cell" class="c-pct">
+            <span class="pct" data-pct>
+              {a.from}
+            </span>
+            <span class="unit">%</span>
+          </span>
+          <span role="cell" class="c-reset">
+            {a.reset}
+          </span>
+        </div>
+      ))
+    }
+  </div>
+
+  <figcaption class="caption">
+    <p class="event" aria-live="polite" data-event>
+      Auto-switch is watching <strong>work</strong>. Threshold {THRESHOLD}%.
+    </p>
+    <p class="fine">
+      Illustration with sample accounts, not live data. Auto-switch is off until you start it, and moves only between
+      your own accounts.
+      <button type="button" class="replay" data-replay>Replay</button>
+    </p>
+  </figcaption>
+</figure>
+
+<style>
+  .tide {
+    margin: 0;
+    --row: 84px;
+    --head: 46px;
+  }
+
+  .table {
+    position: relative;
+    display: grid;
+    border-top: 1px solid var(--rule-strong);
+  }
+
+  .head,
+  .row {
+    display: grid;
+    grid-template-columns: 28px minmax(9rem, 1.1fr) 3fr 6.5rem 6rem;
+    align-items: center;
+    column-gap: clamp(12px, 2vw, 28px);
+  }
+  .head {
+    height: var(--head);
+    font-size: 0.8125rem;
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--rule);
+  }
+  .head .c-name {
+    grid-column: 2;
+  }
+  .row {
+    position: relative;
+    height: var(--row);
+    border-bottom: 1px solid var(--rule);
+  }
+  .row .c-name {
+    grid-column: 2;
+  }
+
+  .c-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .name {
+    font-size: 1.0625rem;
+    white-space: nowrap;
+  }
+  .dot {
+    position: absolute;
+    left: 9px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1.5px solid var(--rule-strong);
+    background: var(--ground);
+    z-index: 1;
+    transition:
+      background-color 0.4s var(--ease-out),
+      border-color 0.4s var(--ease-out),
+      transform 0.5s var(--ease-out);
+  }
+  .row[data-active="true"] .dot {
+    background: var(--live);
+    border-color: var(--live);
+    transform: scale(1.25);
+  }
+  .badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--live);
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--live-wash);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition:
+      opacity 0.4s var(--ease-out),
+      transform 0.4s var(--ease-out);
+  }
+  .row[data-active="true"] .badge {
+    opacity: 1;
+    transform: none;
+  }
+
+  .c-staff {
+    display: grid;
+    gap: 6px;
+  }
+  .staff {
+    position: relative;
+    display: block;
+    height: 6px;
+    border-radius: 1.5px;
+    background: var(--track);
+  }
+  .fill {
+    position: absolute;
+    inset: 0;
+    border-radius: 1.5px;
+    background: var(--live-fill);
+    transform-origin: left;
+    transform: scaleX(var(--v));
+    transition: background-color 0.3s ease;
+  }
+  .row[data-level="amber"] .fill {
+    background: var(--amber-fill);
+  }
+  .pace {
+    position: absolute;
+    left: var(--pace);
+    top: -4px;
+    bottom: -4px;
+    width: 2px;
+    background: var(--ink);
+    border-radius: 1px;
+  }
+  .thr {
+    position: absolute;
+    left: var(--thr);
+    top: -7px;
+    bottom: -7px;
+    width: 0;
+    border-left: 1px dashed var(--ink-3);
+  }
+  .week {
+    font-size: 0.75rem;
+    color: var(--ink-3);
+  }
+
+  .c-pct {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .pct {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 3vw, 2.5rem);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .row[data-level="amber"] .pct {
+    color: var(--amber);
+  }
+  .unit {
+    color: var(--ink-3);
+    margin-left: 2px;
+  }
+  .c-reset {
+    text-align: right;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+  }
+
+  .route {
+    position: absolute;
+    left: 0;
+    width: 28px;
+    top: calc(var(--head) + 1px + var(--row) / 2);
+    height: var(--row);
+    overflow: visible;
+    pointer-events: none;
+  }
+  .route-path {
+    fill: none;
+    stroke: var(--live);
+    stroke-width: 1.5px;
+    vector-effect: non-scaling-stroke;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    transition: stroke-dashoffset 0.9s cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  .tide[data-switched="true"] .route-path {
+    stroke-dashoffset: 0;
+  }
+
+  .caption {
+    display: grid;
+    gap: 10px;
+    margin-top: 22px;
+    max-width: 62ch;
+  }
+  .event {
+    font-size: 1.125rem;
+    min-height: 1.6em;
+  }
+  .event strong {
+    font-weight: 600;
+    color: var(--live);
+  }
+  .fine {
+    font-size: 0.875rem;
+    color: var(--ink-3);
+  }
+  .replay {
+    appearance: none;
+    border: 0;
+    background: none;
+    padding: 0;
+    margin-left: 6px;
+    font: inherit;
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--live);
+    text-underline-offset: 0.22em;
+    cursor: pointer;
+  }
+
+  @media (max-width: 720px) {
+    .tide {
+      --row: 104px;
+      --head: 0px;
+    }
+    .head {
+      display: none;
+    }
+    .row {
+      grid-template-columns: 28px 1fr auto;
+      grid-template-areas:
+        ". name pct"
+        ". staff staff";
+      align-content: center;
+      row-gap: 10px;
+    }
+    .row .c-name {
+      grid-area: name;
+    }
+    .c-staff {
+      grid-area: staff;
+    }
+    .c-pct {
+      grid-area: pct;
+    }
+    .c-reset {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  const STEP_MS = 1600;
+
+  function setup(fig: HTMLElement): void {
+    const threshold = Number(fig.dataset.threshold ?? 90);
+    const rows = Array.from(fig.querySelectorAll<HTMLElement>("[data-row]"));
+    const event = fig.querySelector<HTMLElement>("[data-event]");
+    const replay = fig.querySelector<HTMLButtonElement>("[data-replay]");
+    const first = rows[0];
+    const next = rows[1];
+    if (!first || !next || !event) return;
+
+    const pctEl = first.querySelector<HTMLElement>("[data-pct]");
+    const staff = first.querySelector<HTMLElement>(".staff");
+    const from = Number(first.dataset.from);
+    const to = Number(first.dataset.to);
+    const pace = Number(first.dataset.pace);
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let frame = 0;
+
+    // Three-Step Fill Rule: amber at 85% or once 5 points ahead of pace.
+    const level = (v: number): string => (v >= 85 || v > pace + 5 ? "amber" : "live");
+
+    function paint(v: number): void {
+      const rounded = Math.round(v);
+      if (pctEl) pctEl.textContent = String(rounded);
+      staff?.style.setProperty("--v", String(v / 100));
+      first.dataset.level = level(rounded);
+    }
+
+    function switched(): void {
+      fig.dataset.switched = "true";
+      first.dataset.active = "false";
+      next.dataset.active = "true";
+      event.innerHTML = "";
+      event.append(
+        "work reached ",
+        Object.assign(document.createElement("strong"), { textContent: `${to}%` }),
+        `, past its ${threshold}% threshold. Claude Code now runs as `,
+        Object.assign(document.createElement("strong"), { textContent: "personal" }),
+        ".",
+      );
+    }
+
+    function reset(): void {
+      cancelAnimationFrame(frame);
+      fig.dataset.switched = "false";
+      first.dataset.active = "true";
+      next.dataset.active = "false";
+      paint(from);
+      event.textContent = `Auto-switch is watching work. Threshold ${threshold}%.`;
+    }
+
+    function play(): void {
+      reset();
+      if (reduce) {
+        paint(to);
+        switched();
+        return;
+      }
+      const start = performance.now() + 300;
+      const tick = (now: number): void => {
+        const t = Math.min(1, Math.max(0, (now - start) / STEP_MS));
+        const eased = 1 - Math.pow(1 - t, 3);
+        paint(from + (to - from) * eased);
+        if (t < 1) {
+          frame = requestAnimationFrame(tick);
+        } else {
+          window.setTimeout(switched, 350);
+        }
+      };
+      frame = requestAnimationFrame(tick);
+    }
+
+    replay?.addEventListener("click", play);
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          io.disconnect();
+          play();
+        }
+      },
+      { threshold: 0.6 },
+    );
+    io.observe(fig);
+    paint(from);
+  }
+
+  document.querySelectorAll<HTMLElement>("[data-tide]").forEach(setup);
+</script>

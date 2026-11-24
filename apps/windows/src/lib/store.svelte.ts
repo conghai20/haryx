@@ -4,7 +4,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { api } from "./api";
 import { ordered } from "./tide";
-import type { Account, AccountList, AutoEvent, Prefs, SessionList, Snapshot } from "./types";
+import type { Account, AccountList, AutoEvent, Prefs, SessionList, Snapshot, UpdateInfo } from "./types";
 
 const AUTO_LOG_MAX = 200;
 const FLASH_MS = 6000;
@@ -19,6 +19,7 @@ class Store {
   terminals = $state<Snapshot["terminals"]>([]);
   cliPath = $state<string | null>(null);
   storeRoot = $state<string | null>(null);
+  update = $state<UpdateInfo | null>(null);
   busy = $state<string | null>(null);
   message = $state<{ text: string; error: boolean } | null>(null);
   now = $state(Date.now());
@@ -47,6 +48,7 @@ class Store {
         this.autoRunning = false;
     });
     await listen<Prefs>("prefs", (e) => (this.prefs = e.payload));
+    await listen<UpdateInfo>("update", (e) => (this.update = e.payload));
     setInterval(() => (this.now = Date.now()), 30_000);
   }
 
@@ -60,6 +62,7 @@ class Store {
     this.terminals = s.terminals;
     this.cliPath = s.cliPath;
     this.storeRoot = s.storeRoot;
+    this.update = s.update;
   }
 
   async reload() {

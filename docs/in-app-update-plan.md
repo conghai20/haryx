@@ -1,6 +1,24 @@
 # In-app updates (macOS, Windows, CLI): plan
 
-Status: plan, not built. Decisions taken with the owner on 2026-11-24:
+Status: built (2026-11-24), branch `feat/in-app-update`. CLI, macOS app and Windows app are tested
+locally (CLI and Windows backend on macOS; the macOS updater against a real disk image). The Windows
+install path (silent NSIS run and relaunch) still needs a real Windows machine.
+
+Built as planned, with these differences:
+- The Windows app does not download itself: `haryx upgrade --download-app DIR --json` (the bundled
+  haryx) fetches and checks the setup.exe, so the checksum code exists once, in `haryx-core`.
+  The macOS app downloads in Swift (CryptoKit), since it also copies the app out of the DMG.
+- `haryx upgrade` from inside the app only says the app updates it; it does not open the app.
+- The app compares the release with its own version (`CFBundleShortVersionString`, the Tauri
+  crate's version), not the CLI's, so a user's own older haryx cannot hide an app update.
+- The passive "a newer version is available" notice after CLI commands stays unwired: it would add a
+  network call to every command.
+- External links in the Windows app go through an allowlisted `open_link` (HaryX's GitHub pages
+  only), since the webview has no opener plugin.
+- The menu bar row lives in `MenuBar/UpdateLine.swift`; the one line that shows it in
+  `MenuBarPanel.swift` is left uncommitted with the owner's other edits to that file.
+
+Decisions taken with the owner on 2026-11-24:
 - macOS: our own updater, reusing the `install.sh` steps. No Sparkle.
 - Windows: our own updater, reusing the `install.ps1` steps. No `tauri-plugin-updater`, no key.
 - How much the apps do on their own is a setting, in a new **About & Updates** section that also
@@ -101,6 +119,14 @@ Install (`src-tauri/src/updater.rs`, a port of `install.ps1`):
 
 Tests: Rust unit tests for asset choice and the command line built; Vitest for the pane;
 real-hardware checklist entry (silent install, relaunch, tray comes back, wake task still runs).
+
+Windows real-hardware checklist for updates:
+- [ ] About & updates shows the version and the latest notes; Check now works.
+- [ ] Update downloads into `%LOCALAPPDATA%\dev.haryx.app\updates` and shows "ready".
+- [ ] Restart now: HaryX closes, the installer runs with no window or prompt, HaryX reopens on the
+      new version, the tray icon comes back, the installer file is gone.
+- [ ] Quit with an update ready installs it without reopening.
+- [ ] The wake task and autostart still work after the update.
 
 ## Phase 5: release workflow and docs
 

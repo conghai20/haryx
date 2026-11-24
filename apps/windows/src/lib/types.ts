@@ -77,6 +77,40 @@ export interface Prefs {
   notifyAutoSwitch: boolean;
   trayMascot: boolean;
   launchAtLogin: boolean;
+  updateMode: UpdateMode;
+  skippedVersion: string | null;
+  lastUpdateCheck: number | null;
+}
+
+export type UpdateMode = "automatic" | "notify" | "manual";
+
+/** `haryx upgrade --check --json` (contract: packages/contracts/haryx/upgrade-check.json). */
+export interface UpgradeCheck {
+  current: string;
+  latest: string | null;
+  available: boolean;
+  published_at: string | null;
+  notes: string | null;
+  html_url: string | null;
+  install: string;
+  error: string | null;
+}
+
+export type UpdatePhase = "idle" | "checking" | "downloading" | "ready" | "failed";
+
+/** The backend's update state (`updater::snapshot_json`). */
+export interface UpdateInfo {
+  state: {
+    check: UpgradeCheck | null;
+    phase: UpdatePhase;
+    error: string | null;
+    readyVersion: string | null;
+    appVersion: string;
+  };
+  available: string | null;
+  mode: UpdateMode;
+  skipped: string | null;
+  lastCheck: number | null;
 }
 
 export interface Snapshot {
@@ -89,6 +123,7 @@ export interface Snapshot {
   cliPath: string | null;
   storeRoot: string | null;
   platform: string;
+  update: UpdateInfo;
 }
 
 export type Job =

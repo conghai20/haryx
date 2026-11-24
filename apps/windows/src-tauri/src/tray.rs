@@ -44,7 +44,9 @@ pub fn build(app: &AppHandle) -> tauri::Result<TrayIcon> {
             "use-next" => use_next_account(app),
             "dashboard" => show_dashboard(app, None),
             "quit" => {
-                app.state::<Arc<AppState>>().runner.stop();
+                let state = app.state::<Arc<AppState>>();
+                state.runner.stop();
+                crate::updater::install_on_quit(&state);
                 app.exit(0);
             }
             _ => {}

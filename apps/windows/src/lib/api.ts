@@ -1,7 +1,7 @@
 // Calls into the Rust backend. Every CLI call goes through `haryx` (allowlisted verbs, no shell).
 
 import { invoke } from "@tauri-apps/api/core";
-import type { Job, Prefs, RunResult, Snapshot, TerminalId } from "./types";
+import type { Job, Prefs, RunResult, Snapshot, TerminalId, UpdateMode } from "./types";
 
 export const api = {
   snapshot: () => invoke<Snapshot>("snapshot"),
@@ -17,4 +17,10 @@ export const api = {
   openDashboard: (pane?: string) => invoke<void>("open_dashboard", { pane: pane ?? null }),
   hideFlyout: () => invoke<void>("hide_flyout"),
   quit: () => invoke<void>("quit"),
+  updateCheck: (refresh: boolean) => invoke<void>("update_check", { refresh }),
+  updateDownload: () => invoke<void>("update_download"),
+  updateRestart: () => invoke<void>("update_restart"),
+  openLink: (url: string) => invoke<void>("open_link", { url }),
+  updateSet: (opts: { mode?: UpdateMode; skip?: string }) =>
+    invoke<void>("update_set", { mode: opts.mode ?? null, skip: opts.skip ?? null }),
 };

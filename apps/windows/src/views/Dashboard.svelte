@@ -11,6 +11,7 @@
   import Profiles from "../panes/Profiles.svelte";
   import Tools from "../panes/Tools.svelte";
   import Settings from "../panes/Settings.svelte";
+  import About from "../panes/About.svelte";
 
   const panes = [
     { id: "accounts", group: "AI", title: "Accounts", icon: "◧", component: Accounts },
@@ -20,6 +21,7 @@
     { id: "profiles", group: "AI", title: "Setup profiles", icon: "❏", component: Profiles },
     { id: "tools", group: "AI", title: "Tools", icon: "⚒", component: Tools },
     { id: "settings", group: "HaryX", title: "Settings", icon: "⚙", component: Settings },
+    { id: "about", group: "HaryX", title: "About & updates", icon: "ⓘ", component: About },
   ] as const;
 
   type PaneId = (typeof panes)[number]["id"];
@@ -53,6 +55,9 @@
             <span class="count caption">{store.sessions.sessions.length}</span>
           {/if}
           {#if pane.id === "auto" && store.autoRunning}<span class="dot" title="Running"></span>{/if}
+          {#if pane.id === "about" && (store.update?.available || store.update?.state.phase === "ready")}
+            <span class="dot" title="Update available"></span>
+          {/if}
         </button>
       {/each}
     {/each}

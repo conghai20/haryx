@@ -23,11 +23,16 @@ cannot be released without one. Sections, in this order, only when they have ent
   bar) or Only when I check; Skip This Version hides one release. Each download is checked against
   its SHA-256 and the app's signature first; the bundled haryx updates with the app. When HaryX
   cannot write to its own folder it opens the disk image in Finder instead.
+- Windows app: HaryX › About & updates, with the same three update modes, release notes, and an
+  "is available" row in the tray flyout. The checked installer runs silently once HaryX quits (a
+  per-user install, no admin prompt) and HaryX reopens.
 - `haryx upgrade --check [--json] [--refresh]` reports the latest GitHub release: its version,
   notes and the app and CLI downloads for this machine. The apps use it for their own updates.
 - `haryx upgrade` updates a standalone install (a release tarball unpacked by hand) in place: it
   downloads this platform's tarball, checks its SHA-256 and that the new binary reports the new
   version, then swaps it in. The haryx inside the HaryX app says it updates with the app.
+  `haryx upgrade --download-app DIR [--json]` downloads and checks this machine's app installer
+  (the Windows app uses it).
 
 ### Changed
 

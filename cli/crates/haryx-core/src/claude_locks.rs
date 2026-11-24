@@ -285,8 +285,21 @@ fn touch(path: &Path) -> std::io::Result<()> {
     }
 }
 
-// TODO(windows): touch the lock directory's mtime (upstream uses os.utime).
-#[cfg(not(unix))]
+/// Set the modification time of `path` (a file or the lock directory) to now. A directory opens on
+/// Windows only with `FILE_FLAG_BACKUP_SEMANTICS`; write-attributes access is all the update needs.
+#[cfg(windows)]
+fn touch(path: &Path) -> std::io::Result<()> {
+    use std::os::windows::fs::OpenOptionsExt;
+    const FILE_WRITE_ATTRIBUTES: u32 = 0x0100;
+    const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
+    let file = std::fs::OpenOptions::new()
+        .access_mode(FILE_WRITE_ATTRIBUTES)
+        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
+        .open(path)?;
+    file.set_modified(std::time::SystemTime::now())
+}
+
+#[cfg(not(any(unix, windows)))]
 fn touch(path: &Path) -> std::io::Result<()> {
     std::fs::metadata(path).map(|_| ())
 }
@@ -500,6 +513,31 @@ mod tests {
         std::fs::remove_dir(&dir).unwrap();
         drop(lock);
         assert!(!dir.exists());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_touch_refreshes_a_directory() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().join("d");
+        std::fs::create_dir(&dir).unwrap();
+        let old = std::time::SystemTime::now() - std::time::Duration::from_secs(100);
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            let f = std::fs::OpenOptions::new()
+                .access_mode(0x0100)
+                .custom_flags(0x0200_0000)
+                .open(&dir)
+                .unwrap();
+            f.set_modified(old).unwrap();
+        }
+        touch(&dir).unwrap();
+        let modified = std::fs::metadata(&dir).unwrap().modified().unwrap();
+        assert!(modified.elapsed().unwrap_or_default().as_secs() < 5);
+        assert_eq!(
+            touch(&tmp.path().join("missing")).unwrap_err().kind(),
+            std::io::ErrorKind::NotFound
+        );
     }
 
     #[cfg(unix)]

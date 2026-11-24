@@ -125,8 +125,37 @@ pub fn detect_color_support_with(
     if !stdout_is_tty {
         return false;
     }
-    // TODO(windows): upstream `_enable_windows_vt` enables VT processing on the console here.
+    if !enable_windows_vt() {
+        return false;
+    }
     env("TERM").as_deref() != Some("dumb")
+}
+
+/// Turn on ANSI escape processing for the console (upstream `_enable_windows_vt`). Windows 10+
+/// consoles support it but start with it off; a console that refuses gets plain text. Elsewhere a
+/// no-op.
+#[cfg(windows)]
+fn enable_windows_vt() -> bool {
+    use windows_sys::Win32::System::Console::{
+        ENABLE_VIRTUAL_TERMINAL_PROCESSING, GetConsoleMode, GetStdHandle, STD_OUTPUT_HANDLE,
+        SetConsoleMode,
+    };
+    // SAFETY: standard handle lookups and mode calls on this process's own console; `mode` outlives
+    // the call that fills it.
+    unsafe {
+        let out = GetStdHandle(STD_OUTPUT_HANDLE);
+        let mut mode = 0;
+        if out.is_null() || GetConsoleMode(out, &mut mode) == 0 {
+            return false;
+        }
+        mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING != 0
+            || SetConsoleMode(out, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0
+    }
+}
+
+#[cfg(not(windows))]
+fn enable_windows_vt() -> bool {
+    true
 }
 
 fn detect_color_support() -> bool {

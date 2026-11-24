@@ -651,7 +651,7 @@ fn modifiers_need_their_action() {
         ),
         (
             &["add", "--json"],
-            "--json can only be used with 'list', 'status', or 'switch'",
+            "--json can only be used with 'list', 'status', 'switch' or 'upgrade --check'",
         ),
         (
             &["list", "--json", "--token-status"],

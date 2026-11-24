@@ -99,8 +99,12 @@ pub enum Command {
     },
     /// `purge` / `--purge`.
     Purge,
-    /// `upgrade` / `update` / `--upgrade`.
-    Upgrade,
+    /// `upgrade` / `update` / `--upgrade`, or `upgrade --check [--json] [--refresh]`.
+    Upgrade {
+        check: bool,
+        json: bool,
+        refresh: bool,
+    },
     /// `run [NUM|EMAIL] [-- claude args]`.
     Run(RunOptions),
     /// `auto [...]`.
@@ -237,7 +241,7 @@ impl Command {
             Self::Import { .. } => "import",
             Self::ImportUsage { .. } => "import-usage",
             Self::Purge => "purge",
-            Self::Upgrade => "upgrade",
+            Self::Upgrade { .. } => "upgrade",
             Self::Run(_) => "run",
             Self::Auto(_) => "auto",
             Self::Config { .. } => "config",

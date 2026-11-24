@@ -92,7 +92,11 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Enable { account } => accounts::set_disabled(&account, false, debug),
         Command::Run(opts) => accounts::run(&opts, debug),
         Command::Auto(opts) => auto::run(&opts, debug),
-        Command::Upgrade => upgrade::run(),
+        Command::Upgrade {
+            check,
+            json,
+            refresh,
+        } => upgrade::run(check, json, refresh),
         Command::Tui => tui(false, debug),
         Command::Watch => tui(true, debug),
     }

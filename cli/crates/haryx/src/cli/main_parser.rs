@@ -122,6 +122,14 @@ struct MainArgs {
     watch: bool,
     #[arg(long, hide = true, group = "action")]
     upgrade: bool,
+
+    /// With 'upgrade': only look up the latest release and report it (no install)
+    #[arg(long)]
+    check: bool,
+
+    /// With 'upgrade --check': ask GitHub again instead of using the day-old cached answer
+    #[arg(long)]
+    refresh: bool,
     #[arg(long, hide = true, group = "action", value_name = "TOKEN|-", num_args = 0..=1)]
     add_token: Option<Option<String>>,
 }
@@ -215,14 +223,22 @@ impl MainArgs {
 
     fn check_modifiers(&self) -> Result<(), Usage> {
         let switching = self.switch || self.switch_to.is_some();
-        let rules: [(bool, &str); 13] = [
+        let rules: [(bool, &str); 15] = [
             (
                 self.token_status && !self.list,
                 "--token-status can only be used with 'list'",
             ),
             (
-                self.json && !(self.list || self.status || switching),
-                "--json can only be used with 'list', 'status', or 'switch'",
+                self.json && !(self.list || self.status || switching || self.check),
+                "--json can only be used with 'list', 'status', 'switch' or 'upgrade --check'",
+            ),
+            (
+                self.check && !self.upgrade,
+                "--check can only be used with 'upgrade'",
+            ),
+            (
+                self.refresh && !self.check,
+                "--refresh can only be used with 'upgrade --check'",
             ),
             (
                 self.json && self.token_status,
@@ -349,7 +365,11 @@ impl MainArgs {
         } else if self.watch {
             Command::Watch
         } else {
-            Command::Upgrade
+            Command::Upgrade {
+                check: self.check,
+                json: self.json,
+                refresh: self.refresh,
+            }
         }
     }
 }

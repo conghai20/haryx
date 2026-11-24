@@ -17,6 +17,11 @@ cannot be released without one. Sections, in this order, only when they have ent
   account ticked. The export list there is now a checklist, so any set of accounts can go in one
   file (Select All / Select None).
 - `haryx ai export PATH --account 1,3` takes several comma-separated numbers or emails.
+- `haryx upgrade --check [--json] [--refresh]` reports the latest GitHub release: its version,
+  notes and the app and CLI downloads for this machine. The apps use it for their own updates.
+- `haryx upgrade` updates a standalone install (a release tarball unpacked by hand) in place: it
+  downloads this platform's tarball, checks its SHA-256 and that the new binary reports the new
+  version, then swaps it in. The haryx inside the HaryX app says it updates with the app.
 
 ### Changed
 

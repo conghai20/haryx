@@ -6,13 +6,13 @@
 //! ([`FAILURE_TTL_S`]), so a dead network costs one attempt per hour rather than one per command.
 //! `updates.check = false` in settings turns the check off entirely: no request at all.
 //!
-//! haryx has no release channel yet: [`RELEASES_URL`] is `None`, and while it is the check is a
-//! no-op that reports no update. The fetch/compare code is ready for when it is set. The source is
-//! expected to answer JSON naming the latest release as `tag_name` (GitHub's latest-release shape,
-//! a leading `v` stripped), `version`, or PyPI's `info.version`.
+//! The lookup asks GitHub's latest-release API ([`RELEASES_URL`]) and caches the release
+//! [`trim`]med to what [`crate::release::Release`] reads, so `haryx upgrade --check` and the apps
+//! get notes and assets from the same cached answer. Older caches holding a bare version string
+//! still read. A version is also accepted as `version` or PyPI's `info.version`.
 //!
-//! Deliberately not ported here: install-method detection, uv cooldown handling and the self
-//! upgrade (`haryx upgrade`, phase 9). The notice therefore always points at `haryx upgrade`.
+//! [`latest_release`] is the explicit check (`haryx upgrade --check`): it ignores
+//! `updates.check`, since the user asked.
 
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
@@ -21,12 +21,14 @@ use std::time::Duration;
 use serde_json::{Value, json};
 
 use crate::fsutil::{WriteOptions, atomic_write_text};
+use crate::release::{Release, trim};
 use crate::settings::load_update_settings;
 use crate::usage_store::system_clock;
 use crate::{PROG, VERSION};
 
-/// Where the latest release is looked up. `None` until haryx publishes releases.
-pub const RELEASES_URL: Option<&str> = None;
+/// Where the latest release is looked up. GitHub never answers a draft or a pre-release here.
+pub const RELEASES_URL: Option<&str> =
+    Some("https://api.github.com/repos/conghai20/haryx/releases/latest");
 pub const CACHE_FILENAME: &str = "update_check.json";
 /// A successful lookup is kept for a day.
 pub const CACHE_TTL_S: f64 = 24.0 * 3600.0;
@@ -175,8 +177,62 @@ pub fn check_for_update(store_root: &Path) -> Option<String> {
     }
     let url = RELEASES_URL?;
     check_with(&cache_path(store_root), VERSION, system_clock(), || {
-        fetch_latest_version(url, FETCH_TIMEOUT)
+        fetch_latest_release(url, FETCH_TIMEOUT)
+            .map_err(|e| log::debug!("update lookup failed: {e}"))
+            .ok()
     })
+}
+
+/// The latest release, from the cache unless `refresh`. `Err` names why a lookup failed; a
+/// cached failure (within the hour) reads as `Ok(None)`. Not gated on `updates.check`.
+pub fn latest_release(store_root: &Path, refresh: bool) -> Result<Option<Release>, String> {
+    let url = RELEASES_URL.ok_or("this build has no release channel")?;
+    let path = cache_path(store_root);
+    let now = system_clock();
+    let mut error = None;
+    let data = cached_lookup(&path, now, refresh, || {
+        fetch_latest_release(url, FETCH_TIMEOUT)
+            .map_err(|e| error = Some(e))
+            .ok()
+    });
+    match (data, error) {
+        (_, Some(err)) => Err(err),
+        (Some(data), None) => Ok(Release::from_json(&data)),
+        (None, None) => Ok(None),
+    }
+}
+
+/// The cached lookup answer, looking up again when it is missing, stale or `refresh`. A failed
+/// lookup is cached as `null` for [`FAILURE_TTL_S`].
+pub fn cached_lookup(
+    cache_path: &Path,
+    now: f64,
+    refresh: bool,
+    lookup: impl FnOnce() -> Option<Value>,
+) -> Option<Value> {
+    let mut cached = if refresh {
+        Cached::Missing
+    } else {
+        read_cache(cache_path, CACHE_TTL_S, now)
+    };
+    if cached == Cached::Hit(Value::Null) {
+        // A cached failure. Keep it for an hour, not a day.
+        cached = read_cache(cache_path, FAILURE_TTL_S, now);
+    }
+    match cached {
+        Cached::Hit(Value::Null) => None,
+        Cached::Hit(data @ Value::String(_)) => Some(data),
+        Cached::Hit(data) if data.is_object() && latest_version_of(&data).is_some() => Some(data),
+        // Missing, or a cache in an unknown shape: look it up again. A failure is cached as null.
+        _ => {
+            let latest = lookup();
+            let data = latest.clone().unwrap_or(Value::Null);
+            if let Err(err) = write_cache(cache_path, &data, now) {
+                log::debug!("update check cache not written: {err}");
+            }
+            latest
+        }
+    }
 }
 
 /// [`check_for_update`] with an explicit cache file, version, clock and lookup.
@@ -184,37 +240,26 @@ pub fn check_with(
     cache_path: &Path,
     current_version: &str,
     now: f64,
-    lookup: impl FnOnce() -> Option<String>,
+    lookup: impl FnOnce() -> Option<Value>,
 ) -> Option<String> {
-    let mut cached = read_cache(cache_path, CACHE_TTL_S, now);
-    if cached == Cached::Hit(Value::Null) {
-        // A cached failure. Keep it for an hour, not a day.
-        cached = read_cache(cache_path, FAILURE_TTL_S, now);
-    }
-    let latest = match cached {
-        Cached::Hit(Value::String(v)) => Some(v),
-        Cached::Hit(Value::Null) => None,
-        // Missing, or a cache in an unknown shape: look it up again. A failure is cached as null.
-        _ => {
-            let latest = lookup();
-            let data = latest.as_ref().map_or(Value::Null, |v| json!(v));
-            if let Err(err) = write_cache(cache_path, &data, now) {
-                log::debug!("update check cache not written: {err}");
-            }
-            latest
-        }
+    let data = cached_lookup(cache_path, now, false, lookup)?;
+    let latest = match data {
+        Value::String(v) => v,
+        other => latest_version_of(&other)?,
     };
-    let latest = latest.filter(|v| !v.is_empty())?;
+    if latest.is_empty() {
+        return None;
+    }
     is_newer(&latest, current_version)?.then(|| {
         format!(
             "A newer version of {PROG} is available ({latest}). You are using \
-             {current_version}. Run `{PROG} upgrade` for upgrade instructions."
+             {current_version}. Run `{PROG} upgrade` to update."
         )
     })
 }
 
-/// The latest release named by the JSON at `url`, or `None` on any failure.
-pub fn fetch_latest_version(url: &str, timeout: Duration) -> Option<String> {
+/// The latest release at `url`, [`trim`]med. `Err` says why not.
+pub fn fetch_latest_release(url: &str, timeout: Duration) -> Result<Value, String> {
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(Some(timeout))
         .tls_config(
@@ -227,12 +272,17 @@ pub fn fetch_latest_version(url: &str, timeout: Duration) -> Option<String> {
     let mut resp = agent
         .get(url)
         .header("User-Agent", &format!("{PROG}/{VERSION}"))
-        .header("Accept", "application/json")
+        .header("Accept", "application/vnd.github+json")
         .call()
-        .map_err(|e| log::debug!("update lookup failed: {e}"))
-        .ok()?;
-    let data: Value = resp.body_mut().read_json().ok()?;
-    latest_version_of(&data)
+        .map_err(|e| format!("could not reach {url}: {e}"))?;
+    let data: Value = resp
+        .body_mut()
+        .read_json()
+        .map_err(|e| format!("unexpected answer from {url}: {e}"))?;
+    if latest_version_of(&data).is_none() {
+        return Err(format!("{url} named no release"));
+    }
+    Ok(trim(&data))
 }
 
 /// The release a lookup response names: `tag_name` (a leading `v` stripped), `version`, or
@@ -268,7 +318,7 @@ mod tests {
         let calls = Cell::new(0);
         let msg = check_with(path, current, NOW, || {
             calls.set(calls.get() + 1);
-            answer.map(str::to_owned)
+            answer.map(|v| json!(v))
         });
         (msg, calls.get())
     }
@@ -307,7 +357,7 @@ mod tests {
         let (msg, calls) = run(&cache(&tmp), "0.3.2", Some("0.4.0"));
         let msg = msg.unwrap();
         assert!(msg.contains("0.4.0") && msg.contains("0.3.2"));
-        assert!(msg.contains("haryx upgrade` for upgrade instructions"));
+        assert!(msg.contains("haryx upgrade` to update"));
         assert_eq!(calls, 1);
     }
 
@@ -383,6 +433,42 @@ mod tests {
     }
 
     #[test]
+    fn a_cached_release_object_gives_the_notice() {
+        let tmp = TempDir::new().unwrap();
+        let path = cache(&tmp);
+        write_raw(&path, json!({"tag_name": "v0.4.0", "assets": []}), NOW);
+        let (msg, calls) = run(&path, "0.3.2", None);
+        assert_eq!(calls, 0);
+        assert!(msg.unwrap().contains("0.4.0"));
+    }
+
+    #[test]
+    fn refresh_skips_a_fresh_cache() {
+        let tmp = TempDir::new().unwrap();
+        let path = cache(&tmp);
+        write_raw(&path, json!({"tag_name": "v0.3.0"}), NOW);
+        let calls = Cell::new(0);
+        let data = cached_lookup(&path, NOW, true, || {
+            calls.set(calls.get() + 1);
+            Some(json!({"tag_name": "v0.4.0"}))
+        });
+        assert_eq!(calls.get(), 1);
+        assert_eq!(data.unwrap()["tag_name"], "v0.4.0");
+        assert_eq!(
+            read_cache(&path, 60.0, NOW),
+            Cached::Hit(json!({"tag_name": "v0.4.0"}))
+        );
+    }
+
+    #[test]
+    fn releases_url_is_the_github_latest_release() {
+        assert_eq!(
+            RELEASES_URL,
+            Some("https://api.github.com/repos/conghai20/haryx/releases/latest")
+        );
+    }
+
+    #[test]
     fn version_parsing() {
         let v = |s| parse_version(s).unwrap();
         assert_eq!(v("0.27"), v("0.27.0"));
@@ -399,14 +485,12 @@ mod tests {
     }
 
     #[test]
-    fn disabled_without_a_release_channel_or_when_opted_out() {
+    fn disabled_when_opted_out() {
         let tmp = TempDir::new().unwrap();
-        assert_eq!(RELEASES_URL, None);
-        assert_eq!(check_for_update(tmp.path()), None);
-        assert!(!cache_path(tmp.path()).exists());
         crate::settings::set_setting(tmp.path(), "updates.check", "false").unwrap();
         assert!(!load_update_settings(tmp.path()).check);
         assert_eq!(check_for_update(tmp.path()), None);
+        assert!(!cache_path(tmp.path()).exists(), "no lookup at all");
     }
 
     #[test]
@@ -437,15 +521,23 @@ mod tests {
 
     #[test]
     fn fetch_against_a_local_stub() {
-        let url = serve_once(200, r#"{"tag_name": "v9.0.0"}"#);
-        assert_eq!(
-            fetch_latest_version(&url, FETCH_TIMEOUT).as_deref(),
-            Some("9.0.0")
+        let url = serve_once(
+            200,
+            r#"{"tag_name": "v9.0.0", "body": "notes", "node_id": "x", "assets": []}"#,
         );
+        let data = fetch_latest_release(&url, FETCH_TIMEOUT).unwrap();
+        assert_eq!(latest_version_of(&data).as_deref(), Some("9.0.0"));
+        assert!(data.get("node_id").is_none(), "trimmed");
         let url = serve_once(500, "{}");
-        assert_eq!(fetch_latest_version(&url, FETCH_TIMEOUT), None);
+        assert!(fetch_latest_release(&url, FETCH_TIMEOUT).is_err());
         let url = serve_once(200, "not json");
-        assert_eq!(fetch_latest_version(&url, FETCH_TIMEOUT), None);
+        assert!(fetch_latest_release(&url, FETCH_TIMEOUT).is_err());
+        let url = serve_once(200, r#"{"message": "Not Found"}"#);
+        assert!(
+            fetch_latest_release(&url, FETCH_TIMEOUT)
+                .unwrap_err()
+                .contains("named no release")
+        );
     }
 
     #[test]
@@ -453,7 +545,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let url = serve_once(200, r#"{"tag_name": "v99.0.0"}"#);
         let msg = check_with(&cache(&tmp), VERSION, NOW, || {
-            fetch_latest_version(&url, FETCH_TIMEOUT)
+            fetch_latest_release(&url, FETCH_TIMEOUT).ok()
         });
         assert!(msg.unwrap().contains("99.0.0"));
     }

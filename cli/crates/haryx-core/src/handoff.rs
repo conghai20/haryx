@@ -123,8 +123,10 @@ pub fn transcript(profile: &Path, session_id: &str) -> Option<PathBuf> {
 }
 
 /// Make the conversation readable from `target_profile`: when that profile's `projects/` is another
-/// folder (history not shared) and has no copy yet, copy the file into the same slug folder. Never
-/// moves or overwrites. Returns the copy made, if any.
+/// folder (history not shared), copy the file into the same slug folder. An existing copy is
+/// replaced only when it is an earlier state of the same conversation (a byte prefix of the
+/// source); one that went its own way is kept beside it as `<name>.bak-<seconds>` first. Never
+/// touches the source. Returns the copy made, if any.
 pub fn ensure_transcript(source: &Path, target_profile: &Path) -> Result<Option<PathBuf>, String> {
     let slug = source
         .parent()
@@ -137,14 +139,42 @@ pub fn ensure_transcript(source: &Path, target_profile: &Path) -> Result<Option<
         (Ok(a), Ok(b)) => a == b,
         _ => false,
     };
-    if dest.exists() || same(source, &dest) {
+    if same(source, &dest) {
         return Ok(None);
+    }
+    let read = |p: &Path| std::fs::read(p).map_err(|e| format!("cannot read {}: {e}", p.display()));
+    let src = read(source)?;
+    if dest.exists() {
+        let old = read(&dest)?;
+        if src == old {
+            return Ok(None);
+        }
+        if !src.starts_with(&old) {
+            let mut backup = name.to_os_string();
+            backup.push(format!(".bak-{}", jiff::Timestamp::now().as_second()));
+            std::fs::rename(&dest, dest_dir.join(backup))
+                .map_err(|e| format!("cannot keep the old copy {}: {e}", dest.display()))?;
+        }
     }
     std::fs::create_dir_all(&dest_dir)
         .map_err(|e| format!("cannot create {}: {e}", dest_dir.display()))?;
-    std::fs::copy(source, &dest)
+    crate::fsutil::atomic_write_bytes(&dest, &src, crate::fsutil::WriteOptions::default())
         .map_err(|e| format!("cannot copy the conversation to {}: {e}", dest.display()))?;
     Ok(Some(dest))
+}
+
+/// Whether the copy can be written: the target's `projects/` (or its nearest existing parent) is
+/// a writable folder. Checked before the old session is stopped.
+pub fn can_write_into(target_profile: &Path) -> bool {
+    let mut dir = target_profile.join("projects");
+    loop {
+        if dir.is_dir() {
+            return std::fs::metadata(&dir).is_ok_and(|m| !m.permissions().readonly());
+        }
+        if !dir.pop() {
+            return false;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -275,10 +305,26 @@ mod tests {
         let copy = ensure_transcript(&found, &other).unwrap().unwrap();
         assert_eq!(copy, other.join("projects").join("-w").join("abc.jsonl"));
         assert!(found.exists());
-        // A second call does not overwrite.
-        std::fs::write(&copy, "edited").unwrap();
+        // Unchanged: nothing to do.
         assert_eq!(ensure_transcript(&found, &other).unwrap(), None);
-        assert_eq!(std::fs::read_to_string(&copy).unwrap(), "edited");
+        // The source grew (the conversation went on): the copy catches up.
+        std::fs::write(&found, "{}\n{\"more\":1}\n").unwrap();
+        assert!(ensure_transcript(&found, &other).unwrap().is_some());
+        assert_eq!(
+            std::fs::read(&copy).unwrap(),
+            std::fs::read(&found).unwrap()
+        );
+        // A copy that went its own way is kept beside the new one.
+        std::fs::write(&copy, "diverged").unwrap();
+        assert!(ensure_transcript(&found, &other).unwrap().is_some());
+        let kept = std::fs::read_dir(copy.parent().unwrap())
+            .unwrap()
+            .flatten()
+            .filter(|e| e.file_name().to_string_lossy().contains(".bak-"))
+            .count();
+        assert_eq!(kept, 1);
+        assert!(found.exists());
+        assert!(can_write_into(&other));
     }
 
     #[cfg(unix)]

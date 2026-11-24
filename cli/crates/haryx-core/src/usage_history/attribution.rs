@@ -1,5 +1,7 @@
 //! Which account a reply ran as. Transcripts do not say, so in order:
-//! 1. the session ledger (`usage/sessions.jsonl`, written by `ai sessions` scans and the apps): exact;
+//! 1. the session ledger (`usage/sessions.jsonl`, written by `ai sessions` scans and the apps): exact.
+//!    A session continued on another account keeps its id, so the ledger holds one entry per
+//!    (session, account) change, and a reply takes the latest entry seen at or before it;
 //! 2. the profile folder the transcript was found in (a `haryx run` profile): exact;
 //! 3. the account active at that time, from `haryx.log`'s "Switched from account X to Y": approximate;
 //! 4. unknown.
@@ -19,9 +21,12 @@ pub struct Attributed {
     pub approximate: bool,
 }
 
+/// A session's accounts over time: (first seen, account), oldest first.
+type Ledger = HashMap<String, Vec<(i64, i64)>>;
+
 #[derive(Default, Debug)]
 pub struct Attribution {
-    ledger: HashMap<String, i64>,
+    ledger: Ledger,
     /// (unix seconds, account switched to), sorted; plus the account before the first switch.
     switches: Vec<(i64, i64)>,
     first: Option<i64>,
@@ -49,9 +54,13 @@ impl Attribution {
     /// Who ran `session` at `at`; `profile_account` is the account of a `haryx run` profile the
     /// transcript lives in.
     pub fn account(&self, session: &str, at: i64, profile_account: Option<i64>) -> Attributed {
-        if let Some(n) = self.ledger.get(session) {
+        if let Some(entries) = self.ledger.get(session).filter(|e| !e.is_empty()) {
+            // The latest account seen at or before the reply; a reply older than the first
+            // sighting belongs to the first account.
+            let idx = entries.partition_point(|(seen, _)| *seen <= at);
+            let (_, n) = entries[idx.saturating_sub(1)];
             return Attributed {
-                account: Some(*n),
+                account: Some(n),
                 approximate: false,
             };
         }
@@ -109,22 +118,33 @@ pub fn parse_switches(log: &str, tz: &jiff::tz::TimeZone) -> (Vec<(i64, i64)>, O
     (out, first)
 }
 
-fn read_ledger(store_root: &Path) -> HashMap<String, i64> {
+fn read_ledger(store_root: &Path) -> Ledger {
     let Ok(text) = std::fs::read_to_string(history_dir(store_root).join(LEDGER)) else {
-        return HashMap::new();
+        return Ledger::new();
     };
-    text.lines()
+    let mut ledger = Ledger::new();
+    for v in text
+        .lines()
         .filter_map(|l| serde_json::from_str::<Value>(l).ok())
-        .filter_map(|v| {
-            let id = v.get("sessionId")?.as_str()?.to_owned();
-            let n = v.get("account")?.as_i64()?;
-            Some((id, n))
-        })
-        .collect()
+    {
+        let (Some(id), Some(n)) = (
+            v.get("sessionId").and_then(Value::as_str),
+            v.get("account").and_then(Value::as_i64),
+        ) else {
+            continue;
+        };
+        let seen = v.get("firstSeen").and_then(Value::as_i64).unwrap_or(0);
+        ledger.entry(id.to_owned()).or_default().push((seen, n));
+    }
+    for entries in ledger.values_mut() {
+        entries.sort_by_key(|(seen, _)| *seen);
+    }
+    ledger
 }
 
-/// Record the account of each live session not in the ledger yet (first sighting wins, which is
-/// the account it started on). Best effort: a failure only loses exactness.
+/// Record each live session's account when the ledger has none for it yet, or its latest entry
+/// names another account (the session was continued elsewhere). Best effort: a failure only
+/// loses exactness.
 pub fn record_sessions(store_root: &Path, live: &[(String, i64, &str)]) {
     if live.is_empty() || !crate::settings::load_history_settings(store_root).enabled {
         return;
@@ -132,7 +152,13 @@ pub fn record_sessions(store_root: &Path, live: &[(String, i64, &str)]) {
     let known = read_ledger(store_root);
     let fresh: Vec<&(String, i64, &str)> = live
         .iter()
-        .filter(|(id, _, _)| !id.is_empty() && !known.contains_key(id))
+        .filter(|(id, account, _)| {
+            !id.is_empty()
+                && known
+                    .get(id)
+                    .and_then(|e| e.last())
+                    .is_none_or(|(_, n)| n != account)
+        })
         .collect();
     if fresh.is_empty() {
         return;
@@ -186,7 +212,7 @@ junk line
         let tz = jiff::tz::TimeZone::fixed(jiff::tz::offset(0));
         let (switches, first) = parse_switches(LOG, &tz);
         let a = Attribution {
-            ledger: HashMap::from([("known".to_owned(), 7)]),
+            ledger: HashMap::from([("known".to_owned(), vec![(0, 7)])]),
             switches,
             first,
         };
@@ -244,15 +270,35 @@ junk line
     }
 
     #[test]
-    fn the_ledger_keeps_the_first_sighting() {
+    fn the_ledger_follows_a_session_across_accounts() {
         let tmp = tempfile::TempDir::new().unwrap();
         record_sessions(tmp.path(), &[("s1".into(), 1, "default")]);
-        record_sessions(
-            tmp.path(),
-            &[("s1".into(), 2, "default"), ("s2".into(), 3, "session")],
-        );
+        record_sessions(tmp.path(), &[("s1".into(), 1, "default")]);
+        record_sessions(tmp.path(), &[("s2".into(), 3, "session")]);
         let ledger = read_ledger(tmp.path());
-        assert_eq!(ledger.get("s1"), Some(&1));
-        assert_eq!(ledger.get("s2"), Some(&3));
+        assert_eq!(
+            ledger["s1"].len(),
+            1,
+            "an unchanged account is not recorded again"
+        );
+        assert_eq!(ledger["s2"][0].1, 3);
+
+        // Continued from account 1 to 2 at t=100: replies before stay on 1, after go to 2.
+        let a = Attribution {
+            ledger: HashMap::from([("s".to_owned(), vec![(50, 1), (100, 2)])]),
+            ..Attribution::default()
+        };
+        assert_eq!(
+            a.account("s", 10, None).account,
+            Some(1),
+            "before the first sighting"
+        );
+        assert_eq!(a.account("s", 99, None).account, Some(1));
+        assert_eq!(a.account("s", 100, None).account, Some(2));
+        assert_eq!(
+            a.account("s", 500, Some(9)).account,
+            Some(2),
+            "the ledger is exact"
+        );
     }
 }

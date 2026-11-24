@@ -35,6 +35,8 @@ final class UsageModel {
 
     @ObservationIgnored var cliProvider: () -> CSwapCLI? = { nil }
     @ObservationIgnored private var loadTask: Task<Void, Never>?
+    /// Bumped on every load; a load that is no longer the latest drops its results.
+    @ObservationIgnored private var generation = 0
     @ObservationIgnored private var weeklyLoop: Task<Void, Never>?
 
     func reload() {
@@ -47,12 +49,16 @@ final class UsageModel {
             error = "Usage history needs the haryx command."
             return
         }
+        generation += 1
+        let mine = generation
+        let current = { [weak self] in self?.generation == mine }
         loading = true
-        defer { loading = false }
+        defer { if current() { loading = false } }
         do {
             var base = ["--since", range.rawValue]
             if let account { base += ["--account", String(account)] }
             let first = try await Self.json(UsageHistory.Report.self, cli, ["ai", "usage", "report", "--by", "account"] + base)
+            guard current() else { return }
             status = first.history
             guard first.history?.needsChoice == false, first.history?.enabled == true else {
                 byAccount = nil
@@ -68,15 +74,17 @@ final class UsageModel {
                 days[n] = try await Self.json(UsageHistory.Report.self, cli,
                                               ["ai", "usage", "report", "--by", "day", "--since", range.rawValue, "--account", String(n)])
             }
+            let (p, s, q) = try await (projects, sessions, quota)
+            guard current() else { return }
             byAccount = first
             byDay = days
-            self.projects = try await projects
-            self.sessions = try await sessions
-            self.quota = try await quota
+            self.projects = p
+            self.sessions = s
+            self.quota = q
             error = nil
         } catch is CancellationError {
         } catch {
-            self.error = error.localizedDescription
+            if current() { self.error = error.localizedDescription }
         }
     }
 

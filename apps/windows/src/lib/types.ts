@@ -59,6 +59,7 @@ export interface AutoEvent {
   summary: string;
   severity: "info" | "notable" | "problem";
   notificationTitle: string | null;
+  fromAccount?: number | null;
 }
 
 export type TerminalId = "windows-terminal" | "pwsh" | "powershell" | "cmd" | "git-bash";

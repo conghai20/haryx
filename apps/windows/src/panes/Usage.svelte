@@ -42,11 +42,17 @@
     return a ? displayName(a) : `Account ${n}`;
   }
 
+  // Bumped on every load; a load that is no longer the latest drops its results.
+  let generation = 0;
+
   async function load() {
+    const mine = ++generation;
+    const current = () => mine === generation;
     loading = true;
     try {
       const base = ["--since", range, ...(account != null ? ["--account", String(account)] : [])];
       const first = await api.json<UsageReport>(["ai", "usage", "report", "--by", "account", ...base, "--json"]);
+      if (!current()) return;
       status = first.history ?? null;
       if (!status?.enabled || status.needsChoice) {
         byAccount = null;
@@ -61,6 +67,7 @@
           api.json<UsageReport>(["ai", "usage", "report", "--by", "day", "--since", range, "--account", String(n), "--json"]),
         ),
       ]);
+      if (!current()) return;
       byAccount = first;
       projects = p;
       sessions = s;
@@ -73,9 +80,9 @@
       byDay = perDay;
       error = null;
     } catch (e) {
-      error = String(e);
+      if (current()) error = String(e);
     } finally {
-      loading = false;
+      if (current()) loading = false;
     }
   }
 

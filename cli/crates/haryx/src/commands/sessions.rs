@@ -149,7 +149,6 @@ fn prepare(
     }
     let source_profile = profile_of(switcher, default_profile, &live);
     let transcript = handoff::transcript(&source_profile, &live.session.session_id);
-    handoff::stop(live.session.pid, handoff::STOP_TIMEOUT)?;
     let active = roster
         .get("activeAccountNumber")
         .and_then(Value::as_i64)
@@ -159,19 +158,52 @@ fn prepare(
     } else {
         session_dir_for(switcher.backup_dir(), &to_num, &to_email)
     };
+    // Everything that can fail is checked before the old session is stopped.
+    let cwd = PathBuf::from(&live.session.cwd);
+    if !cwd.is_dir() {
+        return Err(format!(
+            "the session's folder {} no longer exists; nothing was changed",
+            cwd.display()
+        ));
+    }
     // A profile that does not exist yet is set up by `run`, which shares history from ~/.claude.
+    let copy_needed = transcript.is_some() && target_profile.join("projects").exists();
+    if copy_needed && !handoff::can_write_into(&target_profile) {
+        return Err(format!(
+            "cannot write to {}; nothing was changed",
+            target_profile.join("projects").display()
+        ));
+    }
+    handoff::stop(live.session.pid, handoff::STOP_TIMEOUT)?;
     let copied = match &transcript {
-        Some(file) if target_profile.join("projects").exists() => {
-            handoff::ensure_transcript(file, &target_profile)?
-        }
+        Some(file) if copy_needed => handoff::ensure_transcript(file, &target_profile)?,
         _ => None,
     };
+    // The copy's replies were counted where they were made; from now on the session runs as the
+    // target account.
+    let store = switcher.backup_dir();
+    if let Some(copy) = &copied
+        && let Err(e) = haryx_core::usage_history::index::mark_read(store, copy)
+    {
+        log::debug!("usage history: could not mark the copy as read: {e}");
+    }
+    if let Ok(n) = to_num.parse::<i64>() {
+        let profile = if target_profile == default_profile {
+            "default"
+        } else {
+            "session"
+        };
+        haryx_core::usage_history::attribution::record_sessions(
+            store,
+            &[(live.session.session_id.clone(), n, profile)],
+        );
+    }
     Ok(Plan {
         session_id: live.session.session_id.clone(),
         from,
         to: to_num,
         to_email,
-        cwd: PathBuf::from(&live.session.cwd),
+        cwd,
         copied,
     })
 }

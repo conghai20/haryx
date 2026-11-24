@@ -33,3 +33,10 @@ private func contract(_ name: String) throws -> Data {
     #expect(UsageHistory.shortTokens(340_000) == "340.0k")
     #expect(UsageHistory.shortTokens(2_500_000_000) == "2.5B")
 }
+
+@Test func aSwitchEventNamesTheAccountItLeft() {
+    let line = #"{"event":"switch","ts":"2026-11-24T01:00:00Z","from":{"number":1,"email":"a@x.com"},"to":{"number":"2"},"trigger":"threshold"}"#
+    #expect(AutoEvent.parse(line: line)?.fromAccount == 1)
+    let poll = #"{"event":"poll","headroom":{}}"#
+    #expect(AutoEvent.parse(line: poll)?.fromAccount == nil)
+}

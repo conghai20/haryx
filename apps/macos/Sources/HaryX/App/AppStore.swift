@@ -395,7 +395,7 @@ final class AppStore {
             notifier.post(Notice(key: "auto:\(event.id)", category: .autoSwitch, title: title, body: event.summary))
         }
         if event.kind == "switch" {
-            noteSwitch(from: active?.number)
+            noteSwitch(from: event.fromAccount ?? active?.number)
             Task { await refresh() }
         }
     }

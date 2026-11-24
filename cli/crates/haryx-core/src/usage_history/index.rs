@@ -146,9 +146,11 @@ pub fn run(store_root: &Path, default_profile: &Path, rebuild: bool) -> Result<O
             }
         }
     }
-    write_rows(&dir, &rows)?;
+    // Offsets first: a crash between the two loses this run's rows rather than counting them twice
+    // on the next one.
     state.insert("started".into(), json!(true));
     save_state(&dir, &state)?;
+    write_rows(&dir, &rows)?;
     if settings.keep_days > 0 {
         prune(&dir, settings.keep_days);
     }
@@ -179,7 +181,7 @@ fn skip_existing(sources: &[Source], state: &mut Map<String, Value>) {
             if let Ok(meta) = std::fs::metadata(&path) {
                 files.insert(
                     path.display().to_string(),
-                    json!({"offset": meta.len(), "recent": []}),
+                    json!({"offset": meta.len(), "head": head_of(&path), "recent": []}),
                 );
             }
         }
@@ -210,6 +212,36 @@ pub fn transcripts(projects: &Path) -> Vec<PathBuf> {
     out
 }
 
+/// The first bytes of a file, to tell a replaced transcript from one that only grew.
+const HEAD_BYTES: usize = 256;
+
+fn head_of(path: &Path) -> String {
+    use std::io::Read;
+    let mut buf = vec![0u8; HEAD_BYTES];
+    let n = std::fs::File::open(path)
+        .and_then(|mut f| f.read(&mut buf))
+        .unwrap_or(0);
+    String::from_utf8_lossy(&buf[..n]).into_owned()
+}
+
+/// Mark `path` as read to its current end, so its lines are never counted (a conversation copied
+/// into another profile by `ai sessions continue`; its replies were counted where they were made).
+pub fn mark_read(store_root: &Path, path: &Path) -> Result<(), String> {
+    let dir = history_dir(store_root);
+    std::fs::create_dir_all(&dir).map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
+    let _lock = FileLock::lock(dir.join(".index.lock"), LOCK_TIMEOUT).map_err(|e| e.to_string())?;
+    let mut state = load_state(&dir);
+    let len = std::fs::metadata(path).map_err(|e| e.to_string())?.len();
+    let files = state.entry("files").or_insert_with(|| json!({}));
+    if let Some(files) = files.as_object_mut() {
+        files.insert(
+            path.display().to_string(),
+            json!({"offset": len, "head": head_of(path), "recent": []}),
+        );
+    }
+    save_state(&dir, &state)
+}
+
 /// Read the complete new lines of one file, handing each new reply to `sink`; returns how many.
 fn read_file(
     path: &Path,
@@ -234,11 +266,21 @@ fn read_file(
                 .collect()
         })
         .unwrap_or_default();
-    if meta.len() < offset {
-        offset = 0; // replaced or truncated: read it again
+    let head = head_of(path);
+    let old_head = previous.and_then(|v| v.get("head")).and_then(Value::as_str);
+    // Replaced or truncated: read it again. A head recorded from a shorter file is a prefix.
+    let replaced = old_head.is_some_and(|h| !head.starts_with(h) && !h.starts_with(head.as_str()));
+    if meta.len() < offset || replaced {
+        offset = 0;
         recent.clear();
     }
     if meta.len() == offset {
+        if old_head.is_none_or(|h| h.len() < head.len()) {
+            files.insert(
+                key,
+                json!({"offset": offset, "head": head, "recent": recent}),
+            );
+        }
         return 0;
     }
     let Ok(mut file) = std::fs::File::open(path) else {
@@ -249,17 +291,19 @@ fn read_file(
     }
     let mut seen: HashSet<String> = recent.iter().cloned().collect();
     let mut reader = BufReader::new(file);
-    let mut line = String::new();
+    let mut bytes = Vec::new();
     let mut count = 0;
     loop {
-        line.clear();
-        let Ok(n) = reader.read_line(&mut line) else {
+        bytes.clear();
+        let Ok(n) = reader.read_until(b'\n', &mut bytes) else {
             break;
         };
-        if n == 0 || !line.ends_with('\n') {
+        if n == 0 || bytes.last() != Some(&b'\n') {
             break; // a line still being written waits for the next run
         }
         offset += n as u64;
+        // A line that is not valid UTF-8 is skipped, not a reason to stall on this file.
+        let line = String::from_utf8_lossy(&bytes);
         let Some(reply) = parse_line(line.trim_end()) else {
             continue;
         };
@@ -271,7 +315,10 @@ fn read_file(
         count += 1;
     }
     let keep = recent.len().saturating_sub(RECENT_IDS);
-    files.insert(key, json!({"offset": offset, "recent": recent[keep..]}));
+    files.insert(
+        key,
+        json!({"offset": offset, "head": head, "recent": recent[keep..]}),
+    );
     count
 }
 
@@ -464,6 +511,44 @@ mod tests {
         assert_eq!(env.index().replies, 1);
         assert_eq!(run(&env.store(), &env.profile(), true).unwrap().replies, 1);
         assert_eq!(env.rows().len(), 1);
+    }
+
+    #[test]
+    fn a_same_size_replacement_and_bad_bytes_are_handled() {
+        let env = Env::new("all");
+        let at = now_iso();
+        env.append(&format!("{}\n", reply("a", &at, "s1", 1)));
+        assert_eq!(env.index().replies, 1);
+        // Replaced by a different file at least as long as the old offset.
+        std::fs::write(
+            env.transcript(),
+            format!(
+                "{}\n{}\n",
+                reply("b", &at, "s2", 1),
+                reply("c", &at, "s2", 1)
+            ),
+        )
+        .unwrap();
+        assert_eq!(env.index().replies, 2);
+        // A line with invalid UTF-8 is skipped and reading goes on.
+        let mut f = std::fs::OpenOptions::new()
+            .append(true)
+            .open(env.transcript())
+            .unwrap();
+        f.write_all(b"\xff\xfe not text\n").unwrap();
+        env.append(&format!("{}\n", reply("d", &at, "s2", 1)));
+        assert_eq!(env.index().replies, 1);
+    }
+
+    #[test]
+    fn marked_files_are_not_counted() {
+        let env = Env::new("all");
+        let at = now_iso();
+        env.append(&format!("{}\n", reply("copied", &at, "s1", 1)));
+        mark_read(&env.store(), &env.transcript()).unwrap();
+        assert_eq!(env.index().replies, 0);
+        env.append(&format!("{}\n", reply("new", &at, "s1", 1)));
+        assert_eq!(env.index().replies, 1);
     }
 
     #[test]

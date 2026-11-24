@@ -52,7 +52,7 @@ class Store {
     });
     await listen<AutoEvent>("auto-event", (e) => {
       this.autoLog = [...this.autoLog, e.payload].slice(-AUTO_LOG_MAX);
-      if (e.payload.kind === "switch") this.noteSwitch();
+      if (e.payload.kind === "switch") this.noteSwitch(e.payload.fromAccount ?? this.active?.number ?? null);
       if (e.payload.kind === "started") this.autoRunning = true;
       if (e.payload.kind === "stopped" || (e.payload.kind === "error" && e.payload.notificationTitle === "Auto-switch stopped"))
         this.autoRunning = false;
@@ -80,8 +80,7 @@ class Store {
   }
 
   /** On an auto-switch, remember which default-profile sessions still hold the old account. */
-  noteSwitch() {
-    const from = this.active?.number;
+  noteSwitch(from: number | null) {
     if (from == null) return;
     const left = this.sessions.sessions.filter((s) => s.profile === "default" && s.account === from);
     if (left.length === 0) return;

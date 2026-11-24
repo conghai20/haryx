@@ -49,8 +49,8 @@ extension AppStore {
         }
         let to = target.map { String($0.number) } ?? "best"
         let command = "\(shellQuote(cli.executable.path)) ai sessions continue \(process.pid) --to \(to)"
+        // leftBehind is kept until the process is gone, so a handoff that fails leaves it offered.
         openTerminal(command: command, folder: process.cwd ?? CSwapCLI.home)
-        leftBehind[process.pid] = nil
     }
 
     /// Continue every stuck session on the best account.

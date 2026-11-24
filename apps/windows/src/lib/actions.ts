@@ -17,7 +17,9 @@ export const actions = {
     }),
 
   next: (strategy?: "best" | "next-available") =>
-    store.run("Switching", strategy ? ["switch", "--strategy", strategy, "--json"] : ["switch", "--json"]),
+    store.run("Switching", strategy ? ["switch", "--strategy", strategy, "--json"] : ["switch", "--json"], {
+      success: "Switched",
+    }),
 
   setDisabled: (a: Account, disabled: boolean) =>
     store.run(disabled ? "Disabling" : "Enabling", [disabled ? "disable" : "enable", ref(a)]),

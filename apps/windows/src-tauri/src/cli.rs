@@ -25,8 +25,17 @@ impl Output {
         self.status == 0
     }
 
-    /// The message to show for a failed run: the CLI's own words, else the exit code.
+    /// The message to show for a failed run: the CLI's own words (the `error.message` of a JSON error
+    /// envelope when it printed one), else the exit code.
     pub fn error_message(&self) -> String {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(self.stdout.trim())
+            && let Some(message) = value
+                .get("error")
+                .and_then(|e| e.get("message").or(Some(e)))
+                .and_then(serde_json::Value::as_str)
+        {
+            return message.to_string();
+        }
         let text = self.stderr.trim();
         let text = if text.is_empty() {
             self.stdout.trim()
@@ -285,6 +294,16 @@ mod tests {
             stderr: String::new(),
         };
         assert_eq!(silent.error_message(), "haryx exited with code 3");
+    }
+
+    #[test]
+    fn error_message_reads_a_json_error_envelope() {
+        let out = Output {
+            status: 1,
+            stdout: r#"{"success": false, "error": {"code": "not_found", "message": "Account-9 does not exist"}}"#.into(),
+            stderr: "noise".into(),
+        };
+        assert_eq!(out.error_message(), "Account-9 does not exist");
     }
 
     #[test]

@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import Security
 
 /// `haryx upgrade --check --json` (contract: `packages/contracts/haryx/upgrade-check.json`).
 public struct UpgradeCheck: Decodable, Equatable, Sendable {
@@ -204,7 +205,7 @@ public struct AppUpdater: Sendable {
     // MARK: stage
 
     /// Copy HaryX.app out of the DMG to `stagedURL`, verify its signature and clear quarantine.
-    public func stage(dmg: URL) throws -> URL {
+    public func stage(dmg: URL, expectedVersion: String? = nil) throws -> URL {
         let mount = workDir.appendingPathComponent("mount-\(ProcessInfo.processInfo.processIdentifier)")
         try? FileManager.default.removeItem(at: mount)
         try FileManager.default.createDirectory(at: mount, withIntermediateDirectories: true)
@@ -221,12 +222,45 @@ public struct AppUpdater: Sendable {
         try Self.tool("/usr/bin/ditto", [source.path, stagedURL.path])
         do {
             try Self.tool("/usr/bin/codesign", ["--verify", "--strict", stagedURL.path])
+            try checkIdentity(of: stagedURL, expectedVersion: expectedVersion)
         } catch AppUpdateError.tool(let message) {
             try? FileManager.default.removeItem(at: stagedURL)
             throw AppUpdateError.signature(message)
+        } catch {
+            try? FileManager.default.removeItem(at: stagedURL)
+            throw error
         }
         _ = try? Self.tool("/usr/bin/xattr", ["-dr", "com.apple.quarantine", stagedURL.path])
         return stagedURL
+    }
+
+    /// The staged app must be HaryX at the offered version, and, when this app is signed with a
+    /// Developer ID, signed by the same team. (Ad-hoc builds have no team to compare; the SHA-256
+    /// is then the only check, as with install.sh.)
+    func checkIdentity(of staged: URL, expectedVersion: String?) throws {
+        let info = NSDictionary(contentsOf: staged.appendingPathComponent("Contents/Info.plist"))
+        let bundleID = info?["CFBundleIdentifier"] as? String
+        let running = NSDictionary(contentsOf: appURL.appendingPathComponent("Contents/Info.plist"))
+        if let want = running?["CFBundleIdentifier"] as? String, bundleID != want {
+            throw AppUpdateError.signature("the download is \(bundleID ?? "another app"), not \(want)")
+        }
+        if let expectedVersion, let version = info?["CFBundleShortVersionString"] as? String,
+           AppVersion.compare(version, expectedVersion) != .orderedSame {
+            throw AppUpdateError.signature("the download is version \(version), not \(expectedVersion)")
+        }
+        if let team = Self.teamID(of: appURL), Self.teamID(of: staged) != team {
+            throw AppUpdateError.signature("the download is not signed by this app's developer (\(team))")
+        }
+    }
+
+    /// The Team ID a bundle is signed with; nil when unsigned or ad-hoc.
+    public static func teamID(of url: URL) -> String? {
+        var code: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(url as CFURL, [], &code) == errSecSuccess, let code else { return nil }
+        var info: CFDictionary?
+        guard SecCodeCopySigningInformation(code, SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess,
+              let dict = info as? [String: Any] else { return nil }
+        return dict[kSecCodeInfoTeamIdentifier as String] as? String
     }
 
     // MARK: swap
@@ -235,12 +269,17 @@ public struct AppUpdater: Sendable {
     /// until the new one is in place), and opens it when `relaunch`.
     public static func swapScript(staged: URL, app: URL, pid: Int32, relaunch: Bool) -> String {
         let q = { (s: String) in "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
-        let old = app.deletingLastPathComponent().appendingPathComponent(".HaryX.app.old").path
+        let dir = app.deletingLastPathComponent()
+        let new = dir.appendingPathComponent(".HaryX.app.new").path
+        let old = dir.appendingPathComponent(".HaryX.app.old").path
+        // The staged app is in ~/Library/Caches, often another volume: copy it beside the app first
+        // so the swap itself is two renames on one volume.
         return """
             while kill -0 \(pid) 2>/dev/null; do sleep 0.2; done
-            rm -rf \(q(old))
-            mv \(q(app.path)) \(q(old)) || exit 1
-            if mv \(q(staged.path)) \(q(app.path)); then rm -rf \(q(old)); else mv \(q(old)) \(q(app.path)); exit 1; fi
+            rm -rf \(q(new)) \(q(old))
+            ditto \(q(staged.path)) \(q(new)) || { rm -rf \(q(new)); exit 1; }
+            mv \(q(app.path)) \(q(old)) || { rm -rf \(q(new)); exit 1; }
+            if mv \(q(new)) \(q(app.path)); then rm -rf \(q(old)) \(q(staged.path)); else rm -rf \(q(app.path)); mv \(q(old)) \(q(app.path)); rm -rf \(q(new)); exit 1; fi
             \(relaunch ? "open \(q(app.path))" : ":")
             """
     }

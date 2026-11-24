@@ -100,49 +100,69 @@ pub fn check_due(mode: UpdateMode, last_check: Option<u64>, now: u64) -> bool {
     mode != UpdateMode::Manual && last_check.is_none_or(|t| now.saturating_sub(t) >= CHECK_EVERY_S)
 }
 
-/// PowerShell single-quoted literal.
-fn ps_quote(s: &str) -> String {
-    format!("'{}'", s.replace('\'', "''"))
+/// Environment variables carrying the paths into [`INSTALL_SCRIPT`]: paths never become script
+/// text, so no quoting (PowerShell also treats curly quotes as quotes) can break or inject.
+pub const ENV_INSTALLER: &str = "HARYX_UPDATE_INSTALLER";
+pub const ENV_APP: &str = "HARYX_UPDATE_APP";
+pub const ENV_PID: &str = "HARYX_UPDATE_PID";
+pub const ENV_RELAUNCH: &str = "HARYX_UPDATE_RELAUNCH";
+
+/// Waits for HaryX to exit, runs the installer silently, removes it, and reopens HaryX when asked
+/// (also after a failed install, so the old version comes back).
+pub const INSTALL_SCRIPT: &str = "\
+Wait-Process -Id ([int]$env:HARYX_UPDATE_PID) -ErrorAction SilentlyContinue; \
+$p = Start-Process -FilePath $env:HARYX_UPDATE_INSTALLER -ArgumentList '/S' -Wait -PassThru; \
+Remove-Item -LiteralPath $env:HARYX_UPDATE_INSTALLER -ErrorAction SilentlyContinue; \
+if ($env:HARYX_UPDATE_RELAUNCH -eq '1') { Start-Process -FilePath $env:HARYX_UPDATE_APP }";
+
+/// The environment [`INSTALL_SCRIPT`] reads.
+pub fn install_env(
+    installer: &Path,
+    app_exe: &Path,
+    pid: u32,
+    relaunch: bool,
+) -> Vec<(&'static str, String)> {
+    vec![
+        (ENV_INSTALLER, installer.display().to_string()),
+        (ENV_APP, app_exe.display().to_string()),
+        (ENV_PID, pid.to_string()),
+        (ENV_RELAUNCH, if relaunch { "1" } else { "0" }.to_string()),
+    ]
 }
 
-/// The hidden PowerShell that waits for this app (`pid`) to exit, runs the installer silently, and
-/// reopens the app when `relaunch`.
-pub fn install_script(installer: &Path, app_exe: &Path, pid: u32, relaunch: bool) -> String {
-    let mut script = format!(
-        "Wait-Process -Id {pid} -ErrorAction SilentlyContinue; \
-         $p = Start-Process -FilePath {} -ArgumentList '/S' -Wait -PassThru; \
-         Remove-Item -LiteralPath {} -ErrorAction SilentlyContinue",
-        ps_quote(&installer.display().to_string()),
-        ps_quote(&installer.display().to_string()),
-    );
-    if relaunch {
-        script.push_str(&format!(
-            "; Start-Process -FilePath {}",
-            ps_quote(&app_exe.display().to_string())
-        ));
-    }
-    script
+/// Windows PowerShell from the system folder, not whatever `powershell.exe` is first on PATH.
+fn powershell() -> PathBuf {
+    std::env::var_os("SystemRoot")
+        .map(PathBuf::from)
+        .map(|root| {
+            root.join("System32")
+                .join("WindowsPowerShell")
+                .join("v1.0")
+                .join("powershell.exe")
+        })
+        .filter(|p| p.is_file())
+        .unwrap_or_else(|| PathBuf::from("powershell.exe"))
 }
 
 /// Start the installer script detached; it runs once the app has exited.
 pub fn launch_installer(installer: &Path, relaunch: bool) -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let script = install_script(installer, &exe, std::process::id(), relaunch);
-    let mut command = std::process::Command::new("powershell.exe");
-    command.args([
-        "-NoProfile",
-        "-NonInteractive",
-        "-WindowStyle",
-        "Hidden",
-        "-Command",
-        &script,
-    ]);
+    let mut command = std::process::Command::new(powershell());
+    command
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-WindowStyle",
+            "Hidden",
+            "-Command",
+            INSTALL_SCRIPT,
+        ])
+        .envs(install_env(installer, &exe, std::process::id(), relaunch));
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        const DETACHED_PROCESS: u32 = 0x0000_0008;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        command.creation_flags(DETACHED_PROCESS | CREATE_NO_WINDOW);
+        command.creation_flags(CREATE_NO_WINDOW);
     }
     command
         .spawn()
@@ -223,7 +243,7 @@ pub fn check(app: &AppHandle, refresh: bool) -> Result<(), String> {
     let state = Arc::clone(&app.state::<Arc<AppState>>());
     let cli = checker(app, &state)?;
     set(app, |u| {
-        if u.phase != "ready" {
+        if !matches!(u.phase, "ready" | "downloading") {
             u.phase = "checking";
         }
     });
@@ -254,7 +274,7 @@ pub fn check(app: &AppHandle, refresh: bool) -> Result<(), String> {
         if let Ok(v) = result {
             u.check = Some(v);
         }
-        if u.phase != "ready" {
+        if !matches!(u.phase, "ready" | "downloading") {
             u.phase = if error.is_some() { "failed" } else { "idle" };
             u.error = error.clone();
         }
@@ -272,10 +292,16 @@ pub fn download(app: &AppHandle) -> Result<(), String> {
         .app_cache_dir()
         .map_err(|e| e.to_string())?
         .join("updates");
-    set(app, |u| {
-        u.phase = "downloading";
-        u.error = None;
-    });
+    // One download at a time: idle/failed/checking -> downloading, atomically.
+    {
+        let mut update = state.update.lock().unwrap_or_else(|e| e.into_inner());
+        if matches!(update.phase, "downloading" | "ready") {
+            return Ok(());
+        }
+        update.phase = "downloading";
+        update.error = None;
+    }
+    set(app, |_| {});
     let dir_text = dir.display().to_string();
     let result = cli
         .run(
@@ -392,20 +418,20 @@ mod tests {
     }
 
     #[test]
-    fn install_script_waits_installs_silently_and_relaunches() {
-        let script = install_script(
-            Path::new(r"C:\Users\o'neil\AppData\Local\HaryX\updates\HaryX-0.2.0-x64-setup.exe"),
-            Path::new(r"C:\Users\o'neil\AppData\Local\HaryX\HaryX.exe"),
-            4242,
-            true,
+    fn install_paths_travel_in_the_environment_not_the_script() {
+        let installer = Path::new(
+            r"C:\Users\O’Brien'x\AppData\Local\dev.haryx.app\updates\HaryX-0.2.0-x64-setup.exe",
         );
-        assert!(script.starts_with("Wait-Process -Id 4242"));
-        assert!(script.contains(r"-FilePath 'C:\Users\o''neil\AppData\Local\HaryX\updates\HaryX-0.2.0-x64-setup.exe' -ArgumentList '/S' -Wait"));
-        assert!(script.ends_with(
-            r"Start-Process -FilePath 'C:\Users\o''neil\AppData\Local\HaryX\HaryX.exe'"
-        ));
-        let quiet = install_script(Path::new("s.exe"), Path::new("a.exe"), 1, false);
-        assert!(!quiet.contains("a.exe"), "no relaunch on quit");
+        let env = install_env(installer, Path::new(r"C:\HaryX\HaryX.exe"), 4242, true);
+        assert!(env.contains(&(ENV_INSTALLER, installer.display().to_string())));
+        assert!(env.contains(&(ENV_PID, "4242".to_string())));
+        assert!(env.contains(&(ENV_RELAUNCH, "1".to_string())));
+        for name in [ENV_INSTALLER, ENV_APP, ENV_PID, ENV_RELAUNCH] {
+            assert!(INSTALL_SCRIPT.contains(&format!("$env:{name}")), "{name}");
+        }
+        assert!(INSTALL_SCRIPT.contains("-ArgumentList '/S' -Wait"));
+        let quiet = install_env(installer, Path::new("a.exe"), 1, false);
+        assert!(quiet.contains(&(ENV_RELAUNCH, "0".to_string())));
     }
 
     #[test]

@@ -39,6 +39,9 @@ pub enum InstallMethod {
     Pip,
     /// Inside the HaryX app.
     App,
+    /// A system or other package manager's folder (`/usr/bin`, nix, scoop, winget, Chocolatey,
+    /// `/opt`): never replaced by haryx.
+    System,
     /// A release tarball unpacked by hand.
     Standalone,
 }
@@ -52,7 +55,10 @@ impl InstallMethod {
             InstallMethod::Pipx => &["pipx", "upgrade", "haryx"],
             InstallMethod::Uv => &["uv", "tool", "upgrade", "haryx"],
             InstallMethod::Npm => &["npm", "install", "--global", "haryx@latest"],
-            InstallMethod::Pip | InstallMethod::App | InstallMethod::Standalone => return None,
+            InstallMethod::Pip
+            | InstallMethod::App
+            | InstallMethod::System
+            | InstallMethod::Standalone => return None,
         })
     }
 
@@ -66,6 +72,7 @@ impl InstallMethod {
             InstallMethod::Npm => "npm",
             InstallMethod::Pip => "pip",
             InstallMethod::App => "app",
+            InstallMethod::System => "system",
             InstallMethod::Standalone => "standalone",
         }
     }
@@ -78,6 +85,9 @@ impl InstallMethod {
             }
             InstallMethod::Pip => {
                 format!("Run `pip install --upgrade {PROG}` in the environment that installed it.")
+            }
+            InstallMethod::System => {
+                "Update it with the package manager that installed it.".to_string()
             }
             InstallMethod::Standalone => format!("Run `{PROG} upgrade`."),
             other => format!(
@@ -107,10 +117,30 @@ pub fn detect_install_method(exe: &Path) -> Option<InstallMethod> {
         Some(InstallMethod::Npm)
     } else if has("/target/debug/") || has("/target/release/") || is_cross_target_dir(&path) {
         None
+    } else if SYSTEM_PARTS.iter().any(|part| has(part))
+        || SYSTEM_DIRS.iter().any(|dir| path.starts_with(dir))
+    {
+        Some(InstallMethod::System)
     } else {
         Some(InstallMethod::Standalone)
     }
 }
+
+/// Path parts of folders another package manager owns.
+const SYSTEM_PARTS: &[&str] = &[
+    "/nix/store/",
+    "/.nix-profile/",
+    "/snap/",
+    "/scoop/",
+    "/WinGet/",
+    "/winget/",
+    "/chocolatey/",
+    "/Chocolatey/",
+    "/flatpak/",
+];
+
+/// Folders the system (or an administrator) installs into.
+const SYSTEM_DIRS: &[&str] = &["/usr/bin/", "/usr/sbin/", "/bin/", "/sbin/", "/opt/"];
 
 /// `.../target/<triple>/release/haryx`: a cross build.
 fn is_cross_target_dir(path: &str) -> bool {
@@ -135,13 +165,40 @@ pub fn detect_on_disk(exe: &Path) -> Option<InstallMethod> {
         return Some(InstallMethod::App);
     }
     let method = detect_install_method(exe)?;
-    let in_python_env = ["python", "python3", "python.exe"]
-        .iter()
-        .any(|py| dir.join(py).exists());
-    if method == InstallMethod::Standalone && in_python_env {
+    if method == InstallMethod::Standalone && installed_by_pip(dir) {
         return Some(InstallMethod::Pip);
     }
     Some(method)
+}
+
+/// Whether the script folder `dir` belongs to a pip install: a `python` beside it (a venv), or a
+/// `haryx-*.dist-info` under the matching `site-packages` (`pip install --user`, a system Python).
+fn installed_by_pip(dir: &Path) -> bool {
+    if ["python", "python3", "python.exe"]
+        .iter()
+        .any(|py| dir.join(py).exists())
+    {
+        return true;
+    }
+    let Some(prefix) = dir.parent() else {
+        return false;
+    };
+    // <prefix>/lib/python3.X/site-packages (Unix), <prefix>/Lib/site-packages (Windows),
+    // <prefix>/lib/python/site-packages (macOS --user).
+    let mut site_dirs = vec![prefix.join("Lib").join("site-packages")];
+    for lib in ["lib", "Lib"] {
+        if let Ok(entries) = std::fs::read_dir(prefix.join(lib)) {
+            site_dirs.extend(entries.flatten().map(|e| e.path().join("site-packages")));
+        }
+    }
+    site_dirs.iter().any(|site| {
+        std::fs::read_dir(site).is_ok_and(|entries| {
+            entries.flatten().any(|e| {
+                let name = e.file_name().to_string_lossy().to_ascii_lowercase();
+                name.starts_with("haryx-") && name.ends_with(".dist-info")
+            })
+        })
+    })
 }
 
 /// The version the binary at `exe` reports (`haryx 0.1.0 (...)` → `0.1.0`).
@@ -185,8 +242,8 @@ pub fn run(
             );
             Ok(())
         }
-        Some(InstallMethod::Pip) => {
-            println!("{}", InstallMethod::Pip.hint());
+        Some(method @ (InstallMethod::Pip | InstallMethod::System)) => {
+            println!("This {PROG} is at {}.\n{}", exe.display(), method.hint());
             Ok(())
         }
         Some(InstallMethod::Standalone) => run_standalone(&exe),
@@ -441,6 +498,21 @@ mod tests {
                 Some(InstallMethod::App),
             ),
             ("/usr/local/bin/haryx", Some(InstallMethod::Standalone)),
+            ("/Users/u/bin/haryx", Some(InstallMethod::Standalone)),
+            ("/usr/bin/haryx", Some(InstallMethod::System)),
+            ("/opt/haryx/bin/haryx", Some(InstallMethod::System)),
+            (
+                "/nix/store/abc-haryx/bin/haryx",
+                Some(InstallMethod::System),
+            ),
+            (
+                r"C:\Users\u\scoop\apps\haryx\current\haryx.exe",
+                Some(InstallMethod::System),
+            ),
+            (
+                r"C:\Users\u\AppData\Local\Microsoft\WinGet\Packages\HaryX\haryx.exe",
+                Some(InstallMethod::System),
+            ),
             (r"D:\tools\haryx.exe", Some(InstallMethod::Standalone)),
             ("/Users/u/src/haryx/cli/target/release/haryx", None),
             ("/Users/u/src/haryx/cli/target/debug/haryx", None),
@@ -469,6 +541,20 @@ mod tests {
         assert_eq!(
             detect_on_disk(&venv.join("haryx")),
             Some(InstallMethod::Pip)
+        );
+        let user = tmp.path().join("home").join(".local");
+        std::fs::create_dir_all(user.join("bin")).unwrap();
+        std::fs::create_dir_all(
+            user.join("lib")
+                .join("python3.12")
+                .join("site-packages")
+                .join("haryx-0.1.4.dist-info"),
+        )
+        .unwrap();
+        assert_eq!(
+            detect_on_disk(&user.join("bin").join("haryx")),
+            Some(InstallMethod::Pip),
+            "pip install --user"
         );
         let plain = tmp.path().join("tools");
         std::fs::create_dir_all(&plain).unwrap();

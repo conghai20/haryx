@@ -125,7 +125,8 @@ private func makeApp(at dir: URL, version: String) throws {
     let updater = r.updater(serving: [:], app: app)
     try FileManager.default.createDirectory(at: r.work, withIntermediateDirectories: true)
 
-    let staged = try updater.stage(dmg: dmg)
+    #expect(throws: AppUpdateError.self) { try updater.stage(dmg: dmg, expectedVersion: "0.3.0") }
+    let staged = try updater.stage(dmg: dmg, expectedVersion: "0.2.0")
     #expect(updater.stagedVersion() == "0.2.0")
     #expect(updater.canReplaceInPlace)
 
@@ -136,6 +137,21 @@ private func makeApp(at dir: URL, version: String) throws {
     #expect(info?["CFBundleShortVersionString"] as? String == "0.2.0")
     #expect(!FileManager.default.fileExists(atPath: staged.path))
     #expect(!FileManager.default.fileExists(atPath: r.root.appendingPathComponent("Applications/.HaryX.app.old").path))
+    #expect(!FileManager.default.fileExists(atPath: r.root.appendingPathComponent("Applications/.HaryX.app.new").path))
+    #expect(AppUpdater.teamID(of: app) == nil, "ad-hoc has no team")
+}
+
+@Test func anotherAppInTheDMGIsRefused() throws {
+    let r = Release()
+    let app = r.root.appendingPathComponent("Applications/HaryX.app")
+    try makeApp(at: app, version: "0.1.0")
+    let other = r.root.appendingPathComponent("other/HaryX.app")
+    try makeApp(at: other, version: "0.2.0")
+    let plist = other.appendingPathComponent("Contents/Info.plist")
+    let text = try String(contentsOf: plist, encoding: .utf8).replacingOccurrences(of: "dev.haryx.test", with: "com.example.evil")
+    try text.write(to: plist, atomically: true, encoding: .utf8)
+    let updater = r.updater(serving: [:], app: app)
+    #expect(throws: AppUpdateError.self) { try updater.checkIdentity(of: other, expectedVersion: "0.2.0") }
 }
 
 @Test func aDMGWithoutTheAppIsRefused() throws {
@@ -157,6 +173,7 @@ private func makeApp(at dir: URL, version: String) throws {
     try makeApp(at: app, version: "0.1.0")
     let script = AppUpdater.swapScript(staged: r.root.appendingPathComponent("missing.app"), app: app,
                                        pid: 999_999, relaunch: false)
+    #expect(script.contains("ditto"), "copied beside the app before the rename")
     #expect(throws: (any Error).self) { try AppUpdater.tool("/bin/sh", ["-c", script]) }
     let info = NSDictionary(contentsOf: app.appendingPathComponent("Contents/Info.plist"))
     #expect(info?["CFBundleShortVersionString"] as? String == "0.1.0")

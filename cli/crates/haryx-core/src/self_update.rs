@@ -67,19 +67,15 @@ pub fn upgrade_standalone(
         .find(|p| p.file_name().is_some_and(|n| n == main_name))
         .ok_or_else(|| format!("{} does not contain {main_name}", asset.name))?;
     verify_version(new_main, &release.version)?;
-    for new in &unpacked {
+    // The windowless runner first (only where it is installed), the main binary last: a failure
+    // part-way leaves the running haryx as it was.
+    for new in unpacked.iter().filter(|p| *p != new_main) {
         let dest = dir.join(new.file_name().unwrap_or_default());
-        // The windowless runner is replaced only where it is installed.
-        if new != new_main && !dest.exists() {
-            continue;
+        if dest.exists() {
+            swap_in(new, &dest, windows)?;
         }
-        let dest = if new == new_main {
-            exe.to_path_buf()
-        } else {
-            dest
-        };
-        swap_in(new, &dest, windows)?;
     }
+    swap_in(new_main, exe, windows)?;
     Ok(Outcome::Upgraded(release.version.clone()))
 }
 

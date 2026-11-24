@@ -53,9 +53,13 @@ final class UpdateController {
 
     func start() {
         guard loop == nil else { return }
-        if case .ready = phase {} else if updater.stagedVersion() != nil {
-            // A download left from an earlier run is stale once it is not newer than this app.
-            try? FileManager.default.removeItem(at: updater.stagedURL)
+        // An app staged by an earlier run: offer it again if it is newer, else drop it.
+        if let staged = updater.stagedVersion() {
+            if AppVersion.compare(staged, appVersion) == .orderedDescending {
+                phase = .ready(staged)
+            } else {
+                try? FileManager.default.removeItem(at: updater.stagedURL)
+            }
         }
         loop = Task { [weak self] in
             while !Task.isCancelled {
@@ -124,7 +128,7 @@ final class UpdateController {
                 phase = .failed(AppUpdateError.cannotReplace(updater.appURL.path).localizedDescription)
                 return
             }
-            _ = try await Task.detached { try updater.stage(dmg: dmg) }.value
+            _ = try await Task.detached { try updater.stage(dmg: dmg, expectedVersion: version) }.value
             try? FileManager.default.removeItem(at: dmg)
             phase = .ready(version)
         } catch {
@@ -133,10 +137,15 @@ final class UpdateController {
         }
     }
 
+    /// Set once a swap script runs, so quitting does not start a second one.
+    @ObservationIgnored private var swapLaunched = false
+
     /// Swap the staged app in and reopen it.
     func restartNow() {
+        guard !swapLaunched else { return }
         do {
             try updater.launchSwap(relaunch: true)
+            swapLaunched = true
             NSApp.terminate(nil)
         } catch {
             phase = .failed("Could not start the update: \(error.localizedDescription)")
@@ -145,8 +154,8 @@ final class UpdateController {
 
     /// Called on quit: a staged update goes in without reopening the app.
     func installOnQuit() {
-        guard case .ready = phase else { return }
-        try? updater.launchSwap(relaunch: false)
+        guard case .ready = phase, !swapLaunched else { return }
+        swapLaunched = (try? updater.launchSwap(relaunch: false)) != nil
     }
 
     func skip() {

@@ -189,21 +189,37 @@ pub fn latest_release(store_root: &Path, refresh: bool) -> Result<Option<Release
     let url = RELEASES_URL.ok_or("this build has no release channel")?;
     let path = cache_path(store_root);
     let now = system_clock();
-    let mut error = None;
-    let data = cached_lookup(&path, now, refresh, || {
-        fetch_latest_release(url, FETCH_TIMEOUT)
-            .map_err(|e| error = Some(e))
-            .ok()
-    });
+    let lookup = |refresh: bool| {
+        let mut error = None;
+        let data = cached_lookup(&path, now, refresh, || {
+            fetch_latest_release(url, FETCH_TIMEOUT)
+                .map_err(|e| error = Some(e))
+                .ok()
+        });
+        (data, error)
+    };
+    let (mut data, mut error) = lookup(refresh);
+    // An older cache holds only the version string: notes and assets need the release itself.
+    if !refresh && data.as_ref().is_some_and(Value::is_string) {
+        (data, error) = lookup(true);
+    }
     match (data, error) {
         (_, Some(err)) => Err(err),
         (Some(data), None) => Ok(Release::from_json(&data)),
-        (None, None) => Ok(None),
+        (None, None) => Err(format!(
+            "the last lookup failed less than an hour ago; try `{PROG} upgrade --check --refresh`"
+        )),
     }
 }
 
+/// Whether a cached answer names a release: a bare version (older caches) or a release object.
+fn usable(data: &Value) -> bool {
+    data.is_string() || (data.is_object() && latest_version_of(data).is_some())
+}
+
 /// The cached lookup answer, looking up again when it is missing, stale or `refresh`. A failed
-/// lookup is cached as `null` for [`FAILURE_TTL_S`].
+/// lookup is cached as `null` for [`FAILURE_TTL_S`], unless a good answer is already cached: that
+/// one is kept (whatever its age) rather than replaced by a failure.
 pub fn cached_lookup(
     cache_path: &Path,
     now: f64,
@@ -220,19 +236,21 @@ pub fn cached_lookup(
         cached = read_cache(cache_path, FAILURE_TTL_S, now);
     }
     match cached {
-        Cached::Hit(Value::Null) => None,
-        Cached::Hit(data @ Value::String(_)) => Some(data),
-        Cached::Hit(data) if data.is_object() && latest_version_of(&data).is_some() => Some(data),
-        // Missing, or a cache in an unknown shape: look it up again. A failure is cached as null.
-        _ => {
-            let latest = lookup();
-            let data = latest.clone().unwrap_or(Value::Null);
-            if let Err(err) = write_cache(cache_path, &data, now) {
-                log::debug!("update check cache not written: {err}");
-            }
-            latest
+        Cached::Hit(Value::Null) => return None,
+        Cached::Hit(data) if usable(&data) => return Some(data),
+        // Missing, stale, refreshed, or a cache in an unknown shape: look it up again.
+        _ => {}
+    }
+    let latest = lookup();
+    let keep_old = latest.is_none()
+        && matches!(read_cache(cache_path, f64::INFINITY, now), Cached::Hit(ref old) if usable(old));
+    if !keep_old {
+        let data = latest.clone().unwrap_or(Value::Null);
+        if let Err(err) = write_cache(cache_path, &data, now) {
+            log::debug!("update check cache not written: {err}");
         }
     }
+    latest
 }
 
 /// [`check_for_update`] with an explicit cache file, version, clock and lookup.
@@ -458,6 +476,20 @@ mod tests {
             read_cache(&path, 60.0, NOW),
             Cached::Hit(json!({"tag_name": "v0.4.0"}))
         );
+    }
+
+    #[test]
+    fn a_failed_refresh_keeps_a_good_cached_release() {
+        let tmp = TempDir::new().unwrap();
+        let path = cache(&tmp);
+        write_raw(&path, json!({"tag_name": "v0.4.0"}), NOW - 10.0);
+        assert_eq!(cached_lookup(&path, NOW, true, || None), None);
+        assert_eq!(
+            read_cache(&path, CACHE_TTL_S, NOW),
+            Cached::Hit(json!({"tag_name": "v0.4.0"}))
+        );
+        // The good answer is still used by the next plain check.
+        assert!(cached_lookup(&path, NOW, false, || panic!("no lookup")).is_some());
     }
 
     #[test]

@@ -70,6 +70,50 @@ jobs:
           name: wheel-${{ matrix.target }}
           path: packaging/pypi/dist/*.whl
 
+  windows-app:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-pc-windows-msvc, arch: x64 }
+          - { target: aarch64-pc-windows-msvc, arch: arm64 }
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/windows/package-lock.json
+      - name: Build the bundled haryx
+        working-directory: cli
+        run: cargo build --release --locked -p haryx --features windowless --target ${{ matrix.target }}
+      - name: Bundle haryx with the app
+        run: cp cli/target/${{ matrix.target }}/release/haryx.exe cli/target/${{ matrix.target }}/release/haryxw.exe apps/windows/src-tauri/bin/
+      - name: Build the installer
+        working-directory: apps/windows
+        run: |
+          npm ci
+          npx tauri build --target ${{ matrix.target }}
+      - name: Name and checksum the installer
+        run: |
+          VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' cli/Cargo.toml | head -1)
+          mkdir -p dist
+          SRC=$(ls apps/windows/src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe | head -1)
+          NAME="HaryX-$VERSION-${{ matrix.arch }}-setup.exe"
+          cp "$SRC" "dist/$NAME"
+          (cd dist && sha256sum "$NAME" > "$NAME.sha256")
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-app-${{ matrix.arch }}
+          path: dist/*
+
   dmg:
     runs-on: macos-26
     env:
@@ -113,7 +157,7 @@ jobs:
           path: apps/macos/build/HaryX-*.dmg*
 
   release:
-    needs: [binaries, wheels, dmg]
+    needs: [binaries, wheels, dmg, windows-app]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -133,6 +177,8 @@ jobs:
           merge-multiple: true
       - name: Homebrew formula
         run: scripts/release/formula.sh dist > dist/haryx.rb
+      - name: winget manifests
+        run: scripts/release/winget.sh dist dist
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}

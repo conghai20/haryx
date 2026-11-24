@@ -184,11 +184,18 @@ fn linux_backups_are_base64_enc_files() {
     let path = store.backup_enc_path("1", "a@b.c");
     assert_eq!(path, sb.store_root().join("credentials/.creds-1-a@b.c.enc"));
     let raw = std::fs::read_to_string(&path).unwrap();
+    // The file form follows the OS haryx runs on, not the simulated host: Windows seals with DPAPI.
+    #[cfg(not(windows))]
     assert_eq!(
         base64::engine::general_purpose::STANDARD
             .decode(raw)
             .unwrap(),
         creds("one").as_bytes()
+    );
+    #[cfg(windows)]
+    assert!(
+        raw.starts_with(crate::credentials::sealed::DPAPI_PREFIX),
+        "{raw}"
     );
     assert_eq!(
         store.read_account_credentials_ex("1", "a@b.c", false),

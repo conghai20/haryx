@@ -165,7 +165,9 @@ impl<'a> Ctx<'a> {
         let normal = path.components().all(|c| {
             matches!(
                 c,
-                std::path::Component::Normal(_) | std::path::Component::RootDir
+                std::path::Component::Normal(_)
+                    | std::path::Component::RootDir
+                    | std::path::Component::Prefix(_)
             )
         });
         let rest = path

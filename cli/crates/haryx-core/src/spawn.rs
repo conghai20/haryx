@@ -24,7 +24,13 @@ use std::time::{Duration, Instant};
 /// How often a timed run polls its child.
 const POLL_INTERVAL: Duration = Duration::from_millis(5);
 /// Upstream's fallback search path for an environment without `PATH` (CPython's `os.defpath`).
+#[cfg(not(windows))]
 const DEFAULT_PATH: &str = "/bin:/usr/bin";
+#[cfg(windows)]
+const DEFAULT_PATH: &str = r"C:\Windows\System32;C:\Windows";
+/// Extensions tried for a bare name on Windows when `PATHEXT` is unset (its usual value, trimmed).
+#[cfg(windows)]
+const DEFAULT_PATHEXT: &str = ".COM;.EXE;.BAT;.CMD";
 
 /// What to run besides the argv.
 #[derive(Clone, Debug, Default)]
@@ -185,9 +191,36 @@ pub fn resolve(name: &OsStr, path_var: Option<&OsStr>) -> Option<PathBuf> {
         } else {
             dir
         };
-        let hit = dir.join(name);
-        is_executable_file(&hit).then(|| std::path::absolute(&hit).unwrap_or(hit))
+        candidates(&dir, name)
+            .into_iter()
+            .find(|hit| is_executable_file(hit))
+            .map(|hit| std::path::absolute(&hit).unwrap_or(hit))
     })
+}
+
+/// The files a bare `name` may be in `dir`: itself, and on Windows a name without an extension also
+/// with each `PATHEXT` extension (`claude` finds `claude.exe` or an npm `claude.cmd`).
+fn candidates(dir: &Path, name: &OsStr) -> Vec<PathBuf> {
+    let exact = dir.join(name);
+    #[cfg(windows)]
+    if Path::new(name).extension().is_none() {
+        let pathext = std::env::var_os("PATHEXT");
+        let exts = pathext
+            .as_deref()
+            .and_then(OsStr::to_str)
+            .filter(|v| !v.is_empty())
+            .unwrap_or(DEFAULT_PATHEXT);
+        let with_ext = exts
+            .split(';')
+            .filter(|e| e.starts_with('.') && e.len() > 1)
+            .map(|ext| {
+                let mut file = name.to_os_string();
+                file.push(ext.to_ascii_lowercase());
+                dir.join(file)
+            });
+        return std::iter::once(exact).chain(with_ext).collect();
+    }
+    vec![exact]
 }
 
 #[cfg(unix)]
@@ -319,5 +352,35 @@ mod tests {
         };
         let out = run(&["haryx-tool"], &opts).unwrap();
         assert_eq!(out.stdout, "from-child-path\n");
+    }
+}
+
+/// Lookup tests that run on every OS.
+#[cfg(test)]
+mod portable_tests {
+    use super::*;
+
+    #[cfg(windows)]
+    #[test]
+    fn bare_name_finds_a_cmd_shim_through_pathext() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("claude.cmd"), "@echo off\r\n").unwrap();
+        let hit = resolve(OsStr::new("claude"), Some(tmp.path().as_os_str())).unwrap();
+        assert_eq!(hit.file_name().unwrap(), "claude.cmd");
+    }
+
+    #[test]
+    fn a_missing_name_is_none() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert_eq!(
+            resolve(OsStr::new("nope"), Some(tmp.path().as_os_str())),
+            None
+        );
+    }
+
+    #[test]
+    fn a_qualified_name_is_returned_as_is() {
+        let path = Path::new("dir").join("tool");
+        assert_eq!(resolve(path.as_os_str(), None), Some(path));
     }
 }

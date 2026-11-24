@@ -1,7 +1,7 @@
 //! `haryx ai profile` end to end: two sandboxed machines (temp HOME + HARYX_HOME each), a fake `claude`
 //! on PATH that records plugin installs, export on one and import/apply on the other.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use serde_json::{Value, json};
@@ -19,6 +19,15 @@ struct Run {
     err: String,
 }
 
+/// The stub line that appends its arguments to `log`, one call per line.
+fn log_args(log: &Path) -> String {
+    if cfg!(windows) {
+        format!("echo %*>> \"{}\"", log.display())
+    } else {
+        format!("echo \"$@\" >> '{}'", log.display())
+    }
+}
+
 impl Machine {
     fn new() -> Self {
         let m = Machine {
@@ -26,33 +35,46 @@ impl Machine {
         };
         std::fs::create_dir_all(m.claude()).unwrap();
         std::fs::create_dir_all(m.bin()).unwrap();
-        std::fs::write(m.bin().join("npx"), "#!/bin/sh\n").unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let npx = m.bin().join("npx");
-            std::fs::set_permissions(&npx, std::fs::Permissions::from_mode(0o755)).unwrap();
-        }
-        let stub = m.bin().join("claude");
-        std::fs::write(
-            &stub,
-            format!(
-                "#!/bin/sh\necho \"$@\" >> '{}'\n",
-                m.dir.path().join("claude-calls.log").display()
-            ),
-        )
-        .unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).unwrap();
-        }
+        let log = m.dir.path().join("claude-calls.log");
+        m.stub("npx", "");
+        m.stub("claude", &log_args(&log));
         m
     }
 
+    /// A fake program on this machine's PATH: a `/bin/sh` script, or a `.cmd` on Windows.
+    fn stub(&self, name: &str, body: &str) {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let path = self.bin().join(name);
+            std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        #[cfg(windows)]
+        std::fs::write(
+            self.bin().join(format!("{name}.cmd")),
+            format!("@echo off\r\n{body}\r\n"),
+        )
+        .unwrap();
+    }
+
     fn home(&self) -> PathBuf {
-        // Canonical, so the home text matches the paths written into files (macOS /var -> /private/var).
-        std::fs::canonicalize(self.dir.path()).unwrap()
+        // Canonical, so the home text matches the paths written into files (macOS /var -> /private/var),
+        // without Windows' `\\?\` prefix.
+        haryx_core::fsutil::canonicalize(self.dir.path()).unwrap()
+    }
+
+    /// The stubs first, then the system folders a hook or MCP check may need.
+    fn path_var(&self) -> std::ffi::OsString {
+        let system: Vec<PathBuf> = if cfg!(windows) {
+            std::env::var_os("SystemRoot")
+                .map(PathBuf::from)
+                .map(|root| vec![root.join("System32"), root])
+                .unwrap_or_default()
+        } else {
+            vec!["/usr/bin".into(), "/bin".into()]
+        };
+        std::env::join_paths(std::iter::once(self.bin()).chain(system)).unwrap()
     }
 
     fn claude(&self) -> PathBuf {
@@ -89,7 +111,7 @@ impl Machine {
             .args(argv)
             .env("HOME", self.home())
             .env("HARYX_HOME", self.home().join("store"))
-            .env("PATH", format!("{}:/usr/bin:/bin", self.bin().display()))
+            .env("PATH", self.path_var())
             .env_remove("XDG_DATA_HOME")
             .env_remove("CLAUDE_CONFIG_DIR")
             .env_remove("HARYX_PROFILE_PASSPHRASE")

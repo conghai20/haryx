@@ -11,6 +11,8 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-24
+
 ### Added
 
 - macOS app: "Claude Desktop follows Use" (Preferences › Claude Desktop, off by default). Pressing Use
@@ -154,7 +156,8 @@ cannot be released without one. Sections, in this order, only when they have ent
 First release: the `haryx` CLI (a Rust port of claude-swap, drop-in compatible with `cswap`) and
 the HaryX macOS menu bar app.
 
-[Unreleased]: https://github.com/conghai20/haryx/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/conghai20/haryx/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/conghai20/haryx/compare/v0.1.2...v0.1.4
 [0.1.2]: https://github.com/conghai20/haryx/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/conghai20/haryx/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/conghai20/haryx/releases/tag/v0.1.0

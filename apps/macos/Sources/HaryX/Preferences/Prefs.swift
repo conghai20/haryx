@@ -10,6 +10,8 @@ enum Prefs {
     static let claudeFolder = "claudeFolder"
     static let autoOnLaunch = "autoOnLaunch"
     static let autoDryRun = "autoDryRun"
+    /// Whether the user last left auto-switch on; quitting keeps it, so the next launch resumes.
+    static let autoWasOn = "autoWasOn"
     static let menuBarPercent = "menuBarPercent"
     static let menuBarMascot = "menuBarMascot"
     static let mascotStyles = "mascotStyles"
@@ -24,7 +26,7 @@ enum Prefs {
     static func register() {
         var defaults: [String: Any] = [
             refreshSeconds: 60.0, terminal: TerminalApp.terminal.rawValue, shell: "",
-            claudeFolder: CSwapCLI.home, autoOnLaunch: false, autoDryRun: false, desktopFollows: false, desktopSkipConfirm: false, menuBarPercent: true, menuBarMascot: false,
+            claudeFolder: CSwapCLI.home, autoOnLaunch: false, autoWasOn: false, autoDryRun: false, desktopFollows: false, desktopSkipConfirm: false, menuBarPercent: true, menuBarMascot: false,
         ]
         for c in Notice.Category.allCases { defaults[notifyKey(c)] = true }
         UserDefaults.standard.register(defaults: defaults)

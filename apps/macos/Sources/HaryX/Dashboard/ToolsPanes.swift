@@ -52,7 +52,8 @@ struct MappingsPane: View {
 
 struct MaintenancePane: View {
     @Environment(AppStore.self) private var store
-    @State private var exportSlot: Int?
+    @Bindable private var router = DashboardRouter.shared
+    @State private var exportSlots: Set<Int> = []
     @State private var exportFull = false
     @State private var importForce = false
     @State private var holdSeconds = 0
@@ -62,15 +63,27 @@ struct MaintenancePane: View {
     var body: some View {
         Form {
             Section {
-                Picker("Accounts", selection: $exportSlot) {
-                    Text("All accounts").tag(Int?.none)
-                    ForEach(store.accounts) { Text("\($0.number): \($0.displayName)").tag(Int?.some($0.number)) }
+                ForEach(store.accounts) { a in
+                    Toggle("\(a.number): \(a.displayName)", isOn: Binding(
+                        get: { exportSlots.contains(a.number) },
+                        set: { on in exportSlots = on ? exportSlots.union([a.number]) : exportSlots.subtracting([a.number]) }
+                    ))
+                }
+                HStack {
+                    Button("Select All") { exportSlots = Set(store.accounts.map(\.number)) }
+                    Button("Select None") { exportSlots = [] }
+                    Spacer()
+                    Text("\(chosenForExport.count) of \(store.accounts.count) selected").font(.caption).foregroundStyle(.secondary)
                 }
                 Toggle("Full export (whole ~/.claude.json + credentials, same-machine backup)", isOn: $exportFull)
                 Button("Export…") {
                     guard let url = savePanel() else { return }
-                    Task { await store.export(to: url, account: exportSlot.flatMap(store.account(slot:)), full: exportFull) }
+                    let chosen = chosenForExport
+                    // Every account ticked: export all, so accounts added later are not left out.
+                    let accounts = chosen.count == store.accounts.count ? [] : chosen
+                    Task { await store.export(to: url, accounts: accounts, full: exportFull) }
                 }
+                .disabled(chosenForExport.isEmpty)
             } header: { Text("Export") } footer: {
                 Label("Exports are plain JSON that includes login tokens. The file is saved owner-only (600); keep it somewhere safe or encrypt it.",
                       systemImage: "lock.trianglebadge.exclamationmark")
@@ -124,6 +137,8 @@ struct MaintenancePane: View {
         }
         .formStyle(.grouped)
         .task { await store.loadExtras() }
+        .onAppear(perform: takeExportSelection)
+        .onChange(of: router.exportSelection) { takeExportSelection() }
         .sheet(isPresented: $confirmPurge) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Purge all account data?").font(.title3.bold())
@@ -141,6 +156,19 @@ struct MaintenancePane: View {
                 }
             }
             .padding(20).frame(width: 380)
+        }
+    }
+
+    /// Ticked accounts that still exist, in slot order.
+    private var chosenForExport: [Account] { store.accounts.filter { exportSlots.contains($0.number) } }
+
+    /// Picks up a card's "Export…" (that account ticked); otherwise start with all ticked.
+    private func takeExportSelection() {
+        if let slots = router.exportSelection {
+            exportSlots = slots
+            router.exportSelection = nil
+        } else if exportSlots.isEmpty {
+            exportSlots = Set(store.accounts.map(\.number))
         }
     }
 

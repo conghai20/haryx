@@ -94,7 +94,7 @@ final class AppStore {
         })
         watchBackupDir()
         Task { await loadExtras() }
-        if Prefs.d.bool(forKey: Prefs.autoOnLaunch) { startAuto() }
+        if Prefs.d.bool(forKey: Prefs.autoOnLaunch) || Prefs.d.bool(forKey: Prefs.autoWasOn) { startAuto() }
         DispatchQueue.main.async { [weak self] in self?.offerCLIInstallIfNeeded() }
     }
 
@@ -363,8 +363,18 @@ final class AppStore {
 
     func startAuto() {
         guard let cli else { return flash(CLIError.notFound.localizedDescription, error: true) }
+        Prefs.d.set(true, forKey: Prefs.autoWasOn)
         auto.start(cli: cli, dryRun: Prefs.d.bool(forKey: Prefs.autoDryRun))
     }
+
+    /// The user turning auto-switch off. Quitting stops the child too but keeps `autoWasOn`,
+    /// so the next launch picks up where the user left it.
+    func stopAuto() {
+        Prefs.d.set(false, forKey: Prefs.autoWasOn)
+        auto.stop()
+    }
+
+    func toggleAuto() { auto.isRunning ? stopAuto() : startAuto() }
 
     private func handleAutoEvent(_ event: AutoEvent) {
         if let title = event.notificationTitle {

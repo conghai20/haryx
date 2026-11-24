@@ -61,6 +61,8 @@ final class DashboardRouter {
     static let shared = DashboardRouter()
     var section: DashboardSection? = .accounts
     var selectedSlot: Int?
+    /// Accounts the next export starts with ticked, set by a card's "Export…".
+    var exportSelection: Set<Int>?
 
     func select(_ slot: Int) {
         section = .accounts
@@ -71,6 +73,12 @@ final class DashboardRouter {
     func open(_ section: DashboardSection) {
         self.section = section
         DashboardWindow.shared.show()
+    }
+
+    /// Opens Maintenance with these accounts ticked for export.
+    func export(_ slots: Set<Int>) {
+        exportSelection = slots
+        open(.maintenance)
     }
 
     /// Opens the dashboard on this account's detail inspector.

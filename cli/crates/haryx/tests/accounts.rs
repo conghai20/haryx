@@ -351,6 +351,47 @@ fn live_token(s: &Sandbox) -> String {
 }
 
 #[test]
+fn export_takes_several_comma_separated_accounts() {
+    let s = Sandbox::new();
+    std::fs::remove_file(s.store().join("sequence.json")).unwrap();
+    for (email, uuid, token) in [
+        ("a@example.com", "u-a", "at-a"),
+        ("b@example.com", "u-b", "at-b"),
+        ("c@example.com", "u-c", "at-c"),
+    ] {
+        login(&s, email, uuid, token);
+        assert_eq!(s.run(&["add"]).code, 0);
+    }
+    let picked = |accounts: &str| -> Vec<String> {
+        let out = s.run(&["export", "-", "--account", accounts]);
+        assert_eq!(out.code, 0, "{}", out.err);
+        let envelope: Value = serde_json::from_str(&out.out).unwrap();
+        envelope["accounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|a| a["email"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    // Slot order, duplicates dropped, numbers and emails mixed.
+    assert_eq!(
+        picked("3, 1,c@example.com"),
+        ["a@example.com", "c@example.com"]
+    );
+    assert_eq!(picked("2"), ["b@example.com"]);
+
+    let unknown = s.run(&["export", "-", "--account", "1,9"]);
+    assert_ne!(unknown.code, 0);
+    assert!(
+        unknown.err.contains("account not found: 9"),
+        "{}",
+        unknown.err
+    );
+    let empty = s.run(&["export", "-", "--account", " , "]);
+    assert_ne!(empty.code, 0);
+}
+
+#[test]
 fn add_then_switch_round_trip() {
     let s = Sandbox::new();
     std::fs::remove_file(s.store().join("sequence.json")).unwrap();

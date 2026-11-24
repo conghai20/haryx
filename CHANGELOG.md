@@ -11,6 +11,18 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+### Added
+
+- macOS app: Export… on an account card's right-click menu opens Maintenance › Export with that
+  account ticked. The export list there is now a checklist, so any set of accounts can go in one
+  file (Select All / Select None).
+- `haryx ai export PATH --account 1,3` takes several comma-separated numbers or emails.
+
+### Changed
+
+- macOS app: auto-switch keeps its on/off state across quit and relaunch. Left on, it starts again
+  when HaryX reopens; "Always start when HaryX launches" still forces it on.
+
 ## [0.1.4] - 2026-11-24
 
 ### Added

@@ -63,8 +63,8 @@ struct MainArgs {
     #[arg(long, value_name = "EMAIL")]
     email: Option<String>,
 
-    /// Limit export to one account (use with 'export')
-    #[arg(long, value_name = "NUM|EMAIL")]
+    /// Limit export to some accounts, comma-separated, e.g. 1,3 (use with 'export')
+    #[arg(long, value_name = "NUM|EMAIL[,...]")]
     account: Option<String>,
 
     /// Set a short display alias for the account (use with 'add')

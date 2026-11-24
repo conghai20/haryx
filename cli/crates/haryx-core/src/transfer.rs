@@ -84,12 +84,23 @@ pub fn build_export(switcher: &Switcher, account: Option<&str>, full: bool) -> R
     }
     let explicit = account.is_some();
     let targets: Vec<String> = match account {
-        Some(id) => {
-            let resolved = switcher
-                .resolve_account_identifier(id)?
-                .filter(|n| accounts_map.contains_key(n))
-                .ok_or_else(|| transfer(format!("account not found: {id}")))?;
-            vec![resolved]
+        // One account, or several comma-separated (`1,3` or `1,me@x.com`).
+        Some(ids) => {
+            let mut resolved = Vec::new();
+            for id in ids.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                let num = switcher
+                    .resolve_account_identifier(id)?
+                    .filter(|n| accounts_map.contains_key(n))
+                    .ok_or_else(|| transfer(format!("account not found: {id}")))?;
+                if !resolved.contains(&num) {
+                    resolved.push(num);
+                }
+            }
+            if resolved.is_empty() {
+                return Err(transfer("--account needs at least one NUM or EMAIL"));
+            }
+            resolved.sort_by_key(|n| n.parse::<i64>().unwrap_or(0));
+            resolved
         }
         None => {
             let mut nums: Vec<String> = accounts_map.keys().cloned().collect();

@@ -13,7 +13,7 @@
 use std::path::Path;
 use std::process::{Command, ExitStatus};
 
-use haryx_core::release::{Asset, Release, http_download};
+use haryx_core::release::{Asset, Release, download_checked, http_download};
 use haryx_core::self_update::{self, Outcome};
 use haryx_core::update_check::{is_newer, latest_release};
 use haryx_core::{PROG, VERSION, paths, printer};
@@ -157,9 +157,17 @@ fn current_exe() -> std::path::PathBuf {
         .unwrap_or_default()
 }
 
-pub fn run(check: bool, json: bool, refresh: bool) -> Result<(), CommandError> {
+pub fn run(
+    check: bool,
+    json: bool,
+    refresh: bool,
+    download_app: Option<&str>,
+) -> Result<(), CommandError> {
     let exe = current_exe();
     self_update::remove_leftovers(&exe);
+    if let Some(dir) = download_app {
+        return run_download_app(Path::new(dir), json);
+    }
     let method = detect_on_disk(&exe);
     if check {
         return run_check(method, json, refresh);
@@ -266,6 +274,44 @@ pub fn check_report(
         },
         "error": result.as_ref().err(),
     })
+}
+
+// -------------------------------------------------------------------------------- --download-app
+
+/// Download this machine's app installer from the latest release into `dir`, checked against its
+/// SHA-256. Prints the path (or `{"path", "version", "name"}` with `--json`).
+fn run_download_app(dir: &Path, json: bool) -> Result<(), CommandError> {
+    let result = latest_release(&store_root(), true).and_then(|release| {
+        let release = release.ok_or("no release found; try again later")?;
+        let (asset, sum) = release.app_asset().ok_or_else(|| {
+            format!(
+                "release {} has no checked app for this machine",
+                release.version
+            )
+        })?;
+        std::fs::create_dir_all(dir)
+            .map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
+        let path = download_checked(asset, sum, dir, &http_download)?;
+        Ok((release.version.clone(), asset.name.clone(), path))
+    });
+    match (result, json) {
+        (Ok((version, name, path)), true) => {
+            print_json(&json!({"path": path, "version": version, "name": name, "error": null}));
+            Ok(())
+        }
+        (Ok((_, _, path)), false) => {
+            println!("{}", path.display());
+            Ok(())
+        }
+        (Err(err), true) => {
+            print_json(&json!({"path": null, "version": null, "name": null, "error": err}));
+            Err(CommandError::silent(1))
+        }
+        (Err(err), false) => {
+            printer::error(&err);
+            Err(CommandError::silent(1))
+        }
+    }
 }
 
 // ------------------------------------------------------------------------------------- install
@@ -519,7 +565,11 @@ mod tests {
             k.sort();
             k
         };
-        assert_eq!(keys(&report), keys(&contract), "fields drift from upgrade-check.json");
+        assert_eq!(
+            keys(&report),
+            keys(&contract),
+            "fields drift from upgrade-check.json"
+        );
         assert_eq!(
             keys(&report["assets"]["cli"]),
             keys(&contract["assets"]["cli"]),

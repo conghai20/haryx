@@ -96,7 +96,8 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
             check,
             json,
             refresh,
-        } => upgrade::run(check, json, refresh),
+            download_app,
+        } => upgrade::run(check, json, refresh, download_app.as_deref()),
         Command::Tui => tui(false, debug),
         Command::Watch => tui(true, debug),
     }

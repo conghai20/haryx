@@ -113,4 +113,8 @@ fn upgrade_check_rejects_misplaced_flags() {
     assert!(stderr(&output).contains("--refresh can only be used with 'upgrade --check'"));
     let output = haryx(&["upgrade", "--json"]);
     assert_eq!(output.status.code(), Some(2));
+    let output = haryx(&["list", "--download-app", "x"]);
+    assert!(stderr(&output).contains("--download-app can only be used with 'upgrade'"));
+    let output = haryx(&["upgrade", "--check", "--download-app", "x"]);
+    assert!(stderr(&output).contains("not both"));
 }

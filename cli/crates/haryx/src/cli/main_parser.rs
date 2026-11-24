@@ -130,6 +130,11 @@ struct MainArgs {
     /// With 'upgrade --check': ask GitHub again instead of using the day-old cached answer
     #[arg(long)]
     refresh: bool,
+
+    /// With 'upgrade': download this machine's HaryX app installer from the latest release into
+    /// DIR, check its SHA-256, and print its path (used by the HaryX apps)
+    #[arg(long, value_name = "DIR", hide = true)]
+    download_app: Option<String>,
     #[arg(long, hide = true, group = "action", value_name = "TOKEN|-", num_args = 0..=1)]
     add_token: Option<Option<String>>,
 }
@@ -223,13 +228,15 @@ impl MainArgs {
 
     fn check_modifiers(&self) -> Result<(), Usage> {
         let switching = self.switch || self.switch_to.is_some();
-        let rules: [(bool, &str); 15] = [
+        let rules: [(bool, &str); 17] = [
             (
                 self.token_status && !self.list,
                 "--token-status can only be used with 'list'",
             ),
             (
-                self.json && !(self.list || self.status || switching || self.check),
+                self.json
+                    && !(self.list || self.status || switching || self.check)
+                    && self.download_app.is_none(),
                 "--json can only be used with 'list', 'status', 'switch' or 'upgrade --check'",
             ),
             (
@@ -239,6 +246,14 @@ impl MainArgs {
             (
                 self.refresh && !self.check,
                 "--refresh can only be used with 'upgrade --check'",
+            ),
+            (
+                self.download_app.is_some() && !self.upgrade,
+                "--download-app can only be used with 'upgrade'",
+            ),
+            (
+                self.download_app.is_some() && self.check,
+                "'upgrade' takes --check or --download-app, not both",
             ),
             (
                 self.json && self.token_status,
@@ -369,6 +384,7 @@ impl MainArgs {
                 check: self.check,
                 json: self.json,
                 refresh: self.refresh,
+                download_app: self.download_app.clone().filter(|d| !d.is_empty()),
             }
         }
     }

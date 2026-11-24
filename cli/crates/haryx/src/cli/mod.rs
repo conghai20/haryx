@@ -99,11 +99,13 @@ pub enum Command {
     },
     /// `purge` / `--purge`.
     Purge,
-    /// `upgrade` / `update` / `--upgrade`, or `upgrade --check [--json] [--refresh]`.
+    /// `upgrade` / `update` / `--upgrade`, `upgrade --check [--json] [--refresh]`, or
+    /// `upgrade --download-app DIR [--json]`.
     Upgrade {
         check: bool,
         json: bool,
         refresh: bool,
+        download_app: Option<String>,
     },
     /// `run [NUM|EMAIL] [-- claude args]`.
     Run(RunOptions),

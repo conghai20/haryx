@@ -44,6 +44,9 @@ pub struct Prefs {
     pub skipped_version: Option<String>,
     /// When the last update check ran (Unix seconds).
     pub last_update_check: Option<u64>,
+    /// A weekly usage summary toast (off by default), and when it last went out (Unix seconds).
+    pub weekly_summary: bool,
+    pub last_weekly_summary: Option<u64>,
 }
 
 impl Default for Prefs {
@@ -65,6 +68,8 @@ impl Default for Prefs {
             update_mode: UpdateMode::Notify,
             skipped_version: None,
             last_update_check: None,
+            weekly_summary: false,
+            last_weekly_summary: None,
         }
     }
 }

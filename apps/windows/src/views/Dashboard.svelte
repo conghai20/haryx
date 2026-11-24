@@ -6,6 +6,7 @@
   import Lockup from "../components/Lockup.svelte";
   import Accounts from "../panes/Accounts.svelte";
   import Sessions from "../panes/Sessions.svelte";
+  import Usage from "../panes/Usage.svelte";
   import AutoSwitch from "../panes/AutoSwitch.svelte";
   import Wake from "../panes/Wake.svelte";
   import Profiles from "../panes/Profiles.svelte";
@@ -15,6 +16,7 @@
 
   const panes = [
     { id: "accounts", group: "AI", title: "Accounts", icon: "◧", component: Accounts },
+    { id: "usage", group: "AI", title: "Usage", icon: "▤", component: Usage },
     { id: "sessions", group: "AI", title: "Sessions", icon: "▸", component: Sessions },
     { id: "auto", group: "AI", title: "Auto-switch", icon: "⇄", component: AutoSwitch },
     { id: "wake", group: "AI", title: "Wake", icon: "◷", component: Wake },

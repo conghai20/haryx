@@ -19,7 +19,8 @@ cannot be released without one. Sections, in this order, only when they have ent
   (no conversation text). The first run asks whether to read past transcripts or start from now;
   `history.keepDays` (30, 90 by default, 365, or 0 for forever) sets how long it is kept. The
   macOS app adds AI › Usage: quota-over-time and per-day charts, top projects and sessions, and an
-  optional weekly summary notification.
+  optional weekly summary notification; the Windows app adds the same Usage pane (SVG charts) and
+  weekly toast.
 - Continue a session on another account. `haryx ai sessions continue <pid|id> [--to N|best]` ends
   a Claude Code session (a normal termination request, waiting up to 10 s; on Windows you close
   the window) and resumes the same conversation on another account in its folder. Both apps add

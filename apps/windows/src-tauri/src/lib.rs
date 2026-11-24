@@ -14,6 +14,7 @@ mod state;
 mod terminals;
 mod tray;
 mod updater;
+mod weekly;
 
 use std::sync::Arc;
 
@@ -44,6 +45,7 @@ pub fn run() {
             tray::start_animation(&handle);
             autostart::apply(&handle, &prefs);
             updater::start_loop(&handle);
+            weekly::start_loop(&handle);
             if prefs.auto_switch_on_launch {
                 let _ = commands::auto_start(handle.clone(), handle.state());
             }

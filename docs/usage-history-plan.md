@@ -1,6 +1,22 @@
 # Usage history and "where did my quota go": plan
 
-Status: plan, not built. Decisions taken with the owner on 2026-11-24:
+Status: built (2026-11-24): CLI, macOS Usage section, Windows Usage pane. Tested on this Mac
+against ~190 MB of real transcripts (indexed in about 2 s).
+
+Built as planned, with these differences:
+- The settings section is `history` (`history.enabled`, `history.import`, `history.keepDays`),
+  since `usage` already holds the usage-endpoint probes.
+- The price table is `cli/crates/haryx-core/data/anthropic-pricing.json` (inside the crate so it
+  embeds at build and survives packaging), not `packages/pricing/`. The staleness reminder is a
+  unit test that fails once the table is 120 days old, so CI catches it.
+- The apps read cost from the CLI's JSON; they carry no price table.
+- Quota readings are appended by the usage store whenever it records a new measurement, so
+  every reading the app or `auto` takes is kept, not only the ones seen during an index.
+- `ai usage` runs the index first on every call, so the apps need no separate index step.
+- Session rows in the apps open a terminal in project rows' folders; "continue this session" from
+  the Usage tables is left out (the Sessions views have it, for live sessions).
+
+Decisions taken with the owner on 2026-11-24:
 - Show tokens **and** what they would cost at API prices (a price table kept in the repo).
 - How much past history to read, and how long to keep it, is **the user's choice**: asked once
   when the feature first opens, and a setting after that.

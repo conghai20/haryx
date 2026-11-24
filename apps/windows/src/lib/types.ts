@@ -80,6 +80,8 @@ export interface Prefs {
   updateMode: UpdateMode;
   skippedVersion: string | null;
   lastUpdateCheck: number | null;
+  weeklySummary: boolean;
+  lastWeeklySummary: number | null;
 }
 
 export type UpdateMode = "automatic" | "notify" | "manual";

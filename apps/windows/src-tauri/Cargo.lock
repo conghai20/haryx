@@ -1497,7 +1497,7 @@ dependencies = [
 
 [[package]]
 name = "haryx-windows"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "jiff 0.2.46",
  "log",

@@ -1068,7 +1068,7 @@ dependencies = [
 
 [[package]]
 name = "haryx"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "clap",
  "crossterm 0.29.0",
@@ -1083,7 +1083,7 @@ dependencies = [
 
 [[package]]
 name = "haryx-core"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "age",
  "base64 0.22.1",

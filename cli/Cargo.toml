@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/haryx-core", "crates/haryx"]
 
 [workspace.package]
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT"
@@ -13,7 +13,7 @@ keywords = ["claude", "claude-code", "accounts", "cli", "quota"]
 categories = ["command-line-utilities", "development-tools"]
 
 [workspace.dependencies]
-haryx-core = { path = "crates/haryx-core", version = "0.1.4" }
+haryx-core = { path = "crates/haryx-core", version = "0.1.5" }
 thiserror = "2"
 clap = { version = "4", features = ["derive", "wrap_help"] }
 serde = { version = "1", features = ["derive"] }

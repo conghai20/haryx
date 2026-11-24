@@ -11,8 +11,12 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-11-24
+
 ### Added
 
+- A project site (Astro, in `site/`) deployed to GitHub Pages: what HaryX does, an animated
+  roadmap, platforms, and a one-line install for macOS and Windows.
 - Usage history. `haryx ai usage [report|quota|summary]` shows tokens and what they would cost at
   API prices (as of a dated price table) by account, project, session, model or day, and the
   5-hour/weekly readings over time, read from Claude Code's transcripts and kept on this machine
@@ -199,7 +203,8 @@ cannot be released without one. Sections, in this order, only when they have ent
 First release: the `haryx` CLI (a Rust port of claude-swap, drop-in compatible with `cswap`) and
 the HaryX macOS menu bar app.
 
-[Unreleased]: https://github.com/conghai20/haryx/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/conghai20/haryx/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/conghai20/haryx/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/conghai20/haryx/compare/v0.1.2...v0.1.4
 [0.1.2]: https://github.com/conghai20/haryx/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/conghai20/haryx/compare/v0.1.0...v0.1.1

@@ -12,13 +12,15 @@
 #   HARYX_BASE_URL   releases base URL (default https://github.com/conghai20/haryx/releases)
 
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1 downloads many times slower while it draws a progress bar.
+$ProgressPreference = 'SilentlyContinue'
 Set-StrictMode -Version Latest
 
 $DefaultBaseUrl = 'https://github.com/conghai20/haryx/releases'
 
+# Throw rather than exit: under `irm ... | iex` an exit would close the user's PowerShell window.
 function Fail([string]$Message) {
-    Write-Error "haryx install: $Message"
-    exit 1
+    throw "haryx install: $Message"
 }
 
 function Get-Arch {
@@ -34,8 +36,10 @@ function Resolve-Version([string]$BaseUrl) {
     if ($env:HARYX_VERSION) { return $env:HARYX_VERSION.TrimStart('v') }
     try {
         $response = Invoke-WebRequest -Uri "$BaseUrl/latest" -Method Head -UseBasicParsing -MaximumRedirection 5
-        $final = $response.BaseResponse.ResponseUri
-        if (-not $final) { $final = $response.BaseResponse.RequestMessage.RequestUri }
+        # Windows PowerShell 5.1 returns an HttpWebResponse (ResponseUri); PowerShell 7 an
+        # HttpResponseMessage (RequestMessage.RequestUri). Strict mode rejects the missing one.
+        $base = $response.BaseResponse
+        $final = if ($base.PSObject.Properties['ResponseUri']) { $base.ResponseUri } else { $base.RequestMessage.RequestUri }
     } catch {
         Fail "cannot reach $BaseUrl/latest"
     }

@@ -1,6 +1,20 @@
 # Continue a session on another account: plan
 
-Status: plan, not built. Decisions taken with the owner on 2026-11-24:
+Status: built (2026-11-24) without the phase 0 spike, which needs an account at its limit. Tested
+with unit and CLI tests; not yet run against a real limit.
+
+Built as planned, with these differences:
+- No `stuck` flag in `ai sessions --json`: computing headroom on every 4-second scan would read the
+  usage store each time. The apps decide "stuck" from the account readings they already have.
+- A default-profile session is listed under the *active* account, so after an auto-switch it would
+  look healthy. Each app remembers, at the switch, which default-profile sessions were running on
+  the old account ("left behind") and treats those as stuck when that account is exhausted. The
+  CLI allows continuing a default-profile session on the active account (that restarts it on the
+  new login); a `haryx run` session must move to another account.
+- Windows: the CLI asks the user to close the old window and waits up to 5 minutes for it (no
+  graceful signal reaches a console app from outside), instead of failing.
+
+Decisions taken with the owner on 2026-11-24:
 - "Continue on account N" **ends the old session itself** (a normal termination request, never a
   hard kill), waits for it, then resumes the same conversation on the new account.
 - When auto-switch leaves an exhausted account, HaryX **offers** to continue that account's

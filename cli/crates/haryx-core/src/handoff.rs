@@ -11,8 +11,12 @@ use std::time::{Duration, Instant};
 
 use crate::running::{RunningSession, Scan};
 
-/// How long the old process gets to exit after the termination request.
+/// How long the old process gets to exit after the termination request. Windows waits for the
+/// user to close the window (no graceful signal reaches a console app from outside), so longer.
+#[cfg(unix)]
 pub const STOP_TIMEOUT: Duration = Duration::from_secs(10);
+#[cfg(not(unix))]
+pub const STOP_TIMEOUT: Duration = Duration::from_secs(300);
 const POLL: Duration = Duration::from_millis(100);
 
 /// Find a live session by pid or session id (a unique prefix of 8+ characters works too).
@@ -98,12 +102,14 @@ fn request_exit(pid: i32) -> Result<(), String> {
 }
 
 /// Windows has no graceful signal another process can send to a console app (see the plan's
-/// spike); the user closes it.
+/// spike): ask the user to close it, and wait.
 #[cfg(not(unix))]
 fn request_exit(pid: i32) -> Result<(), String> {
-    Err(format!(
-        "close the Claude Code window (pid {pid}) first, then run this again. Nothing was changed."
-    ))
+    eprintln!(
+        "Close the Claude Code window that is out of quota (pid {pid}); the conversation continues \
+         here as soon as it has closed."
+    );
+    Ok(())
 }
 
 /// The conversation file `<profile>/projects/<slug>/<session_id>.jsonl`, if it exists.

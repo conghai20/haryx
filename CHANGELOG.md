@@ -13,6 +13,13 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ### Added
 
+- Continue a session on another account. `haryx ai sessions continue <pid|id> [--to N|best]` ends
+  a Claude Code session (a normal termination request, waiting up to 10 s; on Windows you close
+  the window) and resumes the same conversation on another account in its folder. Both apps add
+  "Continue on…" to each running session, mark sessions stopped on an exhausted account, and show
+  "N sessions stopped on account X — Continue on Y" in the menu bar panel / tray flyout. After an
+  auto-switch the macOS app also notifies about sessions left on the exhausted account.
+
 - macOS app: Export… on an account card's right-click menu opens Maintenance › Export with that
   account ticked. The export list there is now a checklist, so any set of accounts can go in one
   file (Select All / Select None).

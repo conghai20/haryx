@@ -4,6 +4,7 @@
   import { actions } from "../lib/actions";
   import { api } from "../lib/api";
   import { store } from "../lib/store.svelte";
+  import { bestTarget } from "../lib/handoff";
   import {
     FIVE_HOUR_S,
     HIGH_PCT,
@@ -113,6 +114,20 @@
     </div>
   </section>
 
+  {#if store.stuck.length > 0}
+    {@const target = bestTarget(store.accounts, store.stuck[0]?.account ?? null)}
+    {#if target}
+      <div class="update caption stuck-row">
+        <span class="truncate">
+          {store.stuck.length === 1 ? "1 session" : `${store.stuck.length} sessions`} stopped on account
+          {[...new Set(store.stuck.map((s) => s.account))].join(", ")}
+        </span>
+        <button
+          onclick={() => store.stuck.forEach((s) => actions.continueSession(s.session.pid, target.number, s.session.cwd))}
+        >Continue on {target.number}</button>
+      </div>
+    {/if}
+  {/if}
   {#if store.update?.state.phase === "ready"}
     <div class="update caption">
       <span>HaryX {store.update.state.readyVersion} is ready</span>
@@ -256,6 +271,9 @@
     margin: 8px 0 0;
     font-weight: 600;
     color: var(--accent, inherit);
+  }
+  .stuck-row {
+    color: var(--orange, #c75000);
   }
   .event {
     margin: 8px 0 0;

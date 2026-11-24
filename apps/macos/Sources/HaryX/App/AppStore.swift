@@ -47,6 +47,8 @@ final class AppStore {
     private(set) var loginSessions: [LoginSession] = []
     /// slot → live Claude processes using it
     private(set) var sessions: [Int: [ClaudeProcess]] = [:]
+    /// Default-profile sessions an auto-switch left on their old account: pid → that account.
+    var leftBehind: [Int32: Int] = [:]
     var panelVisible = false
     /// The dashboard window is on screen (not closed, minimized or fully covered).
     var dashboardVisible = false
@@ -328,6 +330,7 @@ final class AppStore {
             sessionEnded(proc, slot: slot)
         }
         knownProcesses = current
+        if !leftBehind.isEmpty { pruneLeftBehind(alive: Set(current.keys)) }
         if bySlot != sessions { sessions = bySlot }
         updateMenuBarAnimation()
     }
@@ -386,7 +389,10 @@ final class AppStore {
         if let title = event.notificationTitle {
             notifier.post(Notice(key: "auto:\(event.id)", category: .autoSwitch, title: title, body: event.summary))
         }
-        if event.kind == "switch" { Task { await refresh() } }
+        if event.kind == "switch" {
+            noteSwitch(from: active?.number)
+            Task { await refresh() }
+        }
     }
 
     // MARK: banner

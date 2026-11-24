@@ -3,6 +3,7 @@
 
 import { listen } from "@tauri-apps/api/event";
 import { api } from "./api";
+import { stuckSessions } from "./handoff";
 import { ordered } from "./tide";
 import type { Account, AccountList, AutoEvent, Prefs, SessionList, Snapshot, UpdateInfo } from "./types";
 
@@ -20,6 +21,8 @@ class Store {
   cliPath = $state<string | null>(null);
   storeRoot = $state<string | null>(null);
   update = $state<UpdateInfo | null>(null);
+  /** Default-profile sessions an auto-switch left on their old account: pid → that account. */
+  leftBehind = $state<Record<number, number>>({});
   busy = $state<string | null>(null);
   message = $state<{ text: string; error: boolean } | null>(null);
   now = $state(Date.now());
@@ -27,6 +30,7 @@ class Store {
   accounts = $derived<Account[]>(ordered(this.list?.accounts ?? []));
   active = $derived<Account | null>(this.accounts.find((a) => a.active) ?? null);
   others = $derived<Account[]>(this.accounts.filter((a) => !a.active));
+  stuck = $derived(stuckSessions(this.sessions.sessions, this.accounts, this.leftBehind));
   lastAutoEvent = $derived<AutoEvent | null>(
     [...this.autoLog].reverse().find((e) => e.kind !== "poll") ?? null,
   );
@@ -40,9 +44,15 @@ class Store {
       this.error = e.payload.error;
       this.now = Date.now();
     });
-    await listen<SessionList>("sessions", (e) => (this.sessions = e.payload));
+    await listen<SessionList>("sessions", (e) => {
+      this.sessions = e.payload;
+      const alive = new Set(e.payload.sessions.map((s) => s.pid));
+      const kept = Object.entries(this.leftBehind).filter(([pid]) => alive.has(Number(pid)));
+      if (kept.length !== Object.keys(this.leftBehind).length) this.leftBehind = Object.fromEntries(kept);
+    });
     await listen<AutoEvent>("auto-event", (e) => {
       this.autoLog = [...this.autoLog, e.payload].slice(-AUTO_LOG_MAX);
+      if (e.payload.kind === "switch") this.noteSwitch();
       if (e.payload.kind === "started") this.autoRunning = true;
       if (e.payload.kind === "stopped" || (e.payload.kind === "error" && e.payload.notificationTitle === "Auto-switch stopped"))
         this.autoRunning = false;
@@ -67,6 +77,15 @@ class Store {
 
   async reload() {
     this.apply(await api.snapshot());
+  }
+
+  /** On an auto-switch, remember which default-profile sessions still hold the old account. */
+  noteSwitch() {
+    const from = this.active?.number;
+    if (from == null) return;
+    const left = this.sessions.sessions.filter((s) => s.profile === "default" && s.account === from);
+    if (left.length === 0) return;
+    this.leftBehind = { ...this.leftBehind, ...Object.fromEntries(left.map((s) => [s.pid, from])) };
   }
 
   flash(text: string, error = false) {

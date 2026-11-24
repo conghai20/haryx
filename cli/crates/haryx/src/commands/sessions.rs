@@ -133,11 +133,18 @@ fn prepare(
 ) -> Result<Plan, String> {
     let live = handoff::find(scan, key)?.clone();
     let from = live.account.map(|n| n.to_string());
-    let target = choose_target(switcher, from.as_deref(), to)?;
+    // `best` for a default-profile session may be the active account itself (after a switch).
+    let exclude = (live.profile == "session")
+        .then_some(from.as_deref())
+        .flatten();
+    let target = choose_target(switcher, exclude, to)?;
     let (to_num, to_email, _) = switcher
         .resolve_account(&target)
         .map_err(|e| e.to_string())?;
-    if Some(&to_num) == from.as_ref() {
+    // A default-profile session is listed under the active account, but one started before a switch
+    // still holds the old login: restarting it on the active account is the point. A session
+    // profile's account is exact.
+    if live.profile == "session" && Some(&to_num) == from.as_ref() {
         return Err(format!("the session already runs as account {to_num}"));
     }
     let source_profile = profile_of(switcher, default_profile, &live);

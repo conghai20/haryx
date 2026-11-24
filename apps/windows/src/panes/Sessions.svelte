@@ -3,6 +3,20 @@
   import { actions } from "../lib/actions";
   import { store } from "../lib/store.svelte";
   import { displayName } from "../lib/tide";
+  import { bestTarget, peakPct } from "../lib/handoff";
+  import type { Session } from "../lib/types";
+
+  let stuckPids = $derived(new Set(store.stuck.map((s) => s.session.pid)));
+
+  function continueOn(s: Session, value: string) {
+    if (!value) return;
+    actions.continueSession(s.pid, value === "best" ? null : Number(value), s.cwd);
+  }
+
+  function choices(s: Session) {
+    const from = s.profile === "session" ? s.account : null;
+    return store.accounts.filter((a) => a.number !== from && !a.disabled);
+  }
 
   let sessions = $derived([...store.sessions.sessions].sort((a, b) => b.startedAt - a.startedAt));
 
@@ -25,7 +39,7 @@
   <table>
     <thead>
       <tr class="caption tertiary">
-        <th>Account</th><th>Folder</th><th>Status</th><th class="num">Running for</th><th class="num">PID</th>
+        <th>Account</th><th>Folder</th><th>Status</th><th class="num">Running for</th><th class="num">PID</th><th class="act"></th>
       </tr>
     </thead>
     <tbody>
@@ -37,10 +51,30 @@
           </td>
           <td class="truncate folder" title={s.cwd}>{s.cwd}</td>
           <td>
-            {#if s.status === "busy"}<span class="dot"></span> working{:else}{s.status ?? "–"}{/if}
+            {#if stuckPids.has(s.pid)}<span class="stuck">out of quota</span>
+            {:else if s.status === "busy"}<span class="dot"></span> working{:else}{s.status ?? "–"}{/if}
           </td>
           <td class="num">{since(s.startedAt)}</td>
           <td class="num tertiary">{s.pid}</td>
+          <td class="act">
+            <select
+              aria-label="Continue this session on another account"
+              title="Ends this session and resumes the same conversation on another account, in a new terminal"
+              value=""
+              onchange={(e) => {
+                continueOn(s, e.currentTarget.value);
+                e.currentTarget.value = "";
+              }}
+            >
+              <option value="">Continue on…</option>
+              {#if bestTarget(store.accounts, s.profile === "session" ? s.account : null)}
+                <option value="best">Best account</option>
+              {/if}
+              {#each choices(s) as a (a.number)}
+                <option value={String(a.number)}>{a.number}. {displayName(a)}{peakPct(a) != null ? ` (${peakPct(a)}%)` : ""}</option>
+              {/each}
+            </select>
+          </td>
         </tr>
       {/each}
     </tbody>
@@ -74,6 +108,16 @@
   td {
     padding: 6px 8px;
     border-top: 1px solid var(--separator);
+  }
+  .act {
+    width: 150px;
+  }
+  .act select {
+    width: 100%;
+  }
+  .stuck {
+    color: var(--orange, #c75000);
+    font-weight: 600;
   }
   .num {
     text-align: right;

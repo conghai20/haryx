@@ -131,7 +131,8 @@ export type Job =
   | { kind: "claude" }
   | { kind: "run-as"; slot: number }
   | { kind: "run-mapped" }
-  | { kind: "login"; slot: number | null };
+  | { kind: "login"; slot: number | null }
+  | { kind: "continue"; pid: number; to: number | null };
 
 export interface RunResult {
   ok: boolean;

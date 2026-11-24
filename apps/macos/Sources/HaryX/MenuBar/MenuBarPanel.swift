@@ -16,6 +16,7 @@ struct MenuBarPanel: View {
                     ErrorCard(message: error)
                 }
                 if let line = store.desktopLine { DesktopStatusLine(line: line).padding(.top, 8) }
+                StuckSessionsLine()
                 UpdateLine(updates: store.updates)
                 let queue = store.nextInLine
                 if !queue.isEmpty {

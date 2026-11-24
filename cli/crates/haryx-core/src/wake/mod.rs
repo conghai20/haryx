@@ -5,6 +5,7 @@ pub mod agent;
 pub mod config;
 pub mod decide;
 pub mod state;
+pub mod task;
 pub mod tick;
 
 pub use config::{DEFAULT_WEEKLY_CAP_PCT, QuietHours, WakeConfig, parse_weekly_cap};

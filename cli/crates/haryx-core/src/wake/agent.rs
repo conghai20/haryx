@@ -1,9 +1,14 @@
-//! The user LaunchAgent that runs `haryx ai wake run --once` every minute (macOS).
+//! What runs `haryx ai wake run --once` every minute: a user LaunchAgent on macOS, a per-user Task
+//! Scheduler task on Windows ([`super::task`]).
 
 use std::path::{Path, PathBuf};
+#[cfg(not(windows))]
 use std::process::Command;
 
-use crate::error::{Error, Result};
+#[cfg(not(windows))]
+use crate::error::Error;
+use crate::error::Result;
+#[cfg(not(windows))]
 use crate::fsutil::{WriteOptions, atomic_write_text};
 
 pub const LABEL: &str = "dev.haryx.wake";
@@ -86,12 +91,13 @@ fn domain() -> String {
     format!("gui/{uid}")
 }
 
-/// Never reached: every caller runs `require_macos` first. Kept so the crate builds on Windows.
-#[cfg(not(unix))]
+/// Never reached: every caller runs `require_macos` first.
+#[cfg(not(any(unix, windows)))]
 fn domain() -> String {
     String::new()
 }
 
+#[cfg(not(windows))]
 fn launchctl(args: &[&str]) -> Result<std::process::Output> {
     Command::new("/bin/launchctl")
         .args(args)
@@ -99,23 +105,42 @@ fn launchctl(args: &[&str]) -> Result<std::process::Output> {
         .map_err(|e| Error::General(format!("cannot run launchctl: {e}")))
 }
 
+#[cfg(not(windows))]
 fn require_macos() -> Result<()> {
     if cfg!(target_os = "macos") {
         Ok(())
     } else {
         Err(Error::General(
-            "the wake agent is macOS-only for now; run `haryx ai wake run --once` from a timer"
+            "the wake agent runs on macOS and Windows; elsewhere run `haryx ai wake run --once` from a timer"
                 .into(),
         ))
     }
 }
 
 pub fn is_installed(home: &Path) -> bool {
+    #[cfg(windows)]
+    {
+        let _ = home;
+        windows::is_installed()
+    }
+    #[cfg(not(windows))]
     plist_path(home).is_file()
 }
 
-/// Write the plist and (re)load it. Returns the plist path.
+/// Write the plist and (re)load it (macOS), or register the scheduled task (Windows). Returns the file
+/// that defines it.
 pub fn install(home: &Path, exe: &Path, log: &Path) -> Result<PathBuf> {
+    #[cfg(windows)]
+    {
+        let _ = home;
+        windows::install(exe, log)
+    }
+    #[cfg(not(windows))]
+    launchd_install(home, exe, log)
+}
+
+#[cfg(not(windows))]
+fn launchd_install(home: &Path, exe: &Path, log: &Path) -> Result<PathBuf> {
     require_macos()?;
     let path = plist_path(home);
     let dir = path.parent().unwrap_or(home);
@@ -144,6 +169,17 @@ pub fn install(home: &Path, exe: &Path, log: &Path) -> Result<PathBuf> {
 
 /// Unload and remove the agent. Returns whether a plist was there.
 pub fn uninstall(home: &Path) -> Result<bool> {
+    #[cfg(windows)]
+    {
+        let _ = home;
+        windows::uninstall()
+    }
+    #[cfg(not(windows))]
+    launchd_uninstall(home)
+}
+
+#[cfg(not(windows))]
+fn launchd_uninstall(home: &Path) -> Result<bool> {
     require_macos()?;
     let path = plist_path(home);
     let target = format!("{}/{LABEL}", domain());
@@ -155,6 +191,77 @@ pub fn uninstall(home: &Path) -> Result<bool> {
             "cannot remove {}: {e}",
             path.display()
         ))),
+    }
+}
+
+#[cfg(windows)]
+mod windows {
+    use std::path::{Path, PathBuf};
+    use std::process::Command;
+
+    use super::super::task::{TASK_NAME, WINDOWLESS_EXE, task_xml, utf16_bytes};
+    use super::{INTERVAL_S, carried_env};
+    use crate::error::{Error, Result};
+    use crate::fsutil::{WriteOptions, atomic_write_bytes};
+
+    fn schtasks(args: &[&str]) -> Result<std::process::Output> {
+        Command::new("schtasks.exe")
+            .args(args)
+            .output()
+            .map_err(|e| Error::General(format!("cannot run schtasks: {e}")))
+    }
+
+    pub fn is_installed() -> bool {
+        schtasks(&["/Query", "/TN", TASK_NAME]).is_ok_and(|o| o.status.success())
+    }
+
+    /// `haryxw.exe` beside `exe` when it is there, so no console window opens each minute.
+    fn tick_exe(exe: &Path) -> PathBuf {
+        let windowless = exe.with_file_name(WINDOWLESS_EXE);
+        if windowless.is_file() {
+            windowless
+        } else {
+            log::warn!(
+                "{} not found next to {}; the wake task runs the console build",
+                WINDOWLESS_EXE,
+                exe.display()
+            );
+            exe.to_path_buf()
+        }
+    }
+
+    pub fn install(exe: &Path, log: &Path) -> Result<PathBuf> {
+        let dir = log.parent().unwrap_or(Path::new("."));
+        std::fs::create_dir_all(dir)
+            .map_err(|e| Error::General(format!("cannot create {}: {e}", dir.display())))?;
+        let start = jiff::Zoned::now().strftime("%Y-%m-%dT%H:%M:00").to_string();
+        let xml = task_xml(&tick_exe(exe), &carried_env(), INTERVAL_S, &start);
+        let path = dir.join("wake-task.xml");
+        atomic_write_bytes(&path, &utf16_bytes(&xml), WriteOptions::default())
+            .map_err(|e| Error::General(format!("cannot write {}: {e}", path.display())))?;
+        let xml_arg = path.to_string_lossy();
+        let out = schtasks(&["/Create", "/TN", TASK_NAME, "/XML", &xml_arg, "/F"])?;
+        if !out.status.success() {
+            return Err(Error::General(format!(
+                "schtasks /Create failed: {}",
+                String::from_utf8_lossy(&out.stderr).trim()
+            )));
+        }
+        Ok(path)
+    }
+
+    pub fn uninstall() -> Result<bool> {
+        if !is_installed() {
+            return Ok(false);
+        }
+        let out = schtasks(&["/Delete", "/TN", TASK_NAME, "/F"])?;
+        if !out.status.success() {
+            return Err(Error::General(format!(
+                "schtasks /Delete failed: {}",
+                String::from_utf8_lossy(&out.stderr).trim()
+            )));
+        }
+        Ok(true)
     }
 }
 

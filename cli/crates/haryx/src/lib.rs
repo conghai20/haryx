@@ -3,5 +3,6 @@
 
 pub mod cli;
 pub mod commands;
+pub mod entry;
 pub mod logging;
 pub mod tui;

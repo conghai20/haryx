@@ -1,0 +1,9 @@
+{
+  "sessionId": "4f6c2a1e-9b7d-4e3a-8c21-0d5e7f9a1b2c",
+  "from": 1,
+  "to": 3,
+  "toEmail": "account3@example.com",
+  "cwd": "/Users/me/work/api",
+  "copiedTranscript": null,
+  "command": "haryx ai run 3 -- --resume 4f6c2a1e-9b7d-4e3a-8c21-0d5e7f9a1b2c"
+}

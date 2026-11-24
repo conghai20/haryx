@@ -10,6 +10,7 @@ mod profile;
 mod profile_view;
 mod sessions;
 mod upgrade;
+mod usage;
 mod wake;
 
 use std::fmt;
@@ -85,6 +86,13 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Wake(action) => wake::run(&action, debug),
         Command::Desktop(action) => desktop::run(&action, debug),
         Command::Sessions { json } => sessions::run(json, debug),
+        Command::Usage { action, json } => usage::run(&action, json, debug),
+        Command::SessionsContinue {
+            session,
+            to,
+            json,
+            no_launch,
+        } => sessions::continue_session(&session, &to, json, no_launch, debug),
         Command::Map { account, path } => accounts::map(account.as_deref(), path.as_deref(), debug),
         Command::Unmap { path } => accounts::unmap(path.as_deref(), debug),
         Command::Unclaimed { purge } => accounts::unclaimed(purge.as_deref(), debug),
@@ -92,7 +100,12 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Enable { account } => accounts::set_disabled(&account, false, debug),
         Command::Run(opts) => accounts::run(&opts, debug),
         Command::Auto(opts) => auto::run(&opts, debug),
-        Command::Upgrade => upgrade::run(),
+        Command::Upgrade {
+            check,
+            json,
+            refresh,
+            download_app,
+        } => upgrade::run(check, json, refresh, download_app.as_deref()),
         Command::Tui => tui(false, debug),
         Command::Watch => tui(true, debug),
     }

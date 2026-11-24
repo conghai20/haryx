@@ -51,7 +51,7 @@ curl -fsSL https://raw.githubusercontent.com/conghai20/haryx/main/scripts/instal
 ```
 
 It downloads the latest DMG, checks its SHA-256, installs `HaryX.app` in `/Applications` (replacing an
-older copy) and opens it. Run it again to update. A download through `curl` is not marked as coming
+older copy) and opens it. After that HaryX updates itself (About & Updates). A download through `curl` is not marked as coming
 from the internet, so macOS opens the app without asking for approval in Privacy & Security.
 Options: `HARYX_VERSION=0.1.2` pins a version, `HARYX_INSTALL_DIR=~/Applications` changes the folder.
 
@@ -70,9 +70,17 @@ irm https://raw.githubusercontent.com/conghai20/haryx/main/scripts/install.ps1 |
 ```
 
 It downloads the latest `HaryX-<version>-<x64|arm64>-setup.exe`, checks its SHA-256 and installs HaryX
-for your user (no admin rights), then starts it in the tray. Run it again to update. The installer is
+for your user (no admin rights), then starts it in the tray. After that HaryX updates itself (About &
+updates). The installer is
 not code-signed yet: a copy downloaded with a browser gets a SmartScreen warning (More info › Run
 anyway), which the script avoids. `HARYX_VERSION=0.1.3` pins a version. Needs Windows 10 22H2 or 11.
+
+**Updates.** Both apps check GitHub releases once a day and show "HaryX X is available" in the menu
+bar panel or tray flyout. HaryX › About & Updates sets how much they do on their own: install
+automatically (download in the background, install on quit), notify (the default) or only when you
+check. Each download is checked against its SHA-256 before it replaces anything, and the bundled
+`haryx` updates with the app. `haryx upgrade` updates a CLI you installed yourself: through its
+package manager, or for a release tarball by downloading and checking the new one.
 
 **CLI only.** Each release also has `haryx-v<version>-<target>.tar.gz` for macOS, Linux and Windows
 (Apple silicon, Intel, ARM64, x86_64). Or build it:

@@ -21,9 +21,9 @@ Built as planned, with these differences:
   a console window flashes each minute.
 
 Still open:
-- **Updates inside the app** (`tauri-plugin-updater`) need an update-signing key pair: the owner
-  generates it (`npx tauri signer generate`), stores the private key as a release secret, and the
-  public key goes into `tauri.conf.json`. Until then, run `install.ps1` again or `winget upgrade`.
+- **Updates inside the app**: built without `tauri-plugin-updater` and without a signing key (see
+  `docs/in-app-update-plan.md`): the bundled haryx downloads the setup.exe and checks its SHA-256,
+  and the app runs it silently after quitting. Needs the real-hardware check below.
 - **Code signing**: unsigned by decision for now.
 - **winget**: the release renders the manifests; submitting them to `microsoft/winget-pkgs` is a
   manual pull request.

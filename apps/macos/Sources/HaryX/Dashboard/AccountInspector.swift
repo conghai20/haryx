@@ -197,14 +197,45 @@ private struct SessionsSection: View {
         if !sessions.isEmpty {
             Section("Live Claude sessions") {
                 ForEach(sessions) { s in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(s.cwd.map { ($0 as NSString).abbreviatingWithTildeInPath } ?? "pid \(s.pid)").lineLimit(1)
-                        Text("pid \(s.pid) · started \(s.startedAt.formatted(.relative(presentation: .named)))\(s.configDir == nil ? "" : " · session mode")")
-                            .font(.caption).foregroundStyle(.secondary)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(s.cwd.map { ($0 as NSString).abbreviatingWithTildeInPath } ?? "pid \(s.pid)").lineLimit(1)
+                            Text("pid \(s.pid) · started \(s.startedAt.formatted(.relative(presentation: .named)))\(s.configDir == nil ? "" : " · session mode")")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        ContinueMenu(process: s, from: account.number)
                     }
                 }
             }
         }
+    }
+}
+
+/// "Continue on…": end this session and resume the conversation on another account.
+struct ContinueMenu: View {
+    @Environment(AppStore.self) private var store
+    let process: ClaudeProcess
+    let from: Int
+
+    var body: some View {
+        Menu("Continue on…") {
+            if let best = store.bestTarget(excluding: from) {
+                Button("Best: \(best.displayName) (\(Int(best.peakPct ?? 0))% used)") {
+                    store.continueSession(process, on: best)
+                }
+                Divider()
+            }
+            ForEach(store.accounts.filter { $0.number != from && !$0.isDisabled }) { a in
+                Button("\(a.number). \(a.displayName)\(a.peakPct.map { " — \(Int($0))% used" } ?? "")") {
+                    store.continueSession(process, on: a)
+                }
+                .disabled(a.needsRelogin)
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Ends this Claude session and resumes the same conversation on another account, in a new terminal.")
     }
 }
 

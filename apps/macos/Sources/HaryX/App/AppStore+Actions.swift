@@ -208,9 +208,13 @@ extension AppStore {
 
     // MARK: maintenance
 
-    func export(to url: URL, account: Account?, full: Bool) async {
+    /// Exports `accounts`; empty means every account.
+    func export(to url: URL, accounts: [Account], full: Bool) async {
+        if accounts.count > 1, cli?.flavor == .cswap {
+            return flash("cswap exports one account or all of them; pick one, or every account.", error: true)
+        }
         var args = ["export", url.path]
-        if let account { args += ["--account", ref(account)] }
+        if !accounts.isEmpty { args += ["--account", accounts.map(ref).joined(separator: ",")] }
         if full { args.append("--full") }
         if await perform("Exporting", args, success: "Exported to \(url.lastPathComponent)") {
             // The export holds live tokens: keep it owner-only.
@@ -245,6 +249,7 @@ extension AppStore {
     }
 
     func purgeAll() async {
+        Prefs.d.set(false, forKey: Prefs.autoWasOn)
         await auto.stopAndWait()
         await perform("Purging all data", ["purge"], stdin: "y\n", success: "All account data removed", extras: true)
     }

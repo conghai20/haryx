@@ -99,6 +99,22 @@ fn upgrade_from_a_source_build_explains_the_manual_routes() {
     let output = haryx(&["upgrade"]);
     assert_eq!(output.status.code(), Some(1));
     let err = stderr(&output);
-    assert!(err.contains("Could not detect install method"), "{err}");
+    assert!(err.contains("build from source"), "{err}");
     assert!(err.contains("brew upgrade haryx"), "{err}");
+}
+
+#[test]
+fn upgrade_check_rejects_misplaced_flags() {
+    let output = haryx(&["list", "--check"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(stderr(&output).contains("--check can only be used with 'upgrade'"));
+    let output = haryx(&["upgrade", "--refresh"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(stderr(&output).contains("--refresh can only be used with 'upgrade --check'"));
+    let output = haryx(&["upgrade", "--json"]);
+    assert_eq!(output.status.code(), Some(2));
+    let output = haryx(&["list", "--download-app", "x"]);
+    assert!(stderr(&output).contains("--download-app can only be used with 'upgrade'"));
+    let output = haryx(&["upgrade", "--check", "--download-app", "x"]);
+    assert!(stderr(&output).contains("not both"));
 }

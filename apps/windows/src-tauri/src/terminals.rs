@@ -56,6 +56,9 @@ pub enum Job {
     RunMapped,
     /// `haryx ai login [slot]`: sign in (again) in the browser Claude Code opens.
     Login { slot: Option<u32> },
+    /// `haryx ai sessions continue <pid> --to <slot|best>`: end a session that ran out and resume
+    /// its conversation on another account.
+    Continue { pid: u32, to: Option<u32> },
 }
 
 /// The program files each terminal is started through.
@@ -159,6 +162,15 @@ fn job_words(job: &Job, haryx: &Path) -> Option<Vec<String>> {
             words.extend(slot.map(|n| n.to_string()));
             Some(words)
         }
+        Job::Continue { pid, to } => Some(vec![
+            exe,
+            "ai".into(),
+            "sessions".into(),
+            "continue".into(),
+            pid.to_string(),
+            "--to".into(),
+            to.map_or_else(|| "best".to_owned(), |n| n.to_string()),
+        ]),
     }
 }
 
@@ -334,6 +346,23 @@ mod tests {
             run[3],
             r"'C:/Users/o'\''neil/bin/haryx.exe' 'run' '3'; exec bash"
         );
+    }
+
+    #[test]
+    fn continue_runs_the_handoff_in_the_terminal() {
+        let words = argv(
+            Terminal::Powershell,
+            Job::Continue {
+                pid: 4242,
+                to: Some(3),
+            },
+        );
+        assert_eq!(
+            words.last().unwrap(),
+            r"& 'C:\Users\o''neil\bin\haryx.exe' 'ai' 'sessions' 'continue' '4242' '--to' '3'"
+        );
+        let best = argv(Terminal::Powershell, Job::Continue { pid: 7, to: None });
+        assert!(best.last().unwrap().ends_with("'--to' 'best'"));
     }
 
     #[test]

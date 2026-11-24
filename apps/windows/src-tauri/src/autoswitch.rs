@@ -31,6 +31,8 @@ pub struct AutoEvent {
     pub severity: Severity,
     /// Title for a user notification, when the event deserves one.
     pub notification_title: Option<String>,
+    /// For a switch: the account it left (sessions still running there may need continuing).
+    pub from_account: Option<i64>,
 }
 
 impl AutoEvent {
@@ -41,6 +43,7 @@ impl AutoEvent {
             summary: summary.into(),
             severity,
             notification_title: None,
+            from_account: None,
         }
     }
 }
@@ -167,6 +170,10 @@ pub fn parse_line(line: &str) -> Option<AutoEvent> {
         summary,
         severity,
         notification_title: title.map(str::to_owned),
+        from_account: obj.get("from").and_then(|f| f.get("number")).and_then(|n| {
+            n.as_i64()
+                .or_else(|| n.as_str().and_then(|s| s.parse().ok()))
+        }),
     })
 }
 
@@ -326,6 +333,7 @@ mod tests {
             "Switched Account-1 (a@x.com) → Account-2 (b@x.com) (threshold) [dry run]"
         );
         assert_eq!(switch.ts.as_deref(), Some("2026-11-24T01:00:00Z"));
+        assert_eq!(switch.from_account, Some(1));
         let poll = parse_line(r#"{"event":"poll","headroom":{"1":10,"2":20}}"#).unwrap();
         assert_eq!(poll.summary, "Checked 2 account(s); active (none)");
         let error = parse_line(r#"{"event":"error","message":"boom","transient":false}"#).unwrap();

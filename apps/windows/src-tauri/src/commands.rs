@@ -13,6 +13,7 @@ use crate::cli::DEFAULT_TIMEOUT;
 use crate::settings::{self, Prefs};
 use crate::state::{self, AppState};
 use crate::terminals::{self, Job, Terminal};
+use crate::updater::{self, UpdateMode};
 
 /// First words the UI may send. `run`, `tui` and `watch` need a terminal and go through
 /// [`open_terminal`]; long-running `auto` goes through [`auto_start`].
@@ -139,6 +140,7 @@ pub fn snapshot(state: State<'_, Arc<AppState>>) -> Value {
         "terminals": terminals,
         "cliPath": state.cli().ok().map(|c| c.exe.display().to_string()),
         "storeRoot": state::store_root().map(|p| p.display().to_string()),
+        "update": crate::updater::snapshot_json(&state, &state.update.lock().unwrap_or_else(|e| e.into_inner()).clone()),
         "platform": std::env::consts::OS,
     })
 }
@@ -230,7 +232,75 @@ pub fn hide_flyout(app: AppHandle) {
 #[tauri::command]
 pub fn quit(app: AppHandle, state: State<'_, Arc<AppState>>) {
     state.runner.stop();
+    updater::install_on_quit(&state);
     app.exit(0);
+}
+
+/// Open one of HaryX's GitHub pages in the browser.
+#[tauri::command]
+pub fn open_link(url: String) -> Result<(), String> {
+    updater::open_link(&url)
+}
+
+/// Look up the latest release (`refresh` skips the day-old cache).
+#[tauri::command]
+pub async fn update_check(app: AppHandle, refresh: bool) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || updater::check(&app, refresh))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Download and check the available installer.
+#[tauri::command]
+pub async fn update_download(app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || updater::download(&app))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Install the downloaded update and reopen HaryX.
+#[tauri::command]
+pub fn update_restart(app: AppHandle, state: State<'_, Arc<AppState>>) -> Result<(), String> {
+    let installer = updater::ready_installer(&state).ok_or("no update is ready")?;
+    updater::launch_installer(&installer, true)?;
+    state.runner.stop();
+    app.exit(0);
+    Ok(())
+}
+
+/// Change the update mode or the skipped version (`skip: ""` clears it).
+#[tauri::command]
+pub fn update_set(
+    app: AppHandle,
+    state: State<'_, Arc<AppState>>,
+    mode: Option<UpdateMode>,
+    skip: Option<String>,
+) -> Result<(), String> {
+    let mut prefs = state.prefs();
+    if let Some(mode) = mode {
+        prefs.update_mode = mode;
+    }
+    if let Some(skip) = skip {
+        prefs.skipped_version = Some(skip).filter(|s| !s.is_empty());
+    }
+    settings::save(&state.config_dir, &prefs).map_err(|e| e.to_string())?;
+    *state.prefs.lock().unwrap_or_else(|e| e.into_inner()) = prefs.clone();
+    let _ = app.emit("prefs", &prefs);
+    let update = state
+        .update
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let _ = app.emit("update", updater::snapshot_json(&state, &update));
+    if prefs.update_mode == UpdateMode::Automatic
+        && update.phase == "idle"
+        && update.available(prefs.skipped_version.as_deref()).is_some()
+    {
+        std::thread::spawn(move || {
+            let _ = updater::download(&app);
+        });
+    }
+    Ok(())
 }
 
 #[cfg(test)]

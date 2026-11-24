@@ -1,0 +1,24 @@
+{
+  "current": "0.1.4",
+  "latest": "0.2.0",
+  "available": true,
+  "published_at": "2026-11-25T08:00:00Z",
+  "notes": "### Added\n\n- In-app updates.",
+  "html_url": "https://github.com/conghai20/haryx/releases/tag/v0.2.0",
+  "install": "app",
+  "assets": {
+    "app": {
+      "name": "HaryX-0.2.0.dmg",
+      "url": "https://github.com/conghai20/haryx/releases/download/v0.2.0/HaryX-0.2.0.dmg",
+      "sha256_url": "https://github.com/conghai20/haryx/releases/download/v0.2.0/HaryX-0.2.0.dmg.sha256",
+      "size": 18874368
+    },
+    "cli": {
+      "name": "haryx-v0.2.0-aarch64-apple-darwin.tar.gz",
+      "url": "https://github.com/conghai20/haryx/releases/download/v0.2.0/haryx-v0.2.0-aarch64-apple-darwin.tar.gz",
+      "sha256_url": "https://github.com/conghai20/haryx/releases/download/v0.2.0/haryx-v0.2.0-aarch64-apple-darwin.tar.gz.sha256",
+      "size": 4194304
+    }
+  },
+  "error": null
+}

@@ -136,7 +136,7 @@ impl SettingSpec {
 use SettingKind::{Bool, Choice, Float, Int, String as Text};
 
 /// Every key, in registry order (the order `haryx config` lists them).
-pub static SETTING_SPECS: [SettingSpec; 15] = [
+pub static SETTING_SPECS: [SettingSpec; 18] = [
     SettingSpec::new(
         "autoswitch",
         "threshold",
@@ -251,6 +251,29 @@ pub static SETTING_SPECS: [SettingSpec; 15] = [
         Bool,
         "With usage.headerProbe, also read Fable's weekly limit from a 1-token Fable request (opt-in: uses Fable quota)",
     ),
+    SettingSpec::new(
+        "history",
+        "enabled",
+        "enabled",
+        Bool,
+        "Keep a local usage history from Claude Code's transcripts ({prog} ai usage)",
+    ),
+    SettingSpec::new(
+        "history",
+        "import",
+        "import",
+        Choice,
+        "Past transcripts on the first index: all, none (from now on), or ask",
+    )
+    .choices(&["ask", "all", "none"]),
+    SettingSpec::new(
+        "history",
+        "keepDays",
+        "keep_days",
+        Int,
+        "Days of usage history to keep (0 keeps everything)",
+    )
+    .range(0.0, 36500.0),
 ];
 
 /// Look up a spec by dotted key; an unknown key is an [`Error::Config`] listing the valid ones.
@@ -291,6 +314,9 @@ pub(super) fn field_value(loaded: &LoadedSettings, spec: &SettingSpec) -> Settin
         ("updates", "check") => SettingValue::Bool(loaded.updates.check),
         ("usage", "header_probe") => SettingValue::Bool(loaded.usage.header_probe),
         ("usage", "fable_probe") => SettingValue::Bool(loaded.usage.fable_probe),
+        ("history", "enabled") => SettingValue::Bool(loaded.history.enabled),
+        ("history", "import") => SettingValue::Str(loaded.history.import.clone()),
+        ("history", "keep_days") => SettingValue::Int(loaded.history.keep_days),
         _ => SettingValue::None,
     }
 }

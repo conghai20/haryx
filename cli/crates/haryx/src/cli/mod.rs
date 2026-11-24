@@ -27,6 +27,8 @@ mod main_parser;
 mod profile_parser;
 mod sessions_parser;
 mod subparsers;
+mod usage_parser;
+pub use usage_parser::UsageAction;
 mod top;
 mod wake_parser;
 
@@ -99,8 +101,14 @@ pub enum Command {
     },
     /// `purge` / `--purge`.
     Purge,
-    /// `upgrade` / `update` / `--upgrade`.
-    Upgrade,
+    /// `upgrade` / `update` / `--upgrade`, `upgrade --check [--json] [--refresh]`, or
+    /// `upgrade --download-app DIR [--json]`.
+    Upgrade {
+        check: bool,
+        json: bool,
+        refresh: bool,
+        download_app: Option<String>,
+    },
     /// `run [NUM|EMAIL] [-- claude args]`.
     Run(RunOptions),
     /// `auto [...]`.
@@ -136,6 +144,15 @@ pub enum Command {
     Desktop(DesktopAction),
     /// `sessions [--json]`.
     Sessions { json: bool },
+    /// `ai usage [index|report|quota|summary] [--json]`.
+    Usage { action: UsageAction, json: bool },
+    /// `ai sessions continue SESSION [--to NUM|EMAIL|best] [--no-launch] [--json]`.
+    SessionsContinue {
+        session: String,
+        to: String,
+        json: bool,
+        no_launch: bool,
+    },
 }
 
 /// Options of `login`.
@@ -237,7 +254,7 @@ impl Command {
             Self::Import { .. } => "import",
             Self::ImportUsage { .. } => "import-usage",
             Self::Purge => "purge",
-            Self::Upgrade => "upgrade",
+            Self::Upgrade { .. } => "upgrade",
             Self::Run(_) => "run",
             Self::Auto(_) => "auto",
             Self::Config { .. } => "config",
@@ -254,6 +271,8 @@ impl Command {
             Self::Wake(_) => "wake",
             Self::Desktop(_) => "desktop",
             Self::Sessions { .. } => "sessions",
+            Self::SessionsContinue { .. } => "sessions continue",
+            Self::Usage { .. } => "usage",
         }
     }
 }
@@ -310,7 +329,7 @@ pub const AI_SECTION: &str = "ai";
 
 /// Commands that work only inside the `ai` section: their top-level names are kept for HaryX itself
 /// (`haryx login` will sign in to a HaryX account).
-pub const AI_ONLY: &[&str] = &["login", "profile", "wake", "desktop", "sessions"];
+pub const AI_ONLY: &[&str] = &["login", "profile", "wake", "desktop", "sessions", "usage"];
 
 /// Top-level help requests, answered with the section overview instead of the `ai` command list.
 const TOP_HELP: &[&str] = &["help", "--help", "-h"];
@@ -358,6 +377,11 @@ fn parse_ai(argv: &[String], interactive: bool) -> Result<Invocation, Error> {
         && first == "sessions"
     {
         return sessions_parser::parse(rest);
+    }
+    if let Some((first, rest)) = argv.split_first()
+        && first == "usage"
+    {
+        return usage_parser::parse(rest);
     }
     if let Some((first, rest)) = argv.split_first()
         && let Some(parsed) = subparsers::parse(first, rest)

@@ -1,0 +1,10 @@
+{
+  "since": 1794907679,
+  "pricesAsOf": "2026-11-03",
+  "accounts": [
+    {"account": 2, "tokens": 339224281, "cost": 157.64, "share": 72.3, "ranOut": 3, "topProject": "/Users/me/work/api", "topProjectShare": 61.0},
+    {"account": null, "tokens": 134030, "cost": null, "share": 0.1, "ranOut": 0, "topProject": null, "topProjectShare": null}
+  ],
+  "total": {"key": null, "replies": 1407, "input": 2877, "output": 1841197, "cacheRead": 329994995, "cacheWrite": 7519242, "tokens": 339358311, "cost": 157.64, "unpricedTokens": 134030, "share": 100.0, "approximate": true, "lastActive": 1795510800, "accounts": [2]},
+  "history": {"enabled": true, "needsChoice": false, "readReplies": 0, "keepDays": 90}
+}

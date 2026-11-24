@@ -13,6 +13,14 @@ across machines through one file. Plan: [ai-profile-plan.md](ai-profile-plan.md)
 Pressing Use in the macOS app also moves Claude Desktop to that account, through a per-account Desktop data folder.
 Blocked on one sign-in test. Plan: [desktop-follow-plan.md](desktop-follow-plan.md).
 
+## Continue a session on another account
+When an account runs out, end its stuck Claude Code session and resume the same conversation on
+another account in one click; offered after auto-switch. Plan: [session-handoff-plan.md](session-handoff-plan.md).
+
+## Usage history
+Tokens and API-price cost by account, project, session and model, quota % over time, and a weekly
+summary, from Claude Code's own transcripts, kept locally. Plan: [usage-history-plan.md](usage-history-plan.md).
+
 ## Distribution
 Homebrew (formula + cask), crates.io, Developer ID signed and notarized DMG on GitHub releases, and pip/npm wrapper
 packages for the CLI on macOS, Linux and Windows.

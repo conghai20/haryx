@@ -39,9 +39,13 @@ public struct AutoEvent: Sendable, Hashable, Identifiable {
     public let severity: Severity
     /// Title for a user notification, when the event deserves one.
     public let notificationTitle: String?
+    /// For a switch: the account it left (sessions still running there may need continuing).
+    public let fromAccount: Int?
 
-    public init(kind: String, date: Date = Date(), summary: String, severity: Severity, notificationTitle: String? = nil) {
+    public init(kind: String, date: Date = Date(), summary: String, severity: Severity, notificationTitle: String? = nil,
+                fromAccount: Int? = nil) {
         self.kind = kind; self.date = date; self.summary = summary; self.severity = severity; self.notificationTitle = notificationTitle
+        self.fromAccount = fromAccount
     }
 
     /// Parses one stdout line. Returns nil for non-JSON lines and for noise (`sleep`).
@@ -64,8 +68,11 @@ public struct AutoEvent: Sendable, Hashable, Identifiable {
                              severity: .info, notificationTitle: nil)
         case "switch":
             let dry = (obj["dryRun"] as? Bool) == true ? " [dry run]" : ""
+            let from = (obj["from"] as? [String: Any])?["number"]
+            let fromAccount = (from as? Int) ?? (from as? String).flatMap(Int.init)
             return AutoEvent(kind: kind, date: date, summary: "Switched \(ref("from")) → \(ref("to")) (\(str("trigger")))\(dry)",
-                             severity: .notable, notificationTitle: nil) // list diff notifies switches
+                             severity: .notable, notificationTitle: nil, // list diff notifies switches
+                             fromAccount: fromAccount)
         case "no-switch":
             let detail = str("detail").isEmpty ? "" : " — \(str("detail"))"
             return AutoEvent(kind: kind, date: date, summary: "No switch: \(str("reason"))\(detail)",

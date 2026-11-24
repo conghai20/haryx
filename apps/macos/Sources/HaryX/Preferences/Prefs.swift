@@ -10,6 +10,8 @@ enum Prefs {
     static let claudeFolder = "claudeFolder"
     static let autoOnLaunch = "autoOnLaunch"
     static let autoDryRun = "autoDryRun"
+    /// Whether the user last left auto-switch on; quitting keeps it, so the next launch resumes.
+    static let autoWasOn = "autoWasOn"
     static let menuBarPercent = "menuBarPercent"
     static let menuBarMascot = "menuBarMascot"
     static let mascotStyles = "mascotStyles"
@@ -17,6 +19,13 @@ enum Prefs {
     /// "Claude Desktop follows Use" (off by default) and its confirm's "Don't ask again".
     static let desktopFollows = "desktopFollows"
     static let desktopSkipConfirm = "desktopSkipConfirm"
+    /// In-app updates: `UpdateMode` raw value, the last lookup, and a release the user skipped.
+    static let updateMode = "updateMode"
+    static let lastUpdateCheck = "lastUpdateCheck"
+    static let skippedVersion = "skippedVersion"
+    /// Usage history: a weekly summary notification (off by default) and when it last went out.
+    static let weeklySummary = "weeklySummary"
+    static let lastWeeklySummary = "lastWeeklySummary"
     static let sessionMinSeconds = 60.0
 
     static func notifyKey(_ c: Notice.Category) -> String { "notify.\(c.rawValue)" }
@@ -24,7 +33,8 @@ enum Prefs {
     static func register() {
         var defaults: [String: Any] = [
             refreshSeconds: 60.0, terminal: TerminalApp.terminal.rawValue, shell: "",
-            claudeFolder: CSwapCLI.home, autoOnLaunch: false, autoDryRun: false, desktopFollows: false, desktopSkipConfirm: false, menuBarPercent: true, menuBarMascot: false,
+            claudeFolder: CSwapCLI.home, autoOnLaunch: false, autoWasOn: false, autoDryRun: false, desktopFollows: false, desktopSkipConfirm: false, menuBarPercent: true, menuBarMascot: false,
+            updateMode: UpdateMode.notify.rawValue, weeklySummary: false,
         ]
         for c in Notice.Category.allCases { defaults[notifyKey(c)] = true }
         UserDefaults.standard.register(defaults: defaults)

@@ -16,6 +16,8 @@ struct MenuBarPanel: View {
                     ErrorCard(message: error)
                 }
                 if let line = store.desktopLine { DesktopStatusLine(line: line).padding(.top, 8) }
+                StuckSessionsLine()
+                UpdateLine(updates: store.updates)
                 let queue = store.nextInLine
                 if !queue.isEmpty {
                     Hairline().padding(.vertical, 10)
@@ -51,7 +53,7 @@ struct MenuBarPanel: View {
             }
             Spacer(minLength: 4)
             Button {
-                store.auto.isRunning ? store.auto.stop() : store.startAuto()
+                store.toggleAuto()
             } label: {
                 Text(store.auto.isRunning ? "Auto-switch on" : "Auto-switch off")
                     .font(.caption.weight(.medium))

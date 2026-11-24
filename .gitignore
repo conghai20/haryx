@@ -7,3 +7,6 @@ target/
 .claude/worktrees/
 dist/
 packaging/pypi/dist/
+
+# Impeccable scratch files
+.impeccable/tmp/

@@ -13,6 +13,8 @@ mod settings;
 mod state;
 mod terminals;
 mod tray;
+mod updater;
+mod weekly;
 
 use std::sync::Arc;
 
@@ -42,6 +44,8 @@ pub fn run() {
             state::start_loops(&handle, tray::update);
             tray::start_animation(&handle);
             autostart::apply(&handle, &prefs);
+            updater::start_loop(&handle);
+            weekly::start_loop(&handle);
             if prefs.auto_switch_on_launch {
                 let _ = commands::auto_start(handle.clone(), handle.state());
             }
@@ -63,6 +67,11 @@ pub fn run() {
             commands::open_dashboard,
             commands::hide_flyout,
             commands::quit,
+            commands::update_check,
+            commands::update_download,
+            commands::update_restart,
+            commands::update_set,
+            commands::open_link,
         ])
         .build(tauri::generate_context!())
         .expect("error while building HaryX")

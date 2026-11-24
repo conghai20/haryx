@@ -11,6 +11,49 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+### Added
+
+- Usage history. `haryx ai usage [report|quota|summary]` shows tokens and what they would cost at
+  API prices (as of a dated price table) by account, project, session, model or day, and the
+  5-hour/weekly readings over time, read from Claude Code's transcripts and kept on this machine
+  (no conversation text). The first run asks whether to read past transcripts or start from now;
+  `history.keepDays` (30, 90 by default, 365, or 0 for forever) sets how long it is kept. The
+  macOS app adds AI › Usage: quota-over-time and per-day charts, top projects and sessions, and an
+  optional weekly summary notification; the Windows app adds the same Usage pane (SVG charts) and
+  weekly toast.
+- Continue a session on another account. `haryx ai sessions continue <pid|id> [--to N|best]` ends
+  a Claude Code session (a normal termination request, waiting up to 10 s; on Windows you close
+  the window) and resumes the same conversation on another account in its folder. Both apps add
+  "Continue on…" to each running session, mark sessions stopped on an exhausted account, and show
+  "N sessions stopped on account X — Continue on Y" in the menu bar panel / tray flyout. After an
+  auto-switch the macOS app also notifies about sessions left on the exhausted account.
+
+- macOS app: Export… on an account card's right-click menu opens Maintenance › Export with that
+  account ticked. The export list there is now a checklist, so any set of accounts can go in one
+  file (Select All / Select None).
+- `haryx ai export PATH --account 1,3` takes several comma-separated numbers or emails.
+- macOS app: HaryX › About & Updates shows the app and CLI versions and the latest release notes,
+  and updates HaryX in place. Choose Install automatically (download in the background, install on
+  quit or Restart Now), Notify me (the default: a daily check and an "is available" row in the menu
+  bar) or Only when I check; Skip This Version hides one release. Each download is checked against
+  its SHA-256 and the app's signature first; the bundled haryx updates with the app. When HaryX
+  cannot write to its own folder it opens the disk image in Finder instead.
+- Windows app: HaryX › About & updates, with the same three update modes, release notes, and an
+  "is available" row in the tray flyout. The checked installer runs silently once HaryX quits (a
+  per-user install, no admin prompt) and HaryX reopens.
+- `haryx upgrade --check [--json] [--refresh]` reports the latest GitHub release: its version,
+  notes and the app and CLI downloads for this machine. The apps use it for their own updates.
+- `haryx upgrade` updates a standalone install (a release tarball unpacked by hand) in place: it
+  downloads this platform's tarball, checks its SHA-256 and that the new binary reports the new
+  version, then swaps it in. The haryx inside the HaryX app says it updates with the app.
+  `haryx upgrade --download-app DIR [--json]` downloads and checks this machine's app installer
+  (the Windows app uses it).
+
+### Changed
+
+- macOS app: auto-switch keeps its on/off state across quit and relaunch. Left on, it starts again
+  when HaryX reopens; "Always start when HaryX launches" still forces it on.
+
 ## [0.1.4] - 2026-11-24
 
 ### Added

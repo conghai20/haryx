@@ -1,0 +1,9 @@
+{
+  "since": 1794907679,
+  "readings": [
+    {"at": 1795500000, "account": 1, "fiveHour": 42.0, "sevenDay": 86.0},
+    {"at": 1795503600, "account": 1, "fiveHour": 100.0, "sevenDay": 88.0},
+    {"at": 1795503700, "account": 2, "fiveHour": null, "sevenDay": 10.0}
+  ],
+  "history": {"enabled": true, "needsChoice": false, "readReplies": 0, "keepDays": 90}
+}

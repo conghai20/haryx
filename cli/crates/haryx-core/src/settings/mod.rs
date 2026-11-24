@@ -36,7 +36,7 @@ pub const AUTOSWITCH_STRATEGIES: &[&str] = &[
 ];
 
 /// The top-level sections, in registry order.
-pub(crate) const SECTIONS: [&str; 5] = ["autoswitch", "ui", "run", "updates", "usage"];
+pub(crate) const SECTIONS: [&str; 6] = ["autoswitch", "ui", "run", "updates", "usage", "history"];
 
 /// Policy knobs for the auto-switch engine (`haryx auto`).
 ///
@@ -143,6 +143,51 @@ pub struct UsageSettings {
     pub fable_probe: bool,
 }
 
+/// Usage history preferences (`history`, `docs/usage-history-plan.md`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HistorySettings {
+    pub enabled: bool,
+    /// `ask` (until the user chooses), `all` or `none`.
+    pub import: String,
+    /// Days of day files kept; 0 keeps everything.
+    pub keep_days: i64,
+}
+
+impl Default for HistorySettings {
+    fn default() -> Self {
+        HistorySettings {
+            enabled: true,
+            import: "ask".into(),
+            keep_days: 90,
+        }
+    }
+}
+
+/// Load the history section; a missing file or a bad value gives the default for that key.
+pub fn load_history_settings(root: &Path) -> HistorySettings {
+    let default = HistorySettings::default();
+    let Some(section) = read_section(root, "history") else {
+        return default;
+    };
+    let enabled = match section.get("enabled") {
+        Some(Value::Bool(v)) => *v,
+        _ => default.enabled,
+    };
+    let import = match section.get("import") {
+        Some(Value::String(v)) if ["ask", "all", "none"].contains(&v.as_str()) => v.clone(),
+        _ => default.import.clone(),
+    };
+    let keep_days = match section.get("keepDays").and_then(Value::as_i64) {
+        Some(v) if (0..=36_500).contains(&v) => v,
+        _ => default.keep_days,
+    };
+    HistorySettings {
+        enabled,
+        import,
+        keep_days,
+    }
+}
+
 /// Every section's effective settings, as the loaders return them.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct LoadedSettings {
@@ -151,6 +196,7 @@ pub struct LoadedSettings {
     pub run: RunSettings,
     pub updates: UpdateSettings,
     pub usage: UsageSettings,
+    pub history: HistorySettings,
 }
 
 impl LoadedSettings {
@@ -162,6 +208,7 @@ impl LoadedSettings {
             run: load_run_settings(root),
             updates: load_update_settings(root),
             usage: load_usage_settings(root),
+            history: load_history_settings(root),
         }
     }
 

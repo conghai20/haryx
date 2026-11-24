@@ -187,6 +187,7 @@ struct AccountContextMenu: View {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(account.email, forType: .string)
         }
+        Button("Export…") { DashboardRouter.shared.export([account.number]) }
         Divider()
         Button("Show in Dashboard") { DashboardRouter.shared.reveal(account.number) }
     }

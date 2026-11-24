@@ -56,4 +56,7 @@ export const actions = {
 
   signIn: (a: Account | null) => actions.terminal({ kind: "login", slot: a ? a.number : null }),
   runAs: (a: Account, folder?: string | null) => actions.terminal({ kind: "run-as", slot: a.number }, folder),
+  /** End a session and resume its conversation on `to` (null = best), in a terminal in its folder. */
+  continueSession: (pid: number, to: number | null, folder: string) =>
+    actions.terminal({ kind: "continue", pid, to }, folder),
 };

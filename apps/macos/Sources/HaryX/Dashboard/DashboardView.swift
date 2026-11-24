@@ -18,19 +18,20 @@ enum DashboardGroup: String, CaseIterable, Identifiable {
 }
 
 enum DashboardSection: String, CaseIterable, Identifiable {
-    case accounts, autoSwitch, wake, mappings, profiles, config, maintenance, preferences
+    case accounts, usage, autoSwitch, wake, mappings, profiles, config, maintenance, preferences, about
     var id: String { rawValue }
 
     var group: DashboardGroup {
         switch self {
-        case .accounts, .autoSwitch, .wake, .mappings, .profiles, .config, .maintenance: .ai
-        case .preferences: .app
+        case .accounts, .usage, .autoSwitch, .wake, .mappings, .profiles, .config, .maintenance: .ai
+        case .preferences, .about: .app
         }
     }
 
     var title: String {
         switch self {
         case .accounts: "Accounts"
+        case .usage: "Usage"
         case .autoSwitch: "Auto-Switch"
         case .wake: "Wake"
         case .mappings: "Folder Mappings"
@@ -38,12 +39,14 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         case .config: "CLI Settings"
         case .maintenance: "Backup & Maintenance"
         case .preferences: "App Preferences"
+        case .about: "About & Updates"
         }
     }
 
     var icon: String {
         switch self {
         case .accounts: "person.2.fill"
+        case .usage: "chart.bar.xaxis"
         case .autoSwitch: "arrow.triangle.2.circlepath"
         case .wake: "alarm"
         case .mappings: "folder.badge.person.crop"
@@ -51,6 +54,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         case .config: "slider.horizontal.3"
         case .maintenance: "externaldrive.badge.timemachine"
         case .preferences: "gearshape"
+        case .about: "info.circle"
         }
     }
 }
@@ -61,6 +65,8 @@ final class DashboardRouter {
     static let shared = DashboardRouter()
     var section: DashboardSection? = .accounts
     var selectedSlot: Int?
+    /// Accounts the next export starts with ticked, set by a card's "Export…".
+    var exportSelection: Set<Int>?
 
     func select(_ slot: Int) {
         section = .accounts
@@ -71,6 +77,12 @@ final class DashboardRouter {
     func open(_ section: DashboardSection) {
         self.section = section
         DashboardWindow.shared.show()
+    }
+
+    /// Opens Maintenance with these accounts ticked for export.
+    func export(_ slots: Set<Int>) {
+        exportSelection = slots
+        open(.maintenance)
     }
 
     /// Opens the dashboard on this account's detail inspector.
@@ -103,6 +115,7 @@ struct DashboardView: View {
             Group {
                 switch router.section ?? .accounts {
                 case .accounts: AccountsPane()
+                case .usage: UsagePane()
                 case .autoSwitch: AutoSwitchPane()
                 case .wake: WakePane()
                 case .mappings: MappingsPane()
@@ -110,6 +123,7 @@ struct DashboardView: View {
                 case .config: ConfigPane()
                 case .maintenance: MaintenancePane()
                 case .preferences: PreferencesPane()
+                case .about: AboutPane()
                 }
             }
             .navigationTitle((router.section ?? .accounts).title)

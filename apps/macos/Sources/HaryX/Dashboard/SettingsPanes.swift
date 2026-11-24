@@ -165,13 +165,14 @@ struct AutoSwitchPane: View {
                         }
                         Spacer()
                         Button(store.auto.isRunning ? "Stop" : "Start") {
-                            store.auto.isRunning ? store.auto.stop() : store.startAuto()
+                            store.toggleAuto()
                         }
                         .buttonStyle(.glassProminent)
                     }
                     Toggle("Dry run (log decisions, don't switch)", isOn: $dryRun)
                         .disabled(store.auto.isRunning)
-                    Toggle("Start when HaryX launches", isOn: $onLaunch)
+                    Toggle("Always start when HaryX launches", isOn: $onLaunch)
+                        .help("Auto-switch already comes back on after a quit if you left it on; this also starts it when you had turned it off.")
                     Button("Check Once Now") { Task { await store.runAutoOnce() } }
                 } footer: {
                     Text("Runs `haryx auto --json` inside HaryX. When the active account reaches your threshold it moves to another of your own accounts, and every decision appears in the log. Plan limits are set by Anthropic; use only accounts you hold yourself.")

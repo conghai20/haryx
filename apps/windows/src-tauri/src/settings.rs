@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::terminals::Terminal;
+use crate::updater::UpdateMode;
 
 pub const FILE_NAME: &str = "preferences.json";
 /// Polling bounds for `list --json`: never hammer the usage endpoint, never go stale for long.
@@ -37,6 +38,15 @@ pub struct Prefs {
     pub tray_mascot: bool,
     /// Start HaryX when you sign in to Windows.
     pub launch_at_login: bool,
+    /// How much HaryX does on its own when a release comes out.
+    pub update_mode: UpdateMode,
+    /// A release the user chose to skip.
+    pub skipped_version: Option<String>,
+    /// When the last update check ran (Unix seconds).
+    pub last_update_check: Option<u64>,
+    /// A weekly usage summary toast (off by default), and when it last went out (Unix seconds).
+    pub weekly_summary: bool,
+    pub last_weekly_summary: Option<u64>,
 }
 
 impl Default for Prefs {
@@ -55,6 +65,11 @@ impl Default for Prefs {
             notify_auto_switch: true,
             tray_mascot: false,
             launch_at_login: false,
+            update_mode: UpdateMode::Notify,
+            skipped_version: None,
+            last_update_check: None,
+            weekly_summary: false,
+            last_weekly_summary: None,
         }
     }
 }

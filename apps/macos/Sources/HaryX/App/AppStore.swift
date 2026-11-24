@@ -47,6 +47,8 @@ final class AppStore {
     private(set) var loginSessions: [LoginSession] = []
     /// slot → live Claude processes using it
     private(set) var sessions: [Int: [ClaudeProcess]] = [:]
+    /// Default-profile sessions an auto-switch left on their old account: pid → that account.
+    var leftBehind: [Int32: Int] = [:]
     var panelVisible = false
     /// The dashboard window is on screen (not closed, minimized or fully covered).
     var dashboardVisible = false
@@ -55,6 +57,8 @@ final class AppStore {
     private(set) var menuBarTick = 0
 
     let auto = AutoSwitchRunner()
+    let updates = UpdateController()
+    let usage = UsageModel()
     let styles = MascotStyles()
     let notifier = Notifier()
 
@@ -71,6 +75,9 @@ final class AppStore {
         relocateCLI()
         auto.onEvent = { [weak self] event in self?.handleAutoEvent(event) }
         TerminalLauncher.onError = { [weak self] message in self?.flash(message, error: true) }
+        updates.cliProvider = { [weak self] in self?.cli }
+        usage.cliProvider = { [weak self] in self?.cli }
+        updates.onError = { [weak self] message in self?.flash(message, error: true) }
     }
 
     // MARK: lifecycle
@@ -93,13 +100,19 @@ final class AppStore {
             }
         })
         watchBackupDir()
+        updates.start()
+        usage.startWeeklySummary(notify: { [weak self] title, body in
+            self?.notifier.post(Notice(key: "weekly:\(Date().timeIntervalSince1970)", category: .usage, title: title, body: body))
+        }, name: { [weak self] n in self?.account(slot: n)?.displayName ?? "Account \(n)" })
         Task { await loadExtras() }
-        if Prefs.d.bool(forKey: Prefs.autoOnLaunch) { startAuto() }
+        if Prefs.d.bool(forKey: Prefs.autoOnLaunch) || Prefs.d.bool(forKey: Prefs.autoWasOn) { startAuto() }
         DispatchQueue.main.async { [weak self] in self?.offerCLIInstallIfNeeded() }
     }
 
     func shutdown() {
         auto.stop()
+        updates.stop()
+        updates.installOnQuit()
         loops.forEach { $0.cancel() }
         menuBarLoop?.cancel()
     }
@@ -322,6 +335,7 @@ final class AppStore {
             sessionEnded(proc, slot: slot)
         }
         knownProcesses = current
+        if !leftBehind.isEmpty { pruneLeftBehind(alive: Set(current.keys)) }
         if bySlot != sessions { sessions = bySlot }
         updateMenuBarAnimation()
     }
@@ -363,14 +377,27 @@ final class AppStore {
 
     func startAuto() {
         guard let cli else { return flash(CLIError.notFound.localizedDescription, error: true) }
+        Prefs.d.set(true, forKey: Prefs.autoWasOn)
         auto.start(cli: cli, dryRun: Prefs.d.bool(forKey: Prefs.autoDryRun))
     }
+
+    /// The user turning auto-switch off. Quitting stops the child too but keeps `autoWasOn`,
+    /// so the next launch picks up where the user left it.
+    func stopAuto() {
+        Prefs.d.set(false, forKey: Prefs.autoWasOn)
+        auto.stop()
+    }
+
+    func toggleAuto() { auto.isRunning ? stopAuto() : startAuto() }
 
     private func handleAutoEvent(_ event: AutoEvent) {
         if let title = event.notificationTitle {
             notifier.post(Notice(key: "auto:\(event.id)", category: .autoSwitch, title: title, body: event.summary))
         }
-        if event.kind == "switch" { Task { await refresh() } }
+        if event.kind == "switch" {
+            noteSwitch(from: event.fromAccount ?? active?.number)
+            Task { await refresh() }
+        }
     }
 
     // MARK: banner

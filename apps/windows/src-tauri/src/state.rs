@@ -32,6 +32,8 @@ pub struct AppState {
     pub last_error: Mutex<Option<String>>,
     pub sessions_json: Mutex<Value>,
     pub sessions: Mutex<SessionList>,
+    /// In-app update progress (`updater`).
+    pub update: Mutex<crate::updater::UpdateState>,
     dedupe: Mutex<Dedupe>,
     nudge: Mutex<Option<Sender<()>>>,
 }
@@ -54,6 +56,7 @@ impl AppState {
                 sessions: Vec::new(),
                 unreadable: 0,
             }),
+            update: Mutex::new(crate::updater::UpdateState::new(env!("CARGO_PKG_VERSION"))),
             dedupe: Mutex::new(Dedupe::default()),
             nudge: Mutex::new(None),
         }

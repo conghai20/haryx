@@ -18,12 +18,12 @@ enum DashboardGroup: String, CaseIterable, Identifiable {
 }
 
 enum DashboardSection: String, CaseIterable, Identifiable {
-    case accounts, autoSwitch, wake, mappings, profiles, config, maintenance, preferences, about
+    case accounts, usage, autoSwitch, wake, mappings, profiles, config, maintenance, preferences, about
     var id: String { rawValue }
 
     var group: DashboardGroup {
         switch self {
-        case .accounts, .autoSwitch, .wake, .mappings, .profiles, .config, .maintenance: .ai
+        case .accounts, .usage, .autoSwitch, .wake, .mappings, .profiles, .config, .maintenance: .ai
         case .preferences, .about: .app
         }
     }
@@ -31,6 +31,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .accounts: "Accounts"
+        case .usage: "Usage"
         case .autoSwitch: "Auto-Switch"
         case .wake: "Wake"
         case .mappings: "Folder Mappings"
@@ -45,6 +46,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .accounts: "person.2.fill"
+        case .usage: "chart.bar.xaxis"
         case .autoSwitch: "arrow.triangle.2.circlepath"
         case .wake: "alarm"
         case .mappings: "folder.badge.person.crop"
@@ -113,6 +115,7 @@ struct DashboardView: View {
             Group {
                 switch router.section ?? .accounts {
                 case .accounts: AccountsPane()
+                case .usage: UsagePane()
                 case .autoSwitch: AutoSwitchPane()
                 case .wake: WakePane()
                 case .mappings: MappingsPane()

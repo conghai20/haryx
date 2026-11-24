@@ -13,6 +13,13 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ### Added
 
+- Usage history. `haryx ai usage [report|quota|summary]` shows tokens and what they would cost at
+  API prices (as of a dated price table) by account, project, session, model or day, and the
+  5-hour/weekly readings over time, read from Claude Code's transcripts and kept on this machine
+  (no conversation text). The first run asks whether to read past transcripts or start from now;
+  `history.keepDays` (30, 90 by default, 365, or 0 for forever) sets how long it is kept. The
+  macOS app adds AI › Usage: quota-over-time and per-day charts, top projects and sessions, and an
+  optional weekly summary notification.
 - Continue a session on another account. `haryx ai sessions continue <pid|id> [--to N|best]` ends
   a Claude Code session (a normal termination request, waiting up to 10 s; on Windows you close
   the window) and resumes the same conversation on another account in its folder. Both apps add

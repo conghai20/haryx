@@ -58,6 +58,7 @@ final class AppStore {
 
     let auto = AutoSwitchRunner()
     let updates = UpdateController()
+    let usage = UsageModel()
     let styles = MascotStyles()
     let notifier = Notifier()
 
@@ -75,6 +76,7 @@ final class AppStore {
         auto.onEvent = { [weak self] event in self?.handleAutoEvent(event) }
         TerminalLauncher.onError = { [weak self] message in self?.flash(message, error: true) }
         updates.cliProvider = { [weak self] in self?.cli }
+        usage.cliProvider = { [weak self] in self?.cli }
         updates.onError = { [weak self] message in self?.flash(message, error: true) }
     }
 
@@ -99,6 +101,9 @@ final class AppStore {
         })
         watchBackupDir()
         updates.start()
+        usage.startWeeklySummary(notify: { [weak self] title, body in
+            self?.notifier.post(Notice(key: "weekly:\(Date().timeIntervalSince1970)", category: .usage, title: title, body: body))
+        }, name: { [weak self] n in self?.account(slot: n)?.displayName ?? "Account \(n)" })
         Task { await loadExtras() }
         if Prefs.d.bool(forKey: Prefs.autoOnLaunch) || Prefs.d.bool(forKey: Prefs.autoWasOn) { startAuto() }
         DispatchQueue.main.async { [weak self] in self?.offerCLIInstallIfNeeded() }

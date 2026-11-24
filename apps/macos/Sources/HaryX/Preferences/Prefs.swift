@@ -23,6 +23,9 @@ enum Prefs {
     static let updateMode = "updateMode"
     static let lastUpdateCheck = "lastUpdateCheck"
     static let skippedVersion = "skippedVersion"
+    /// Usage history: a weekly summary notification (off by default) and when it last went out.
+    static let weeklySummary = "weeklySummary"
+    static let lastWeeklySummary = "lastWeeklySummary"
     static let sessionMinSeconds = 60.0
 
     static func notifyKey(_ c: Notice.Category) -> String { "notify.\(c.rawValue)" }
@@ -31,7 +34,7 @@ enum Prefs {
         var defaults: [String: Any] = [
             refreshSeconds: 60.0, terminal: TerminalApp.terminal.rawValue, shell: "",
             claudeFolder: CSwapCLI.home, autoOnLaunch: false, autoWasOn: false, autoDryRun: false, desktopFollows: false, desktopSkipConfirm: false, menuBarPercent: true, menuBarMascot: false,
-            updateMode: UpdateMode.notify.rawValue,
+            updateMode: UpdateMode.notify.rawValue, weeklySummary: false,
         ]
         for c in Notice.Category.allCases { defaults[notifyKey(c)] = true }
         UserDefaults.standard.register(defaults: defaults)

@@ -41,7 +41,7 @@ private struct SignedOutSection: View {
             case .waiting(let url, let opened):
                 HStack {
                     ProgressView().controlSize(.small)
-                    Text(opened ? "Finish signing in with GitHub in your browser…" : "Open the sign-in page to continue…")
+                    Text(opened ? "Finish signing in with \(sync.signInProvider.label) in your browser…" : "Open the sign-in page to continue…")
                         .foregroundStyle(.secondary)
                     Spacer()
                     if let url { Link(opened ? "Open Again" : "Open Sign-In Page", destination: url) }
@@ -51,8 +51,9 @@ private struct SignedOutSection: View {
                 if case .failed(let message) = sync.signIn {
                     Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(Brand.warn)
                 }
-                Button(sync.signIn == .idle ? "Continue with GitHub" : "Try Again") { sync.signInWithGitHub() }
+                SignInMenu(sync: sync, title: sync.signIn == .idle ? "Sign In…" : "Try Again")
                     .buttonStyle(.glassProminent)
+                    .fixedSize()
             }
             if let error = sync.loadError {
                 Text(error).font(.caption).foregroundStyle(.secondary)

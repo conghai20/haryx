@@ -30,6 +30,9 @@ cannot be released without one. Sections, in this order, only when they have ent
 - macOS and Windows apps: a HaryX Account pane (sign in, unlock, sync, change passphrase, sign out,
   delete), automatic sync every 15 minutes and after a synced preference changes, and "On your other
   machines" in Accounts.
+- macOS and Windows apps: HaryX sign-in lives in the dashboard sidebar's footer, a dropdown of the
+  ways to sign in (GitHub; Google listed as coming soon). Signed in, the footer shows the account and
+  sync state, with Account & Sync and Sign Out in its menu.
 
 ## [0.1.6] - 2026-11-25
 

@@ -14,7 +14,8 @@ enum DashboardGroup: String, CaseIterable, Identifiable {
         }
     }
 
-    var sections: [DashboardSection] { DashboardSection.allCases.filter { $0.group == self } }
+    /// HaryX Account is reached from the sidebar footer, not listed.
+    var sections: [DashboardSection] { DashboardSection.allCases.filter { $0.group == self && $0 != .haryxAccount } }
 }
 
 enum DashboardSection: String, CaseIterable, Identifiable {
@@ -114,6 +115,7 @@ struct DashboardView: View {
             .safeAreaInset(edge: .top) {
                 BrandLockup(size: 20).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 6)
             }
+            .safeAreaInset(edge: .bottom) { AccountFooter() }
             .navigationSplitViewColumnWidth(min: 190, ideal: 210)
         } detail: {
             Group {

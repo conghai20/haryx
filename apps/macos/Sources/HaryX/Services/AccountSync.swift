@@ -19,6 +19,22 @@ final class AccountSync {
         case failed(String)
     }
 
+    /// How to sign in to HaryX; the raw value is `haryx login --provider`.
+    enum SignInProvider: String, CaseIterable, Identifiable {
+        case github, google
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .github: "GitHub"
+            case .google: "Google"
+            }
+        }
+
+        /// Google waits for its OAuth client on the hosted project.
+        var isAvailable: Bool { self == .github }
+    }
+
     /// nil until first read (or with a cswap backend).
     private(set) var whoami: WhoAmI?
     /// Why `whoami` could not be read (an older haryx without accounts).
@@ -28,6 +44,8 @@ final class AccountSync {
     private(set) var hasPassphrase: Bool?
     private(set) var passphraseCheckError: String?
     private(set) var signIn = SignIn.idle
+    /// The provider of the sign-in in progress, or of the last one.
+    private(set) var signInProvider = SignInProvider.github
     private(set) var isSyncing = false
     /// Why the last sync failed; nil after a good one.
     private(set) var problem: SyncProblem?
@@ -193,12 +211,13 @@ final class AccountSync {
 
     // MARK: sign-in
 
-    /// `haryx login --provider github --json`: it opens the browser and waits up to 5 minutes.
-    func signInWithGitHub() {
-        guard let cli, loginProcess == nil else { return }
+    /// `haryx login --provider <id> --json`: it opens the browser and waits up to 5 minutes.
+    func signIn(with provider: SignInProvider) {
+        guard let cli, loginProcess == nil, provider.isAvailable else { return }
+        signInProvider = provider
         let process = Process()
         process.executableURL = cli.executable
-        process.arguments = ["login", "--provider", "github", "--json"]
+        process.arguments = ["login", "--provider", provider.rawValue, "--json"]
         process.environment = CSwapCLI.environment
         process.standardInput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice

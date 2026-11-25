@@ -65,6 +65,7 @@ final class AppStore {
     let usage = UsageModel()
     let styles = MascotStyles()
     let notifier = Notifier()
+    let accountSync = AccountSync()
 
     @ObservationIgnored private var loops: [Task<Void, Never>] = []
     @ObservationIgnored private var menuBarLoop: Task<Void, Never>?
@@ -82,6 +83,7 @@ final class AppStore {
         updates.cliProvider = { [weak self] in self?.cli }
         usage.cliProvider = { [weak self] in self?.cli }
         updates.onError = { [weak self] message in self?.flash(message, error: true) }
+        wireAccountSync()
     }
 
     // MARK: lifecycle
@@ -105,6 +107,7 @@ final class AppStore {
         })
         watchBackupDir()
         updates.start()
+        accountSync.start()
         usage.startWeeklySummary(notify: { [weak self] title, body in
             self?.notifier.post(Notice(key: "weekly:\(Date().timeIntervalSince1970)", category: .usage, title: title, body: body))
         }, name: { [weak self] n in self?.account(slot: n)?.displayName ?? "Account \(n)" })
@@ -116,6 +119,7 @@ final class AppStore {
     func shutdown() {
         auto.stop()
         updates.stop()
+        accountSync.stop()
         updates.installOnQuit()
         loops.forEach { $0.cancel() }
         menuBarLoop?.cancel()
@@ -194,7 +198,10 @@ final class AppStore {
             guard let self else { return }
             self.loginSessions.removeAll { $0.id == finished.id }
             switch finished.state {
-            case .succeeded(let message): self.flash(message)
+            case .succeeded(let message):
+                self.flash(message)
+                // A new login here takes the synced alias, priority and so on.
+                Task { await self.accountSync.syncNow() }
             case .failed(let message): self.flash(message, error: true)
             case .cancelled, .running: break
             }

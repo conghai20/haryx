@@ -18,13 +18,13 @@ enum DashboardGroup: String, CaseIterable, Identifiable {
 }
 
 enum DashboardSection: String, CaseIterable, Identifiable {
-    case accounts, usage, sessions, autoSwitch, wake, mappings, profiles, config, maintenance, preferences, about
+    case accounts, usage, sessions, autoSwitch, wake, mappings, profiles, config, maintenance, haryxAccount, preferences, about
     var id: String { rawValue }
 
     var group: DashboardGroup {
         switch self {
         case .accounts, .usage, .sessions, .autoSwitch, .wake, .mappings, .profiles, .config, .maintenance: .ai
-        case .preferences, .about: .app
+        case .haryxAccount, .preferences, .about: .app
         }
     }
 
@@ -39,6 +39,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         case .profiles: "Setup Profiles"
         case .config: "AI Settings"
         case .maintenance: "Backup & Maintenance"
+        case .haryxAccount: "HaryX Account"
         case .preferences: "App Preferences"
         case .about: "About & Updates"
         }
@@ -55,6 +56,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         case .profiles: "shippingbox"
         case .config: "slider.horizontal.3"
         case .maintenance: "externaldrive.badge.timemachine"
+        case .haryxAccount: "person.crop.circle"
         case .preferences: "gearshape"
         case .about: "info.circle"
         }
@@ -125,6 +127,7 @@ struct DashboardView: View {
                 case .profiles: ProfilesPane()
                 case .config: ConfigPane()
                 case .maintenance: MaintenancePane()
+                case .haryxAccount: HaryXAccountPane()
                 case .preferences: PreferencesPane()
                 case .about: AboutPane()
                 }
@@ -183,6 +186,7 @@ struct AccountsPane: View {
                     }
                 }
                 .padding(20)
+            OtherMachineAccountsSection()
         }
         .inspector(isPresented: Binding(get: { router.selectedSlot != nil }, set: { if !$0 { router.selectedSlot = nil } })) {
             if let slot = router.selectedSlot, let a = store.account(slot: slot) {

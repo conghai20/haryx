@@ -15,9 +15,14 @@ struct MascotStyle: Codable, Hashable, Sendable {
 final class MascotStyles {
     private var overrides: [String: MascotStyle]
 
-    init() {
+    init() { overrides = Self.saved() }
+
+    /// Re-read the saved styles (sync changed them).
+    func reload() { overrides = Self.saved() }
+
+    private static func saved() -> [String: MascotStyle] {
         let data = Prefs.d.data(forKey: Prefs.mascotStyles) ?? Data()
-        overrides = (try? JSONDecoder().decode([String: MascotStyle].self, from: data)) ?? [:]
+        return (try? JSONDecoder().decode([String: MascotStyle].self, from: data)) ?? [:]
     }
 
     /// Unset accounts get a hash-chosen species, probing past ones already in use so a

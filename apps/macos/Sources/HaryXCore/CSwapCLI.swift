@@ -91,7 +91,8 @@ public struct CSwapCLI: Sendable {
     public static var environment: [String: String] {
         var env = ProcessInfo.processInfo.environment
         let existing = env["PATH"].map { [$0] } ?? []
-        env["PATH"] = (searchPaths + existing).joined(separator: ":")
+        let shell = loginShellPath.map { [$0] } ?? []
+        env["PATH"] = (searchPaths + shell + existing).joined(separator: ":")
         env["NO_COLOR"] = "1"
         env["TERM"] = "dumb"
         return env

@@ -179,6 +179,10 @@ struct AccountContextMenu: View {
             Button("Sign In Again…") { store.signInAgain(account) }
                 .disabled(store.loginPending(for: account))
         }
+        if store.offersDesktopSetUp(account) {
+            Button("Set Up Claude Desktop…") { Task { await store.openDesktop(as: account) } }
+                .disabled(store.busy != nil)
+        }
         Divider()
         Button(account.isDisabled ? "Enable in Rotation" : "Disable in Rotation") {
             Task { await store.setDisabled(account, !account.isDisabled) }

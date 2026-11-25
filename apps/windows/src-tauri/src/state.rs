@@ -222,6 +222,22 @@ pub fn refresh_accounts(app: &AppHandle) {
     }
 }
 
+/// "Claude session finished" for sessions that ran a minute or longer, as on macOS.
+fn notify_ended(app: &AppHandle, state: &AppState, previous: &SessionList, current: &SessionList) {
+    if !state.prefs().notify_session {
+        return;
+    }
+    let now_ms = jiff::Timestamp::now().as_millisecond();
+    let accounts = state
+        .accounts
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    for notice in rules::ended_sessions(&previous.sessions, &current.sessions, &accounts, now_ms) {
+        crate::notify::show(app, &notice.title, &notice.body);
+    }
+}
+
 fn sessions_loop(
     app: &AppHandle,
     nudge: &Sender<()>,
@@ -251,7 +267,11 @@ fn sessions_loop(
             continue;
         }
         if let Ok(list) = serde_json::from_value::<SessionList>(value.clone()) {
-            *state.sessions.lock().unwrap_or_else(|e| e.into_inner()) = list;
+            let previous = std::mem::replace(
+                &mut *state.sessions.lock().unwrap_or_else(|e| e.into_inner()),
+                list.clone(),
+            );
+            notify_ended(app, &state, &previous, &list);
         }
         *state
             .sessions_json

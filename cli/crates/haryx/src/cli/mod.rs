@@ -56,6 +56,8 @@ pub enum Command {
     List { token_status: bool, json: bool },
     /// `status` / `--status`.
     Status { json: bool },
+    /// `doctor`: whether Claude Code is installed and signed in, with the fix for each problem.
+    Doctor { json: bool },
     /// Bare `switch` / `--switch`: rotate, or pick by quota with `--strategy`.
     Switch {
         strategy: Option<SwitchStrategy>,
@@ -244,6 +246,7 @@ impl Command {
             Self::Watch => "watch",
             Self::List { .. } => "list",
             Self::Status { .. } => "status",
+            Self::Doctor { .. } => "doctor",
             Self::Switch { .. } | Self::SwitchTo { .. } => "switch",
             Self::Add { .. } => "add",
             Self::AddToken { .. } => "add-token",
@@ -329,7 +332,9 @@ pub const AI_SECTION: &str = "ai";
 
 /// Commands that work only inside the `ai` section: their top-level names are kept for HaryX itself
 /// (`haryx login` will sign in to a HaryX account).
-pub const AI_ONLY: &[&str] = &["login", "profile", "wake", "desktop", "sessions", "usage"];
+pub const AI_ONLY: &[&str] = &[
+    "login", "profile", "wake", "desktop", "sessions", "usage", "doctor",
+];
 
 /// Top-level help requests, answered with the section overview instead of the `ai` command list.
 const TOP_HELP: &[&str] = &["help", "--help", "-h"];

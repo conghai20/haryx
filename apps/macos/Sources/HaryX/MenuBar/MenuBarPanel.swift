@@ -10,6 +10,7 @@ struct MenuBarPanel: View {
             VStack(alignment: .leading, spacing: 0) {
                 header
                 Hairline().padding(.vertical, 10)
+                if store.claudeSetup?.ready == false { ClaudeSetupBanner(compact: true).padding(.bottom, 8) }
                 if let active = store.active {
                     ActiveTide(account: active)
                 } else if let error = store.refreshError {
@@ -492,6 +493,8 @@ private struct QuickActions: View {
 /// account that has a login to renew, then a new account.
 struct SignInMenuSection: View {
     @Environment(AppStore.self) private var store
+    /// Off where the menu already offers its own "Sign In New Account…" (the dashboard's add menu).
+    var showsNewAccount = true
 
     var body: some View {
         let renewable = store.accounts.filter(\.canRelogin)
@@ -510,8 +513,10 @@ struct SignInMenuSection: View {
                 }
             }
             .disabled(renewable.isEmpty)
-            Button("Sign In New Account…") { store.signInNew() }
-                .disabled(store.addLoginPending)
+            if showsNewAccount {
+                Button("Sign In New Account…") { store.signInNew() }
+                    .disabled(store.addLoginPending)
+            }
         }
     }
 }

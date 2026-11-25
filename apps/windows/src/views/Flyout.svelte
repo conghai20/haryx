@@ -1,9 +1,11 @@
 <script lang="ts">
   // The tray flyout (the macOS menu bar panel): header, the active account's tide reading, the other
-  // accounts as an almanac with "Use", the last auto-switch event, a banner, and the footer actions.
+  // accounts as an almanac with "Use" and a per-row action menu, the last auto-switch event, a banner,
+  // and the footer actions.
   import { actions } from "../lib/actions";
   import { api } from "../lib/api";
   import { store } from "../lib/store.svelte";
+  import ClaudeSetupBanner from "../components/ClaudeSetupBanner.svelte";
   import { bestTarget } from "../lib/handoff";
   import {
     FIVE_HOUR_S,
@@ -16,8 +18,10 @@
     shortName,
     statusNote,
     tier,
+    canRelogin,
   } from "../lib/tide";
   import Lockup from "../components/Lockup.svelte";
+  import Mascot from "../components/Mascot.svelte";
   import TideStaff from "../components/TideStaff.svelte";
 
   let active = $derived(store.active);
@@ -27,9 +31,25 @@
   let running = $derived(active ? store.runningFor(active) : 0);
   let next = $derived(store.others.find((a) => !a.disabled) ?? null);
   let terminalOpen = $state(false);
+  /** The account row whose action menu is open. */
+  let rowMenu = $state<number | null>(null);
 
   function onKey(e: KeyboardEvent) {
-    if (e.key === "Escape") api.hideFlyout();
+    if (e.key !== "Escape") return;
+    if (rowMenu != null || terminalOpen) {
+      rowMenu = null;
+      terminalOpen = false;
+    } else api.hideFlyout();
+  }
+
+  function rowAction(run: () => Promise<unknown>) {
+    rowMenu = null;
+    run().catch((e) => store.flash(String(e), true));
+  }
+
+  function terminalAction(run: () => Promise<unknown>) {
+    terminalOpen = false;
+    run().catch((e) => store.flash(String(e), true));
   }
 </script>
 
@@ -47,10 +67,12 @@
   </header>
 
   <div class="hairline"></div>
+  <ClaudeSetupBanner compact />
 
   {#if active}
     <section class="active" aria-label="Active account">
       <div class="row">
+        <Mascot account={active} size={36} />
         <div class="name truncate" title={active.email}>
           <strong>{displayName(active)}</strong>
           {#if active.plan?.label}<span class="badge">{active.plan.label}</span>{/if}
@@ -99,15 +121,39 @@
         {@const f = a.usage?.fiveHour}
         {@const w = a.usage?.sevenDay}
         <div class="grid row-item" class:off={a.disabled}>
-          <span class="truncate" title={a.email}>
-            {displayName(a)}
-            {#if a.plan?.label}<span class="caption tertiary">{a.plan.label}</span>{/if}
-          </span>
+          <button
+            class="identity plain"
+            title={a.email}
+            aria-haspopup="menu"
+            aria-expanded={rowMenu === a.number}
+            onclick={() => (rowMenu = rowMenu === a.number ? null : a.number)}
+          >
+            <Mascot account={a} size={18} />
+            <span class="truncate">
+              {displayName(a)}
+              {#if a.plan?.label}<span class="caption tertiary">{a.plan.label}</span>{/if}
+            </span>
+          </button>
           <span class="num" class:warn-text={(f?.pct ?? 0) >= HIGH_PCT}>{pctLabel(f?.pct)}</span>
           <span class="num" class:warn-text={(w?.pct ?? 0) >= HIGH_PCT}>{pctLabel(w?.pct)}</span>
           <span class="num tertiary">{f?.clock ?? f?.countdown ?? ""}</span>
           <button class="mini" disabled={!!store.busy} onclick={() => actions.use(a)} aria-label="Use {displayName(a)}">Use</button>
         </div>
+        {#if rowMenu === a.number}
+          <!-- macOS AccountActionMenu: Info, Sign In Again, Switch, Force Switch, Remove. -->
+          <div class="menu row-menu" role="menu" aria-label="{displayName(a)} actions">
+            <button role="menuitem" onclick={() => rowAction(() => api.openDashboard("accounts", a.number))}>Info</button>
+            {#if canRelogin(a)}
+              <div class="sep" role="separator"></div>
+              <button role="menuitem" onclick={() => rowAction(() => actions.signIn(a))}>Sign In Again…</button>
+            {/if}
+            <div class="sep" role="separator"></div>
+            <button role="menuitem" disabled={a.active || !!store.busy} onclick={() => rowAction(() => actions.use(a))}>Switch</button>
+            <button role="menuitem" disabled={!!store.busy} onclick={() => rowAction(() => actions.use(a, true))}>Force Switch</button>
+            <div class="sep" role="separator"></div>
+            <button role="menuitem" disabled={!!store.busy} onclick={() => rowAction(() => actions.remove(a))}>Remove…</button>
+          </div>
+        {/if}
       {:else}
         <p class="caption tertiary">No other accounts.</p>
       {/each}
@@ -163,6 +209,16 @@
           {#each store.accounts as a (a.number)}
             <button role="menuitem" onclick={() => actions.runAs(a)}>Claude as {displayName(a)}</button>
           {/each}
+          <button role="menuitem" onclick={() => terminalAction(() => actions.runInFolder(null))}>Claude in folder…</button>
+          {#if store.mappings.length > 0}
+            <div class="sep" role="separator"></div>
+            <p class="caption tertiary menu-head">Mapped folders</p>
+            {#each store.mappings as m (m.path)}
+              <button role="menuitem" class="truncate" title={m.path} onclick={() => actions.terminal({ kind: "run-mapped" }, m.path)}>{m.path}</button>
+            {/each}
+          {/if}
+          <div class="sep" role="separator"></div>
+          <button role="menuitem" onclick={() => terminalAction(() => actions.signIn(null))}>Sign In New Account…</button>
         </div>
       {/if}
     </div>
@@ -257,6 +313,12 @@
   .row-item:hover {
     background: color-mix(in srgb, var(--fill-strong) 50%, transparent);
   }
+  .identity {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
   .row-item.off {
     opacity: 0.5;
   }
@@ -311,7 +373,30 @@
     text-align: left;
     background: transparent;
   }
-  .menu button:hover {
+  .menu button:hover:not(:disabled) {
     background: var(--fill);
+  }
+  .row-menu {
+    position: static;
+    margin: 2px 8px 6px 32px;
+    min-width: 0;
+  }
+  .sep {
+    height: 1px;
+    margin: 3px 4px;
+    background: var(--separator);
+  }
+  .menu-head {
+    margin: 2px 8px;
+  }
+  .menu {
+    max-height: 420px;
+    overflow-y: auto;
+  }
+  button.identity {
+    padding: 0;
+    text-align: left;
+    color: inherit;
+    font: inherit;
   }
 </style>

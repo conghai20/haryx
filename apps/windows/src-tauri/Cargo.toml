@@ -1,6 +1,6 @@
 [package]
 name = "haryx-windows"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2024"
 license = "MIT"
 description = "HaryX for Windows: tray app over the haryx CLI"
@@ -23,6 +23,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 jiff = { version = "0.2", features = ["serde"] }
 log = "0.4"
+portable-pty = "0.9"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }

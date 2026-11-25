@@ -120,14 +120,7 @@ impl<'a> SessionManager<'a> {
     }
 
     pub(crate) fn claude_bin() -> Result<PathBuf> {
-        spawn::resolve(
-            std::ffi::OsStr::new("claude"),
-            std::env::var_os("PATH").as_deref(),
-        )
-        .filter(|p| p.is_file())
-        .ok_or_else(|| {
-            Error::Session("'claude' was not found on PATH. Install Claude Code first.".into())
-        })
+        crate::claude_setup::claude_bin()
     }
 
     fn resolve_share_history(&mut self, requested: Option<bool>) -> bool {

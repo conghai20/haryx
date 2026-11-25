@@ -28,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.start()
         // Design review: `--open-dashboard` shows the dashboard (`--section NAME`, `--select SLOT`), `--open-panel` opens the menu bar panel once the first refresh lands;
         // `--light` / `--dark` force an appearance.
+        AppTheme.applySaved()
         if CommandLine.arguments.contains("--light") { NSApp.appearance = NSAppearance(named: .aqua) }
         if CommandLine.arguments.contains("--dark") { NSApp.appearance = NSAppearance(named: .darkAqua) }
         let args = CommandLine.arguments

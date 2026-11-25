@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::autoswitch::AutoEvent;
 use crate::cli::DEFAULT_TIMEOUT;
+use crate::login::Logins;
 use crate::settings::{self, Prefs};
 use crate::state::{self, AppState};
 use crate::terminals::{self, Job, Terminal};
@@ -162,6 +163,7 @@ pub fn set_prefs(
         state::locate_cli(&prefs, bundled.as_deref());
     *state.prefs.lock().unwrap_or_else(|e| e.into_inner()) = prefs.clone();
     crate::autostart::apply(&app, &prefs);
+    crate::tray::apply_theme(&app);
     let _ = app.emit("prefs", &prefs);
     state.refresh_soon();
     Ok(())
@@ -215,13 +217,70 @@ pub fn open_terminal(
         .or_else(|| std::env::var_os("USERPROFILE").map(PathBuf::from))
         .ok_or("no folder to open")?;
     let haryx = state.cli()?.exe;
+    if terminal == Terminal::Warp {
+        let app_data = std::env::var_os("APPDATA").ok_or("APPDATA is not set")?;
+        let dir = PathBuf::from(app_data).join(r"warp\Warp\data\launch_configurations");
+        return terminals::open_warp(&job, &haryx, &folder, &dir);
+    }
     let argv = terminals::launch_argv(terminal, &job, &haryx, &folder, &state.terminals)?;
     terminals::launch(&argv, &folder)
 }
 
+/// Open the dashboard on `pane`; `account` also selects that account on Accounts.
 #[tauri::command]
-pub fn open_dashboard(app: AppHandle, pane: Option<String>) {
-    crate::tray::show_dashboard(&app, pane.as_deref());
+pub fn open_dashboard(app: AppHandle, pane: Option<String>, account: Option<u32>) {
+    match account {
+        Some(slot) => crate::tray::reveal_account(&app, slot),
+        None => crate::tray::show_dashboard(&app, pane.as_deref()),
+    }
+}
+
+/// The folder mappings `haryx map` keeps (`<store root>/mappings.json`), as macOS reads them.
+#[tauri::command]
+pub fn mappings() -> Vec<crate::models::Mapping> {
+    state::store_root()
+        .and_then(|root| std::fs::read_to_string(root.join("mappings.json")).ok())
+        .map(|text| crate::models::parse_mappings(&text))
+        .unwrap_or_default()
+}
+
+/// The CLI's log in the data folder (rotated copies sit next to it).
+pub const LOG_FILE: &str = "haryx.log";
+
+/// Show haryx's data folder (`what: "store"`) or its log file (`"log"`) in Explorer. The UI names
+/// the target, never a path.
+#[tauri::command]
+pub fn reveal(what: String) -> Result<(), String> {
+    let root = state::store_root().ok_or("haryx's data folder is unknown")?;
+    let args: Vec<std::ffi::OsString> = match what.as_str() {
+        "store" if root.is_dir() => vec![root.into_os_string()],
+        "store" => return Err("haryx has no data folder yet: add an account first".into()),
+        "log" => {
+            let log = root.join(LOG_FILE);
+            if !log.is_file() {
+                return Err(format!(
+                    "No log yet: haryx writes {} on its first command",
+                    log.display()
+                ));
+            }
+            if cfg!(windows) {
+                vec!["/select,".into(), log.into_os_string()]
+            } else {
+                vec!["-R".into(), log.into_os_string()]
+            }
+        }
+        other => return Err(format!("cannot show {other}")),
+    };
+    let opener = if cfg!(windows) {
+        "explorer.exe"
+    } else {
+        "open"
+    };
+    std::process::Command::new(opener)
+        .args(&args)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("cannot open Explorer: {e}"))
 }
 
 #[tauri::command]
@@ -301,6 +360,35 @@ pub fn update_set(
         });
     }
     Ok(())
+}
+
+/// Sign in (again, into `slot`, or a new account) in the app's own sign-in window.
+#[tauri::command]
+pub fn login_start(app: AppHandle, slot: Option<u32>, title: String) -> Result<u64, String> {
+    crate::login::start(&app, slot, title)
+}
+
+#[tauri::command]
+pub fn login_get(logins: State<'_, Logins>, id: u64) -> Option<crate::login::View> {
+    logins.view(id)
+}
+
+/// Type a line (the pasted code, or a y/n answer) into the run, with the Return a terminal sends.
+#[tauri::command]
+pub fn login_send(logins: State<'_, Logins>, id: u64, line: String) -> Result<(), String> {
+    logins.send(id, &line)
+}
+
+#[tauri::command]
+pub fn login_cancel(logins: State<'_, Logins>, id: u64) {
+    logins.cancel(id);
+}
+
+/// Open the sign-in link the run printed. The UI names the run, never the URL.
+#[tauri::command]
+pub fn login_open(logins: State<'_, Logins>, id: u64) -> Result<(), String> {
+    let url = logins.url(id).ok_or("no sign-in link yet")?;
+    updater::open_in_browser(&url)
 }
 
 #[cfg(test)]

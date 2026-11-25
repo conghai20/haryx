@@ -40,6 +40,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
             popover.performClose(nil)
         } else {
             NSApp.activate() // an inactive accessory app's transient popover closes immediately
+            popover.appearance = NSApp.appearance // follows the Theme setting
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
         }
@@ -48,7 +49,6 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     func close() { popover.performClose(nil) }
 
     func open() {
-        popover.appearance = NSApp.appearance
         if !popover.isShown { toggle() }
     }
 

@@ -123,6 +123,10 @@ struct ConfigPane: View {
 
     var body: some View {
         Form {
+            UsageDisplaySection()
+            TerminalSettingsSection()
+            DesktopSettingsSection()
+            NotificationSettingsSection()
             let groups = Dictionary(grouping: store.config) { String($0.key.split(separator: ".").first ?? "") }
             ForEach(groups.keys.sorted(), id: \.self) { group in
                 ConfigSection(title: group.capitalized, entries: groups[group] ?? [], unsaved: $unsaved)
@@ -146,6 +150,12 @@ struct AutoSwitchPane: View {
     @AppStorage(Prefs.autoDryRun) private var dryRun = false
     @AppStorage(Prefs.autoOnLaunch) private var onLaunch = false
     @State private var unsaved: Set<String> = []
+    /// Hides the `poll` events (a check that changed nothing), as the Windows app does.
+    @State private var hidePolls = true
+
+    private var shownEvents: [AutoEvent] {
+        hidePolls ? store.auto.events.filter { $0.kind != "poll" } : store.auto.events
+    }
 
     var body: some View {
         HSplitView {
@@ -183,16 +193,25 @@ struct AutoSwitchPane: View {
             .formStyle(.grouped)
             .frame(minWidth: 380)
 
-            List(store.auto.events) { event in
-                HStack(alignment: .firstTextBaseline) {
-                    Image(systemName: icon(event)).foregroundStyle(color(event))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(event.summary).font(.callout)
-                        Text(event.date.formatted(date: .omitted, time: .standard)).font(.caption2).foregroundStyle(.tertiary)
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Log").font(.headline)
+                    Spacer()
+                    Toggle("Hide routine checks", isOn: $hidePolls).controlSize(.small)
+                }
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                Divider()
+                List(shownEvents) { event in
+                    HStack(alignment: .firstTextBaseline) {
+                        Image(systemName: icon(event)).foregroundStyle(color(event))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(event.summary).font(.callout)
+                            Text(event.date.formatted(date: .omitted, time: .standard)).font(.caption2).foregroundStyle(.tertiary)
+                        }
                     }
                 }
+                .overlay { if shownEvents.isEmpty { ContentUnavailableView("No events yet", systemImage: "list.bullet.rectangle") } }
             }
-            .overlay { if store.auto.events.isEmpty { ContentUnavailableView("No events yet", systemImage: "list.bullet.rectangle") } }
             .frame(minWidth: 300)
         }
         .overlay(alignment: .bottomTrailing) { UnsavedConfigNotice(keys: unsaved) }

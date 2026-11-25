@@ -38,7 +38,7 @@ extension AppStore {
             guard !ClaudeDesktop.sameFolder(current, folder) else { return }
             await launchDesktop(folder, as: account, setUp: false)
         case .setUp:
-            flash("Claude Desktop stays as it is: \(account.displayName) has no Desktop folder yet. Use Set Up Desktop in the menu bar.")
+            flash("Claude Desktop stays as it is: \(account.displayName) is not signed in to Desktop yet. Use Set Up Claude Desktop in its account menu.")
         case .mismatch:
             flash(Self.mismatchMessage(account), error: true)
         case .unavailable:
@@ -49,8 +49,28 @@ extension AppStore {
     /// The Desktop line's button: open Desktop as the active account, setting up its folder first
     /// when it has none.
     func openDesktopAsActive() async {
+        guard let account = active else { return }
+        await openDesktop(as: account)
+    }
+
+    /// What an account's card and menu offer for Desktop: Set Up until its folder has signed in,
+    /// then Open; nothing when the setting is off or the folder is not this account's to use.
+    func desktopAction(for account: Account) -> DesktopLine.Action? {
+        guard desktopFollows, let desktop else { return nil }
+        return switch ClaudeDesktop.target(for: account.number, in: desktop) {
+        case .ready: .open
+        case .setUp: .setUp
+        case .mismatch, .unavailable: nil
+        }
+    }
+
+    func offersDesktopSetUp(_ account: Account) -> Bool { desktopAction(for: account) == .setUp }
+
+    /// Open Desktop on `account`'s folder, setting it up first when it has not signed in. Claude
+    /// Code stays on whichever account it is on.
+    func openDesktop(as account: Account) async {
         await reloadDesktop()
-        guard let account = active, let desktop else { return }
+        guard let desktop else { return }
         switch ClaudeDesktop.target(for: account.number, in: desktop) {
         case .ready(let folder): await launchDesktop(folder, as: account, setUp: false)
         case .setUp(let folder): await launchDesktop(folder, as: account, setUp: true)
@@ -68,8 +88,11 @@ extension AppStore {
         busy = "Opening Claude Desktop"
         defer { busy = nil }
         if desktopRun != .notRunning {
+            // Following Use must not outlive a switch made while the alert was up; setting up a
+            // non-active account was never tied to the active one.
+            let wasActive = active?.identityKey == account.identityKey
             guard confirmDesktopRelaunch(account) else { return }
-            guard active?.identityKey == account.identityKey else {
+            guard !wasActive || active?.identityKey == account.identityKey else {
                 return flash("Claude Desktop stays as it is: the active account changed while HaryX was asking.")
             }
         }

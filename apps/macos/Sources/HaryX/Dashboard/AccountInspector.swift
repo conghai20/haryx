@@ -216,7 +216,8 @@ private struct SessionsSection: View {
 struct ContinueMenu: View {
     @Environment(AppStore.self) private var store
     let process: ClaudeProcess
-    let from: Int
+    /// The account it runs on, left out of the choices; nil when it runs on none.
+    let from: Int?
 
     var body: some View {
         Menu("Continue on…") {

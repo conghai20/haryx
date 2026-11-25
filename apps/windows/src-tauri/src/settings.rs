@@ -2,10 +2,12 @@
 //! config folder, written atomically. Unknown or missing keys fall back to defaults, so an old or
 //! hand-edited file never stops the app.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::mascot::MascotStyle;
 use crate::terminals::Terminal;
 use crate::updater::UpdateMode;
 
@@ -33,11 +35,17 @@ pub struct Prefs {
     pub notify_usage: bool,
     pub notify_login: bool,
     pub notify_reset: bool,
+    /// A Claude session that ran 1 minute or longer finished.
+    pub notify_session: bool,
     pub notify_auto_switch: bool,
     /// Show the active account's mascot in the tray instead of the HaryX mark.
     pub tray_mascot: bool,
+    /// Mascot choices by account identity (`email|org`); accounts not listed get a hashed species.
+    pub mascot_styles: BTreeMap<String, MascotStyle>,
     /// Start HaryX when you sign in to Windows.
     pub launch_at_login: bool,
+    /// Light or dark, or whatever Windows uses.
+    pub theme: Theme,
     /// How much HaryX does on its own when a release comes out.
     pub update_mode: UpdateMode,
     /// A release the user chose to skip.
@@ -62,14 +70,40 @@ impl Default for Prefs {
             notify_usage: true,
             notify_login: true,
             notify_reset: true,
+            notify_session: true,
             notify_auto_switch: true,
             tray_mascot: false,
+            mascot_styles: BTreeMap::new(),
             launch_at_login: false,
+            theme: Theme::System,
             update_mode: UpdateMode::Notify,
             skipped_version: None,
             last_update_check: None,
             weekly_summary: false,
             last_weekly_summary: None,
+        }
+    }
+}
+
+/// The app's look. An unknown value (a newer or hand-edited file) reads as `System`, so it never
+/// discards the rest of the preferences.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Theme {
+    Light,
+    Dark,
+    #[default]
+    #[serde(other)]
+    System,
+}
+
+impl Theme {
+    /// The window theme to force; `None` follows Windows.
+    pub fn window_theme(self) -> Option<tauri::Theme> {
+        match self {
+            Theme::System => None,
+            Theme::Light => Some(tauri::Theme::Light),
+            Theme::Dark => Some(tauri::Theme::Dark),
         }
     }
 }
@@ -87,6 +121,7 @@ impl Prefs {
             Category::Usage => self.notify_usage,
             Category::Login => self.notify_login,
             Category::Reset => self.notify_reset,
+            Category::Session => self.notify_session,
         }
     }
 }
@@ -129,6 +164,75 @@ mod tests {
         let loaded = load(tmp.path());
         assert_eq!(loaded.refresh_seconds, 45);
         assert!(loaded.notify_usage);
+        assert!(
+            loaded.notify_session,
+            "an older file gains the new toggle, on"
+        );
+    }
+
+    #[test]
+    fn theme_round_trips_and_an_unknown_one_means_system() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dark = Prefs {
+            theme: Theme::Dark,
+            ..Prefs::default()
+        };
+        save(tmp.path(), &dark).unwrap();
+        assert_eq!(load(tmp.path()).theme, Theme::Dark);
+        std::fs::write(
+            tmp.path().join(FILE_NAME),
+            r#"{"refreshSeconds": 45, "theme": "sepia"}"#,
+        )
+        .unwrap();
+        let loaded = load(tmp.path());
+        assert_eq!(loaded.theme, Theme::System);
+        assert_eq!(
+            loaded.refresh_seconds, 45,
+            "an unknown theme must not discard the other keys"
+        );
+        assert_eq!(Theme::System.window_theme(), None);
+        assert_eq!(Theme::Light.window_theme(), Some(tauri::Theme::Light));
+    }
+
+    #[test]
+    fn mascot_styles_round_trip_and_default_empty() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join(FILE_NAME), r#"{"trayMascot": true}"#).unwrap();
+        assert!(load(tmp.path()).mascot_styles.is_empty());
+        let prefs = Prefs {
+            mascot_styles: BTreeMap::from([
+                (
+                    "a@x.com|".to_string(),
+                    MascotStyle {
+                        species: "cat".into(),
+                        hue: Some(0.25),
+                    },
+                ),
+                (
+                    "b@x.com|org".to_string(),
+                    MascotStyle {
+                        species: "robot".into(),
+                        hue: None,
+                    },
+                ),
+            ]),
+            ..Prefs::default()
+        };
+        save(tmp.path(), &prefs).unwrap();
+        let text = std::fs::read_to_string(tmp.path().join(FILE_NAME)).unwrap();
+        assert!(text.contains(r#""mascotStyles""#));
+        assert!(
+            !text.contains(r#""hue": null"#),
+            "an unset hue is left out, as on macOS"
+        );
+        assert_eq!(load(tmp.path()), prefs);
+        // The UI may send an explicit null hue.
+        std::fs::write(
+            tmp.path().join(FILE_NAME),
+            r#"{"mascotStyles": {"a@x.com|": {"species": "frog", "hue": null}}}"#,
+        )
+        .unwrap();
+        assert_eq!(load(tmp.path()).mascot_styles["a@x.com|"].hue, None);
     }
 
     #[test]

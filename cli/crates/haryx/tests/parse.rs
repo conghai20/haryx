@@ -749,3 +749,16 @@ fn every_command_has_a_name() {
     assert_eq!(cmd(&["import", "--from-cswap"]).name(), "import");
     assert_eq!(cmd(&["config", "path"]).name(), "config");
 }
+
+#[test]
+fn doctor_lives_in_the_ai_section() {
+    assert_eq!(cmd(&["ai", "doctor"]), Command::Doctor { json: false });
+    assert_eq!(
+        cmd(&["ai", "doctor", "--json"]),
+        Command::Doctor { json: true }
+    );
+    assert!(
+        parse(&args(&["doctor"]), false).is_err(),
+        "top-level doctor is kept for HaryX"
+    );
+}

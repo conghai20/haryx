@@ -36,6 +36,8 @@ final class AppStore {
     private(set) var wakeError: String?
     /// `haryx ai desktop status`; nil while "Claude Desktop follows Use" is off.
     private(set) var desktop: DesktopStatus?
+    /// `haryx ai doctor`: nil until read, or with a cswap backend.
+    private(set) var claudeSetup: ClaudeSetup?
     /// Whether Claude Desktop runs, and on which folder; read when the panel opens.
     private(set) var desktopRun: DesktopRun = .notRunning
     private(set) var cli: CSwapCLI?
@@ -47,6 +49,8 @@ final class AppStore {
     private(set) var loginSessions: [LoginSession] = []
     /// slot → live Claude processes using it
     private(set) var sessions: [Int: [ClaudeProcess]] = [:]
+    /// Live Claude processes on no known account (no active account, or a foreign CLAUDE_CONFIG_DIR).
+    private(set) var unassignedSessions: [ClaudeProcess] = []
     /// Default-profile sessions an auto-switch left on their old account: pid → that account.
     var leftBehind: [Int32: Int] = [:]
     var panelVisible = false
@@ -255,6 +259,13 @@ final class AppStore {
         apply(await wakeStatus)
         loadMappings()
         await reloadDesktop()
+        await checkClaudeSetup()
+    }
+
+    /// Re-read whether Claude Code is installed and signed in. A failed read keeps the last answer.
+    func checkClaudeSetup() async {
+        guard let cli, cli.flavor == .haryx else { claudeSetup = nil; return }
+        if let setup = try? await cli.json(ClaudeSetup.self, ["ai", "doctor", "--json"]) { claudeSetup = setup }
     }
 
     /// Re-read `haryx ai wake status` alone (local files only), so the panel shows what the
@@ -337,6 +348,8 @@ final class AppStore {
         knownProcesses = current
         if !leftBehind.isEmpty { pruneLeftBehind(alive: Set(current.keys)) }
         if bySlot != sessions { sessions = bySlot }
+        let unassigned = current.values.filter { $0.1 == nil }.map(\.0)
+        if Set(unassigned) != Set(unassignedSessions) { unassignedSessions = unassigned }
         updateMenuBarAnimation()
     }
 

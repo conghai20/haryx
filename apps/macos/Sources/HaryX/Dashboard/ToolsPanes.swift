@@ -101,6 +101,12 @@ struct MaintenancePane: View {
                     Task { await store.importUsage(from: url, hold: holdSeconds > 0 ? holdSeconds : nil) }
                 }
                 .help("Feed `haryx ai list --json` output from another machine so both don't poll the usage endpoint")
+                // `haryx import --from-cswap` reads cswap's store; cswap itself has no such command.
+                if store.cli?.flavor == .haryx {
+                    Button("Import from cswap") { Task { await store.importFromCswap() } }
+                        .disabled(store.busy != nil)
+                        .help("Copy the accounts stored by cswap into haryx")
+                }
             }
 
             Section("Unclaimed credentials") {

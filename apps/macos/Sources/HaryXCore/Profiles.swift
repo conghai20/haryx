@@ -80,6 +80,33 @@ public struct ProfilePlan: Decodable, Sendable {
     public var unchangedCount: Int { entries.count - changes.count }
 }
 
+public struct ProfileDiffItem: Decodable, Sendable, Identifiable, Hashable {
+    public let category: String
+    public let id: String
+    /// `only-left`, `only-right`, `differs` or `same`.
+    public let state: String
+
+    /// The state in words, as the Windows app shows it ("left" is the saved profile, "right" live).
+    public func stateText(left: String) -> String {
+        switch state {
+        case "only-left": "only in \(left)"
+        case "only-right": "only live"
+        default: state
+        }
+    }
+}
+
+/// `haryx ai profile diff NAME --json`: a saved profile (left) against the live ~/.claude (right).
+public struct ProfileDiff: Decodable, Sendable {
+    public let schemaVersion: Int
+    public let left: String
+    public let right: String
+    public let items: [ProfileDiffItem]
+
+    public var differences: [ProfileDiffItem] { items.filter { $0.state != "same" } }
+    public var sameCount: Int { items.count - differences.count }
+}
+
 /// A part of the setup, mirroring the CLI's categories.
 public struct ProfileCategory: Sendable, Hashable, Identifiable {
     public let name: String
@@ -169,6 +196,8 @@ public enum ProfileArgs {
         ["ai", "profile", "apply", name, "--yes"]
             + (prune ? ["--prune"] : []) + (includeHistory ? [] : ["--no-history"])
     }
+
+    public static func diff(_ name: String) -> [String] { ["ai", "profile", "diff", name, "--json"] }
 
     public static func delete(_ name: String) -> [String] { ["ai", "profile", "delete", name, "--yes"] }
 

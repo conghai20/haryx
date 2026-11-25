@@ -3,7 +3,7 @@
 
 use jiff::Timestamp;
 
-use crate::models::{Account, UsageWindow};
+use crate::models::{Account, Session, UsageWindow};
 
 pub const USAGE_LEVELS: [f64; 2] = [80.0, 95.0];
 pub const EXHAUSTED_PCT: f64 = 95.0;
@@ -12,6 +12,8 @@ pub const RECOVERED_PCT: f64 = 50.0;
 pub const EXPIRY_WARNING_S: i64 = 3 * 86_400;
 /// Notices whose keys carry no time; the notifier re-arms them once the condition clears.
 pub const REARMING_PREFIXES: [&str; 2] = ["relogin:", "plan:"];
+/// A session that ends is announced only if it ran this long (macOS `Prefs.sessionMinSeconds`).
+pub const SESSION_MIN_S: i64 = 60;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Category {
@@ -19,6 +21,7 @@ pub enum Category {
     Usage,
     Login,
     Reset,
+    Session,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,6 +96,50 @@ pub fn evaluate(previous: &[Account], current: &[Account], now: Timestamp) -> Ve
         }
     }
     notices
+}
+
+/// "Claude session finished" for each session in `previous` that is gone from `current` after
+/// running at least [`SESSION_MIN_S`]. `now_ms` and `startedAt` are Unix milliseconds.
+pub fn ended_sessions(
+    previous: &[Session],
+    current: &[Session],
+    accounts: &[Account],
+    now_ms: i64,
+) -> Vec<Notice> {
+    previous
+        .iter()
+        .filter(|p| !current.iter().any(|c| c.pid == p.pid))
+        .filter_map(|p| {
+            let ran = (now_ms - p.started_at) / 1000;
+            if ran < SESSION_MIN_S {
+                return None;
+            }
+            let who = p
+                .account
+                .and_then(|n| accounts.iter().find(|a| a.number == n))
+                .map_or("Claude", Account::display_name);
+            let folder = if p.cwd.is_empty() {
+                String::new()
+            } else {
+                format!(" · {}", p.cwd)
+            };
+            Some(Notice {
+                key: format!("session:{}:{}", p.pid, p.started_at),
+                category: Category::Session,
+                title: "Claude session finished".into(),
+                body: format!("{who} · ran {}{folder}", hours_minutes(ran)),
+            })
+        })
+        .collect()
+}
+
+/// "1 hr, 5 min" / "12 min", as macOS's abbreviated hours-and-minutes duration.
+fn hours_minutes(seconds: i64) -> String {
+    match (seconds / 3_600, (seconds % 3_600) / 60) {
+        (0, m) => format!("{m} min"),
+        (h, 0) => format!("{h} hr"),
+        (h, m) => format!("{h} hr, {m} min"),
+    }
 }
 
 fn windows(a: &Account) -> [(&'static str, Option<&UsageWindow>); 2] {
@@ -291,5 +338,40 @@ mod tests {
         );
         assert!(dedupe.fresh(evaluate(&[], &[fine], now())).is_empty());
         assert_eq!(dedupe.fresh(evaluate(&[], &[relogin], now())).len(), 1);
+    }
+
+    fn session(pid: i64, account: Option<i64>, started_at: i64, cwd: &str) -> Session {
+        Session {
+            pid,
+            account,
+            email: String::new(),
+            profile: "default".into(),
+            session_id: String::new(),
+            cwd: cwd.into(),
+            started_at,
+            status: None,
+        }
+    }
+
+    #[test]
+    fn a_session_that_ends_after_a_minute_is_announced() {
+        let work = account(r#"{"number":2,"email":"b@x.com","alias":"work","usageStatus":"ok"}"#);
+        let now = 10_000_000;
+        let long = session(7, Some(2), now - 65 * 60 * 1000, r"C:\code\app");
+        let short = session(8, Some(2), now - 30 * 1000, "");
+        let still = session(9, None, now - 3_600_000, "");
+        let n = ended_sessions(
+            &[long, short, still.clone()],
+            &[still],
+            std::slice::from_ref(&work),
+            now,
+        );
+        assert_eq!(n.len(), 1, "short and still-running sessions are quiet");
+        assert_eq!(n[0].category, Category::Session);
+        assert_eq!(n[0].title, "Claude session finished");
+        assert_eq!(n[0].body, r"work · ran 1 hr, 5 min · C:\code\app");
+        let unknown = session(5, Some(9), now - 120_000, "");
+        let n = ended_sessions(&[unknown], &[], &[work], now);
+        assert_eq!(n[0].body, "Claude · ran 2 min");
     }
 }

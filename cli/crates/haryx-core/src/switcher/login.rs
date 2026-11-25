@@ -112,8 +112,7 @@ impl Switcher {
         }
 
         let staging = self.new_staging()?;
-        let hint = target.as_ref().map(|t| t.email.as_str());
-        run_claude_login(&claude, Some(&staging.dir), hint, req.sso)?;
+        run_claude_login(&claude, Some(&staging.dir), req.sso)?;
         let creds = self.read_staged_credentials(&staging.dir)?;
         let signed_in = read_signed_in(&staging.dir)?;
 
@@ -145,7 +144,7 @@ impl Switcher {
     /// The slot is the active default login: sign in on the default profile, then capture it as
     /// `add --slot N` does (which verifies the identity before anything is written).
     fn relogin_default(&self, claude: &Path, target: &Target, sso: bool) -> Result<LoginOutcome> {
-        run_claude_login(claude, None, Some(&target.email), sso)?;
+        run_claude_login(claude, None, sso)?;
         let now = self.get_current_account();
         if now != Some((target.email.clone(), target.org.clone())) {
             let who = now.map_or_else(|| "nobody".to_owned(), |(email, _)| email);
@@ -316,14 +315,9 @@ impl Switcher {
 }
 
 /// Run `claude auth login` with the terminal attached. `config_dir: None` keeps the default profile.
-fn run_claude_login(
-    claude: &Path,
-    config_dir: Option<&Path>,
-    email: Option<&str>,
-    sso: bool,
-) -> Result<()> {
+fn run_claude_login(claude: &Path, config_dir: Option<&Path>, sso: bool) -> Result<()> {
     let mut command = Command::new(claude);
-    command.args(login_args(email, sso));
+    command.args(login_args(sso));
     for var in AUTH_OVERRIDE_ENV_VARS {
         command.env_remove(var);
     }
@@ -343,16 +337,15 @@ fn run_claude_login(
     Ok(())
 }
 
-/// Arguments of `claude auth login`: always the subscription flow, the expected email pre-filled.
-fn login_args(email: Option<&str>, sso: bool) -> Vec<String> {
+/// Arguments of `claude auth login`: always the subscription flow. Never `--email`: its
+/// `login_hint` makes claude.ai email a 6-digit verification code instead of ending on the code
+/// Claude Code asks to have pasted. The signed-in identity is checked afterwards anyway.
+fn login_args(sso: bool) -> Vec<String> {
     let mut args = vec![
         "auth".to_owned(),
         "login".to_owned(),
         "--claudeai".to_owned(),
     ];
-    if let Some(email) = email.filter(|e| !e.is_empty()) {
-        args.extend(["--email".to_owned(), email.to_owned()]);
-    }
     if sso {
         args.push("--sso".to_owned());
     }
@@ -453,13 +446,9 @@ mod tests {
     }
 
     #[test]
-    fn login_args_prefill_email_and_pass_sso() {
-        assert_eq!(
-            login_args(Some("a@x.com"), true),
-            ["auth", "login", "--claudeai", "--email", "a@x.com", "--sso"]
-        );
-        assert_eq!(login_args(None, false), ["auth", "login", "--claudeai"]);
-        assert_eq!(login_args(Some(""), false), ["auth", "login", "--claudeai"]);
+    fn login_args_never_prefill_email_and_pass_sso() {
+        assert_eq!(login_args(true), ["auth", "login", "--claudeai", "--sso"]);
+        assert_eq!(login_args(false), ["auth", "login", "--claudeai"]);
     }
 
     #[test]

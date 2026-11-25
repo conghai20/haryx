@@ -1,5 +1,5 @@
-//! Opening a terminal on Windows: Windows Terminal, PowerShell 7, Windows PowerShell, Command Prompt or
-//! Git Bash, in a folder, optionally running `haryx run <slot>` (Claude as that account, in that
+//! Opening a terminal on Windows: Windows Terminal, PowerShell 7, Windows PowerShell, Command Prompt,
+//! Git Bash or Warp, in a folder, optionally running `haryx run <slot>` (Claude as that account, in that
 //! terminal only) or plain `claude`.
 //!
 //! The command text a shell parses only ever holds the haryx path (quoted for that shell) and a slot
@@ -20,15 +20,18 @@ pub enum Terminal {
     Powershell,
     Cmd,
     GitBash,
+    Warp,
 }
 
 impl Terminal {
-    pub const ALL: [Terminal; 5] = [
+    /// In "First available" order: Warp last, so it is only used when chosen.
+    pub const ALL: [Terminal; 6] = [
         Terminal::WindowsTerminal,
         Terminal::Pwsh,
         Terminal::Powershell,
         Terminal::Cmd,
         Terminal::GitBash,
+        Terminal::Warp,
     ];
 
     pub fn title(self) -> &'static str {
@@ -38,6 +41,7 @@ impl Terminal {
             Terminal::Powershell => "Windows PowerShell",
             Terminal::Cmd => "Command Prompt",
             Terminal::GitBash => "Git Bash",
+            Terminal::Warp => "Warp",
         }
     }
 }
@@ -59,7 +63,13 @@ pub enum Job {
     /// `haryx ai sessions continue <pid> --to <slot|best>`: end a session that ran out and resume
     /// its conversation on another account.
     Continue { pid: u32, to: Option<u32> },
+    /// Anthropic's Claude Code installer for Windows (what `haryx ai doctor` reports). Fixed here:
+    /// the UI names the job, never the command.
+    InstallClaude,
 }
+
+/// `haryx ai doctor`'s Windows install command, run by PowerShell from whichever shell opens.
+const INSTALL_CLAUDE: &str = "irm https://claude.ai/install.ps1 | iex";
 
 /// The program files each terminal is started through.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -69,6 +79,7 @@ pub struct Installed {
     pub powershell: Option<PathBuf>,
     pub cmd: Option<PathBuf>,
     pub git_bash: Option<PathBuf>,
+    pub warp: Option<PathBuf>,
 }
 
 impl Installed {
@@ -79,6 +90,7 @@ impl Installed {
             Terminal::Powershell => self.powershell.as_deref(),
             Terminal::Cmd => self.cmd.as_deref(),
             Terminal::GitBash => self.git_bash.as_deref(),
+            Terminal::Warp => self.warp.as_deref(),
         }
     }
 
@@ -146,6 +158,12 @@ pub fn detect(
             program_files.map(|d| under(d, &["Git", "git-bash.exe"])),
             on_path("git-bash.exe"),
         ]),
+        // ponytail: Warp's installer lets the user pick a folder; these are its defaults.
+        warp: first(vec![
+            on_path("warp.exe"),
+            local_app_data.map(|d| under(d, &["Programs", "Warp", "warp.exe"])),
+            program_files.map(|d| under(d, &["Warp", "warp.exe"])),
+        ]),
     }
 }
 
@@ -162,6 +180,12 @@ fn job_words(job: &Job, haryx: &Path) -> Option<Vec<String>> {
             words.extend(slot.map(|n| n.to_string()));
             Some(words)
         }
+        Job::InstallClaude => Some(vec![
+            "powershell.exe".into(),
+            "-NoProfile".into(),
+            "-Command".into(),
+            INSTALL_CLAUDE.into(),
+        ]),
         Job::Continue { pid, to } => Some(vec![
             exe,
             "ai".into(),
@@ -209,6 +233,9 @@ pub fn launch_argv(
     folder: &Path,
     installed: &Installed,
 ) -> Result<Vec<String>, String> {
+    if terminal == Terminal::Warp {
+        return Err("Warp opens through a launch configuration, not a command line".into());
+    }
     let program = installed
         .path(terminal)
         .ok_or_else(|| format!("{} is not installed", terminal.title()))?
@@ -254,6 +281,55 @@ pub fn launch_argv(
     Ok(argv)
 }
 
+/// YAML single-quoted string: `'` doubled.
+fn yaml_string(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "''"))
+}
+
+/// A Warp launch configuration: one tab in `folder` running the job. Warp runs `exec` in its own
+/// shell, PowerShell by default on Windows, so the job is quoted for PowerShell (as on macOS, the
+/// HaryX shell choice doesn't apply to Warp).
+fn warp_config(name: &str, job: &Job, haryx: &Path, folder: &Path) -> String {
+    let commands = job_words(job, haryx).map_or_else(String::new, |w| {
+        format!(
+            "\n          commands:\n            - exec: {}",
+            yaml_string(&powershell_command(&w))
+        )
+    });
+    format!(
+        "---\nname: {name}\nwindows:\n  - tabs:\n      - layout:\n          cwd: {}{commands}\n",
+        yaml_string(&folder.to_string_lossy())
+    )
+}
+
+/// Open Warp on the job: write a launch configuration into `config_dir` (Warp's
+/// `%APPDATA%\warp\Warp\data\launch_configurations`) and open it by `warp://launch/` URL.
+pub fn open_warp(job: &Job, haryx: &Path, folder: &Path, config_dir: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(config_dir).map_err(|e| format!("cannot write Warp's config: {e}"))?;
+    // Last launch's file is no longer needed once Warp has read it.
+    for old in std::fs::read_dir(config_dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+    {
+        if old.file_name().to_string_lossy().starts_with("haryx-") {
+            let _ = std::fs::remove_file(old.path());
+        }
+    }
+    // Unique per launch: two quick launches must not overwrite each other's config.
+    let id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos())
+        % 0xffff_ffff;
+    let name = format!("haryx-{id:08x}");
+    std::fs::write(
+        config_dir.join(format!("{name}.yaml")),
+        warp_config(&name, job, haryx, folder),
+    )
+    .map_err(|e| format!("cannot write Warp's config: {e}"))?;
+    crate::updater::open_in_browser(&format!("warp://launch/{name}.yaml"))
+}
+
 /// Start the terminal in its own console window.
 pub fn launch(argv: &[String], folder: &Path) -> Result<(), String> {
     let (program, args) = argv.split_first().ok_or("nothing to launch")?;
@@ -282,7 +358,37 @@ mod tests {
             powershell: Some(r"C:\ps.exe".into()),
             cmd: Some(r"C:\cmd.exe".into()),
             git_bash: Some(r"C:\git-bash.exe".into()),
+            warp: Some(r"C:\warp.exe".into()),
         }
+    }
+
+    #[test]
+    fn warp_runs_the_job_in_a_powershell_quoted_launch_configuration() {
+        let yaml = warp_config(
+            "haryx-1",
+            &Job::RunAs { slot: 2 },
+            Path::new(HARYX),
+            Path::new(r"D:\o'neil"),
+        );
+        assert_eq!(
+            yaml,
+            "---\nname: haryx-1\nwindows:\n  - tabs:\n      - layout:\n          cwd: 'D:\\o''neil'\n          \
+             commands:\n            - exec: '& ''C:\\Users\\o''''neil\\bin\\haryx.exe'' ''run'' ''2'''\n"
+        );
+        assert!(
+            !warp_config("haryx-1", &Job::Shell, Path::new(HARYX), Path::new(r"D:\x"))
+                .contains("commands")
+        );
+        assert!(
+            launch_argv(
+                Terminal::Warp,
+                &Job::Shell,
+                Path::new(HARYX),
+                Path::new(r"D:\x"),
+                &all_installed()
+            )
+            .is_err()
+        );
     }
 
     const HARYX: &str = r"C:\Users\o'neil\bin\haryx.exe";
@@ -371,6 +477,20 @@ mod tests {
         assert_eq!(
             words.last().unwrap(),
             r"& 'C:\Users\o''neil\bin\haryx.exe' 'ai' 'login' '4'"
+        );
+    }
+
+    #[test]
+    fn install_claude_runs_the_powershell_installer_from_any_shell() {
+        assert_eq!(
+            argv(Terminal::Cmd, Job::InstallClaude).last().unwrap(),
+            r#""powershell.exe" "-NoProfile" "-Command" "irm https://claude.ai/install.ps1 | iex""#
+        );
+        assert_eq!(
+            argv(Terminal::Powershell, Job::InstallClaude)
+                .last()
+                .unwrap(),
+            "& 'powershell.exe' '-NoProfile' '-Command' 'irm https://claude.ai/install.ps1 | iex'"
         );
     }
 

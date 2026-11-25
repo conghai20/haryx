@@ -100,10 +100,13 @@ pub fn update(app: &AppHandle) {
     let _ = tray.set_tooltip(Some(tooltip));
 }
 
-/// The active account's mascot as a tray image, when the preference is on. `tick` is the walk frame
-/// while it runs Claude; `None` draws it standing.
+/// The active account's mascot as a tray image, when the preference is on: the same species and
+/// colour as its card. `tick` is the walk frame while it runs Claude; `None` draws it standing with
+/// its mood's mark, as the macOS menu bar does.
 fn mascot_frame(state: &AppState, tick: Option<u64>) -> Option<Image<'static>> {
-    if !state.prefs().tray_mascot {
+    use crate::mascot;
+    let prefs = state.prefs();
+    if !prefs.tray_mascot {
         return None;
     }
     let accounts = state
@@ -112,10 +115,13 @@ fn mascot_frame(state: &AppState, tick: Option<u64>) -> Option<Image<'static>> {
         .unwrap_or_else(|e| e.into_inner())
         .clone();
     let keys: Vec<String> = accounts.iter().map(|a| a.identity_key()).collect();
-    let index = accounts.iter().position(|a| a.active)?;
-    let species = *crate::mascot::assign(&keys).get(index)?;
-    let pose = tick.map_or_else(crate::mascot::Pose::default, crate::mascot::Pose::running);
-    let (rgba, side) = crate::mascot::rgba(&crate::mascot::pixels(species, pose), 2);
+    let active = accounts.iter().find(|a| a.active)?;
+    let style = *mascot::resolve(&prefs.mascot_styles, &keys).get(&active.identity_key())?;
+    let pose = match tick {
+        Some(tick) => mascot::Pose::running(tick),
+        None => mascot::Pose::still(mascot::mood(active, state.active_is_running())),
+    };
+    let (rgba, side) = mascot::rgba(&mascot::pixels(style, pose), 2);
     Some(Image::new_owned(rgba, side, side))
 }
 
@@ -243,6 +249,7 @@ fn create_flyout(app: &AppHandle) -> tauri::Result<tauri::WebviewWindow> {
     .always_on_top(true)
     .visible(false)
     .shadow(true)
+    .theme(app.state::<Arc<AppState>>().prefs().theme.window_theme())
     .build()?;
     let handle = window.clone();
     window.on_window_event(move |event| {
@@ -253,6 +260,14 @@ fn create_flyout(app: &AppHandle) -> tauri::Result<tauri::WebviewWindow> {
     Ok(window)
 }
 
+/// Give every open window the Theme preference (title bar and the page's light/dark scheme).
+pub fn apply_theme(app: &AppHandle) {
+    let theme = app.state::<Arc<AppState>>().prefs().theme.window_theme();
+    for window in app.webview_windows().values() {
+        let _ = window.set_theme(theme);
+    }
+}
+
 pub fn hide_flyout(app: &AppHandle) {
     if let Some(w) = app.get_webview_window(FLYOUT) {
         let _ = w.hide();
@@ -261,17 +276,43 @@ pub fn hide_flyout(app: &AppHandle) {
 
 /// Show the dashboard (creating it the first time), optionally on `pane`.
 pub fn show_dashboard(app: &AppHandle, pane: Option<&str>) {
+    open_dashboard(app, pane, None);
+}
+
+/// Open the dashboard on Accounts with `slot` selected (the flyout's Info).
+pub fn reveal_account(app: &AppHandle, slot: u32) {
+    open_dashboard(app, Some("accounts"), Some(slot));
+}
+
+/// The dashboard's page. A window built for a pane or an account starts there: it is not yet
+/// listening for the events an open window gets.
+fn dashboard_url(pane: Option<&str>, account: Option<u32>) -> String {
+    let query: Vec<String> = pane
+        .filter(|p| p.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'))
+        .map(|p| format!("pane={p}"))
+        .into_iter()
+        .chain(account.map(|a| format!("account={a}")))
+        .collect();
+    if query.is_empty() {
+        "index.html".into()
+    } else {
+        format!("index.html?{}", query.join("&"))
+    }
+}
+
+fn open_dashboard(app: &AppHandle, pane: Option<&str>, account: Option<u32>) {
     hide_flyout(app);
     let window = match app.get_webview_window(DASHBOARD) {
         Some(w) => w,
         None => {
-            let built =
-                WebviewWindowBuilder::new(app, DASHBOARD, WebviewUrl::App("index.html".into()))
-                    .title("HaryX")
-                    .inner_size(1080.0, 720.0)
-                    .min_inner_size(760.0, 520.0)
-                    .visible(false)
-                    .build();
+            let url = dashboard_url(pane, account);
+            let built = WebviewWindowBuilder::new(app, DASHBOARD, WebviewUrl::App(url.into()))
+                .title("HaryX")
+                .inner_size(1080.0, 720.0)
+                .min_inner_size(760.0, 520.0)
+                .theme(app.state::<Arc<AppState>>().prefs().theme.window_theme())
+                .visible(false)
+                .build();
             match built {
                 Ok(w) => {
                     let handle = w.clone();
@@ -296,11 +337,25 @@ pub fn show_dashboard(app: &AppHandle, pane: Option<&str>) {
     if let Some(pane) = pane {
         let _ = app.emit_to(DASHBOARD, "open-pane", pane);
     }
+    if let Some(slot) = account {
+        let _ = app.emit_to(DASHBOARD, "reveal-account", slot);
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dashboard_url_carries_the_pane_and_account() {
+        assert_eq!(dashboard_url(None, None), "index.html");
+        assert_eq!(dashboard_url(Some("about"), None), "index.html?pane=about");
+        assert_eq!(dashboard_url(Some("a&b=c"), None), "index.html");
+        assert_eq!(
+            dashboard_url(Some("accounts"), Some(3)),
+            "index.html?pane=accounts&account=3"
+        );
+    }
 
     const MONITOR: (f64, f64, f64, f64) = (0.0, 0.0, 1920.0, 1040.0);
 

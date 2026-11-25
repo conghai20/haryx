@@ -1,6 +1,6 @@
 //! The commands upstream `main()` dispatches before building its main parser, each with its own
 //! argparse parser: `run`, `auto`, `config`, `map`, `unmap`, `unclaimed`, `alias`, `threshold`,
-//! `priority`, `swap`, `move`.
+//! `priority`, `swap`, `move`, `doctor`.
 
 use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser, Subcommand};
@@ -39,6 +39,8 @@ pub(super) fn parse(first: &str, rest: &[String]) -> Option<Result<Invocation, E
             )
         }),
         "login" => run_parser::<LoginArgs>(rest).and_then(LoginArgs::into_invocation),
+        "doctor" => run_parser::<DoctorArgs>(rest)
+            .map(|a| invocation(a.debug, Command::Doctor { json: a.json })),
         "move" => run_parser::<MoveArgs>(rest).map(|a| {
             invocation(
                 a.debug,
@@ -373,6 +375,27 @@ struct UnmapArgs {
     /// Directory to unmap (default: current directory)
     #[arg(value_name = "PATH")]
     path: Option<String>,
+
+    /// Enable debug logging
+    #[arg(long)]
+    debug: bool,
+}
+
+// ------------------------------------------------------------------------------------------- doctor
+
+#[derive(Parser, Debug)]
+#[command(
+    name = "doctor",
+    bin_name = sub_bin("doctor"),
+    about = "Check that Claude Code is installed and signed in, and say how to fix it if not.",
+    help_template = help::HELP_TEMPLATE,
+    args_override_self = true,
+    infer_long_args = true,
+)]
+struct DoctorArgs {
+    /// Print the result as JSON
+    #[arg(long)]
+    json: bool,
 
     /// Enable debug logging
     #[arg(long)]

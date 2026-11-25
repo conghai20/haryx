@@ -2,7 +2,7 @@
 //! Contracts: `packages/contracts/`. Unknown fields are ignored and every optional field may be absent,
 //! so a newer CLI never breaks an older app.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// `haryx list --json`.
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -110,6 +110,43 @@ pub struct Session {
     pub status: Option<String>,
 }
 
+/// One `mappings.json` entry: a folder whose plain `haryx run` uses this account.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Mapping {
+    pub path: String,
+    pub email: String,
+    pub organization_uuid: String,
+}
+
+/// `<store root>/mappings.json` (`{"mappings": {path: {email, organizationUuid, ...}}}`), sorted by
+/// path, as macOS reads it. A missing or unreadable file means no mappings.
+pub fn parse_mappings(text: &str) -> Vec<Mapping> {
+    let Ok(root) = serde_json::from_str::<serde_json::Value>(text) else {
+        return Vec::new();
+    };
+    let Some(table) = root.get("mappings").and_then(|m| m.as_object()) else {
+        return Vec::new();
+    };
+    let field = |entry: &serde_json::Value, key: &str| {
+        entry
+            .get(key)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string()
+    };
+    let mut out: Vec<Mapping> = table
+        .iter()
+        .map(|(path, entry)| Mapping {
+            path: path.clone(),
+            email: field(entry, "email"),
+            organization_uuid: field(entry, "organizationUuid"),
+        })
+        .collect();
+    out.sort_by(|a, b| a.path.cmp(&b.path));
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,5 +199,19 @@ mod tests {
         b.number = 7;
         assert_eq!(a.identity_key(), b.identity_key());
         assert_eq!(a.identity_key(), "a@x.com|o");
+    }
+
+    #[test]
+    fn mappings_are_read_sorted_and_tolerate_junk() {
+        let text = r#"{"schemaVersion":1,"mappings":{
+            "D:\\work\\b":{"email":"b@x.com","organizationUuid":"o","added":"2026"},
+            "C:\\code\\a":{"email":"a@x.com"}}}"#;
+        let m = parse_mappings(text);
+        assert_eq!(m.len(), 2);
+        assert_eq!(m[0].path, r"C:\code\a");
+        assert_eq!(m[0].organization_uuid, "");
+        assert_eq!(m[1].email, "b@x.com");
+        assert!(parse_mappings("{not json").is_empty());
+        assert!(parse_mappings(r#"{"mappings":[]}"#).is_empty());
     }
 }

@@ -11,6 +11,64 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-11-25
+
+### Added
+
+- macOS app: a Sessions section (after Usage) listing every running Claude Code session across accounts, newest first, with its account, folder, pid, how long it has run, "out of quota" when it is stuck, and Continue on…, plus a Run Claude button per account, as on Windows.
+- macOS app: Wake shows each account's last wake, next due and last result, and the recent wake events, as on Windows.
+- macOS app: a Diff button on a saved setup profile, comparing it with the live `~/.claude`, as on Windows.
+- macOS app: Import from cswap in Backup & Maintenance (haryx backend only), as on Windows.
+- macOS app: Hide routine checks over the auto-switch log, on by default, as on Windows.
+- Windows app: Warp as a terminal choice, as on macOS. It opens through a launch configuration in
+  Warp's data folder and runs in Warp's own shell (PowerShell unless changed in Warp).
+- `haryx ai doctor` (and `--json`) says whether Claude Code is installed and signed in, and how to
+  fix it; `claude` is also found outside PATH (the native installer's `~/.local/bin`,
+  `~/.claude/local`, Homebrew and `/usr/local/bin`, and npm's folder on Windows).
+  Both apps show a banner on Accounts and in the menu bar panel / tray flyout while something is
+  wrong, with Install Claude Code (a terminal running Anthropic's installer: `install.sh` on macOS,
+  `install.ps1` on Windows), Open Claude to Sign In, and Check Again.
+- Both apps: a Theme setting (System, Light, Dark). macOS: App Preferences, applied to the
+  dashboard and the menu bar panel. Windows: Preferences, applied to the title bars and both windows.
+- Windows app: Sign In Again and Sign in new account open HaryX's own sign-in window, as on macOS (the sign-in link with Open and Copy, live status, a field for the code the sign-in page shows), instead of a terminal. A terminal is offered only if that window cannot start.
+- Windows app: a switch for the tray mascot (Show the active account's mascot in the tray), which
+  had a preference but no way to turn it on.
+- macOS only (Windows has no Desktop launcher yet): each account card has a Claude Desktop button, Set Up Desktop until that account has
+  signed in to Desktop, then Open Desktop. The account menus offer Set Up Claude Desktop too. Neither
+  switches Claude Code.
+- Windows app: pixel mascots on every account card, the tray flyout's rows and the inspector, with
+  the macOS moods (walking while Claude runs, tired at 90%, asleep when held out, "!" when signed
+  out) and a per-account species and colour picker; the tray mascot uses the same choice. Both
+  apps' folder mappings lists show them too.
+- Windows app: a Folder mappings pane (AI group, after Wake), as on macOS: mapped folders with
+  their account's mascot, Run Claude in one, Unmap, and Choose folder and map… for an account.
+  The tray flyout's terminal menu lists mapped folders, one click runs Claude there.
+- Windows app: Move to slot and Swap with… in the account inspector, as on macOS.
+- Windows app: Force Switch, as on macOS: in the inspector (it asks first) and in the flyout's
+  account menu.
+- Windows app: Run Claude in folder… in the inspector (as that account) and Claude in folder… in
+  the flyout's terminal menu (the active account), as on macOS.
+- Windows app: clicking an account in the tray flyout opens its menu, as on macOS: Info (the
+  dashboard with that account selected), Sign In Again…, Switch, Force Switch, Remove….
+- Windows app: Sign In New Account… in the flyout's terminal menu, as on macOS.
+- Windows app: a "Claude session finished" notification for sessions that ran 1 minute or
+  longer, on by default, with its switch in AI settings, as on macOS.
+- Windows app: Open data folder and Show log (`haryx.log`, selected in Explorer) in Tools, as on
+  macOS.
+
+### Changed
+
+- macOS app: CLI Settings is now AI Settings and also holds the usage refresh, menu bar reading and
+  mascot, Terminal, Claude Desktop and Notifications settings, which moved out of App Preferences.
+  App Preferences keeps launch at login, the terminal command and the CLI path.
+- Windows app: Settings moved into the AI group as AI settings (usage refresh, tray mascot,
+  terminal, start folder, notifications, haryx settings). A new HaryX › Preferences keeps start with
+  Windows, Theme and the haryx path.
+
+### Fixed
+
+- macOS app: a Desktop folder that exists but never signed in offers Set Up Desktop, not Open.
+
 ## [0.1.5] - 2026-11-24
 
 ### Added
@@ -203,7 +261,8 @@ cannot be released without one. Sections, in this order, only when they have ent
 First release: the `haryx` CLI (a Rust port of claude-swap, drop-in compatible with `cswap`) and
 the HaryX macOS menu bar app.
 
-[Unreleased]: https://github.com/conghai20/haryx/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/conghai20/haryx/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/conghai20/haryx/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/conghai20/haryx/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/conghai20/haryx/compare/v0.1.2...v0.1.4
 [0.1.2]: https://github.com/conghai20/haryx/compare/v0.1.1...v0.1.2

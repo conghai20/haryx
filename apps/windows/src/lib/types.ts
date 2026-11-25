@@ -62,7 +62,7 @@ export interface AutoEvent {
   fromAccount?: number | null;
 }
 
-export type TerminalId = "windows-terminal" | "pwsh" | "powershell" | "cmd" | "git-bash";
+export type TerminalId = "windows-terminal" | "pwsh" | "powershell" | "cmd" | "git-bash" | "warp";
 
 export interface Prefs {
   refreshSeconds: number;
@@ -75,14 +75,27 @@ export interface Prefs {
   notifyUsage: boolean;
   notifyLogin: boolean;
   notifyReset: boolean;
+  notifySession: boolean;
   notifyAutoSwitch: boolean;
   trayMascot: boolean;
+  /** Mascot choices by identity key (`email|org`); unlisted accounts get a hashed species. */
+  mascotStyles: Record<string, MascotStyle>;
   launchAtLogin: boolean;
+  theme: Theme;
   updateMode: UpdateMode;
   skippedVersion: string | null;
   lastUpdateCheck: number | null;
   weeklySummary: boolean;
   lastWeeklySummary: number | null;
+}
+
+/** The app's look; "system" follows Windows. */
+export type Theme = "system" | "light" | "dark";
+
+/** One account's mascot choice (macOS `MascotStyle`); `hue` 0–1, absent = the species' colour. */
+export interface MascotStyle {
+  species: string;
+  hue?: number | null;
 }
 
 export type UpdateMode = "automatic" | "notify" | "manual";
@@ -129,13 +142,44 @@ export interface Snapshot {
   update: UpdateInfo;
 }
 
+/** A folder whose plain `haryx run` uses an account (`haryx map`; backend `models::Mapping`). */
+export interface Mapping {
+  path: string;
+  email: string;
+  organizationUuid: string;
+}
+
 export type Job =
   | { kind: "shell" }
   | { kind: "claude" }
   | { kind: "run-as"; slot: number }
   | { kind: "run-mapped" }
   | { kind: "login"; slot: number | null }
-  | { kind: "continue"; pid: number; to: number | null };
+  | { kind: "continue"; pid: number; to: number | null }
+  | { kind: "install-claude" };
+
+/** `haryx ai doctor --json`: whether Claude Code is installed and signed in, and how to fix it. */
+export interface ClaudeSetup {
+  ready: boolean;
+  claude: string | null;
+  email: string | null;
+  installCommand: string;
+  /** First is the one to fix first (signing in needs Claude Code installed). */
+  problems: { code: "claude_missing" | "not_signed_in" | string; message: string; fix: string }[];
+}
+
+/** One in-app sign-in run (`login::View` in the backend). */
+export interface LoginView {
+  id: number;
+  title: string;
+  state: "running" | "succeeded" | "failed" | "cancelled";
+  message: string | null;
+  /** The run's output, escape sequences removed. */
+  text: string;
+  url: string | null;
+  awaitingCode: boolean;
+  awaitingAnswer: boolean;
+}
 
 export interface RunResult {
   ok: boolean;

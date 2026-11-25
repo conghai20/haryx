@@ -18,12 +18,12 @@ enum DashboardGroup: String, CaseIterable, Identifiable {
 }
 
 enum DashboardSection: String, CaseIterable, Identifiable {
-    case accounts, usage, autoSwitch, wake, mappings, profiles, config, maintenance, preferences, about
+    case accounts, usage, sessions, autoSwitch, wake, mappings, profiles, config, maintenance, preferences, about
     var id: String { rawValue }
 
     var group: DashboardGroup {
         switch self {
-        case .accounts, .usage, .autoSwitch, .wake, .mappings, .profiles, .config, .maintenance: .ai
+        case .accounts, .usage, .sessions, .autoSwitch, .wake, .mappings, .profiles, .config, .maintenance: .ai
         case .preferences, .about: .app
         }
     }
@@ -32,11 +32,12 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         switch self {
         case .accounts: "Accounts"
         case .usage: "Usage"
+        case .sessions: "Sessions"
         case .autoSwitch: "Auto-Switch"
         case .wake: "Wake"
         case .mappings: "Folder Mappings"
         case .profiles: "Setup Profiles"
-        case .config: "CLI Settings"
+        case .config: "AI Settings"
         case .maintenance: "Backup & Maintenance"
         case .preferences: "App Preferences"
         case .about: "About & Updates"
@@ -47,6 +48,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         switch self {
         case .accounts: "person.2.fill"
         case .usage: "chart.bar.xaxis"
+        case .sessions: "terminal"
         case .autoSwitch: "arrow.triangle.2.circlepath"
         case .wake: "alarm"
         case .mappings: "folder.badge.person.crop"
@@ -116,6 +118,7 @@ struct DashboardView: View {
                 switch router.section ?? .accounts {
                 case .accounts: AccountsPane()
                 case .usage: UsagePane()
+                case .sessions: SessionsPane()
                 case .autoSwitch: AutoSwitchPane()
                 case .wake: WakePane()
                 case .mappings: MappingsPane()
@@ -156,6 +159,7 @@ struct AccountsPane: View {
 
     var body: some View {
         ScrollView {
+            if store.claudeSetup?.ready == false { ClaudeSetupBanner().padding([.horizontal, .top], 20) }
             if store.accounts.isEmpty {
                 ContentUnavailableView {
                     Label("No accounts yet", systemImage: "person.crop.circle.badge.plus")
@@ -190,16 +194,18 @@ struct AccountsPane: View {
         .toolbar {
             ToolbarItemGroup {
                 Menu {
-                    Button("Sign In New Account…") { addSheet = .login }
-                    Button("Add Current Claude Login…") { addSheet = .current }
-                    Button("Add Setup Token / API Key…") { addSheet = .token }
-                } label: { Label("Add", systemImage: "plus") }
+                    Section("Add") {
+                        Button("Sign In New Account…") { addSheet = .login }
+                        Button("Add Current Claude Login…") { addSheet = .current }
+                        Button("Add Setup Token / API Key…") { addSheet = .token }
+                    }
+                    SignInMenuSection(showsNewAccount: false)
+                } label: { Label("Add or Sign In", systemImage: "plus") }
                 Menu {
                     ForEach(AppStore.SwitchMode.allCases) { mode in
                         Button(mode.title) { Task { await store.switchNext(mode) } }
                     }
                 } label: { Label("Switch", systemImage: "arrow.left.arrow.right") }
-                Menu { SignInMenuSection() } label: { Label("Sign In", systemImage: "person.badge.key") }
                 Button { Task { await store.refresh(); await store.loadExtras() } } label: {
                     Label("Refresh", systemImage: "arrow.clockwise").spinning(store.isRefreshing)
                 }
@@ -245,6 +251,14 @@ struct AccountCard: View {
                     Button("Switch") { Task { await store.switchTo(account) } }.buttonStyle(.glassProminent)
                 }
                 Spacer()
+                if let desktop = store.desktopAction(for: account) {
+                    Button(desktop.title, systemImage: "macwindow") { Task { await store.openDesktop(as: account) } }
+                        .buttonStyle(.glass)
+                        .disabled(store.busy != nil)
+                        .help(desktop == .setUp
+                            ? "Open Claude Desktop on \(account.email)'s own folder, to sign in once"
+                            : "Open Claude Desktop as \(account.email)")
+                }
                 Menu {
                     TerminalMenuItems { store.runClaude(as: account, app: $0) }
                 } label: { Image(systemName: "terminal") } primaryAction: {

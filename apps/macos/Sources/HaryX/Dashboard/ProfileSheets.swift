@@ -4,7 +4,7 @@ import SwiftUI
 
 /// The sheets of the Setup Profiles section.
 enum ProfileSheet: Identifiable {
-    case save, export, importFile(URL), apply(String)
+    case save, export, importFile(URL), apply(String), diff(String)
 
     var id: String {
         switch self {
@@ -12,6 +12,7 @@ enum ProfileSheet: Identifiable {
         case .export: "export"
         case .importFile(let url): "import:\(url.path)"
         case .apply(let name): "apply:\(name)"
+        case .diff(let name): "diff:\(name)"
         }
     }
 }
@@ -27,6 +28,7 @@ struct ProfileSheetView: View {
         case .export: ExportProfileSheet(model: model, close: close)
         case .importFile(let url): ImportProfileSheet(file: url, model: model, close: close)
         case .apply(let name): ApplyProfileSheet(name: name, model: model, close: close)
+        case .diff(let name): DiffProfileSheet(name: name, close: close)
         }
     }
 }
@@ -285,6 +287,61 @@ struct ApplyProfileSheet: View {
             await store.refresh()
             close()
         } catch { store.flash(error.localizedDescription, error: true) }
+    }
+}
+
+/// `haryx ai profile diff`: what a saved profile has that the live ~/.claude does not, and back.
+struct DiffProfileSheet: View {
+    @Environment(AppStore.self) private var store
+    let name: String
+    let close: () -> Void
+    @State private var diff: ProfileDiff?
+    @State private var error: String?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Text("Diff '\(name)'").font(.headline).padding(.top, 16)
+            Form {
+                if let error {
+                    Section { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red) }
+                } else if let diff {
+                    Section {
+                        ForEach(diff.differences) { d in
+                            HStack {
+                                Text(d.stateText(left: name)).font(.caption.weight(.semibold))
+                                    .foregroundStyle(d.state == "differs" ? Brand.cyan : .orange)
+                                    .frame(width: 110, alignment: .leading)
+                                Text(ProfileCategory.title(of: d.category)).font(.caption).foregroundStyle(.tertiary)
+                                    .frame(width: 100, alignment: .leading)
+                                Text(d.id).font(.caption.monospaced()).lineLimit(1).truncationMode(.middle)
+                                Spacer()
+                            }
+                        }
+                        if diff.differences.isEmpty { Text("No differences.").foregroundStyle(.secondary) }
+                    } header: {
+                        Text("'\(name)' compared with the live ~/.claude: \(diff.sameCount) the same.")
+                    }
+                } else {
+                    Section { ProgressView("Comparing…") }
+                }
+            }
+            .formStyle(.grouped)
+            HStack {
+                Spacer()
+                Button("Close", action: close).keyboardShortcut(.defaultAction)
+            }
+            .padding(16)
+        }
+        .frame(width: 560, height: 560)
+        .task { await load() }
+    }
+
+    private func load() async {
+        guard let cli = store.cli else { return }
+        do {
+            diff = try await cli.json(ProfileDiff.self, ProfileArgs.diff(name), decoder: ProfileJSON.decoder)
+            error = nil
+        } catch { self.error = error.localizedDescription }
     }
 }
 

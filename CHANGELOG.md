@@ -13,6 +13,11 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ### Added
 
+- macOS app: a Sessions section (after Usage) listing every running Claude Code session across accounts, newest first, with its account, folder, pid, how long it has run, "out of quota" when it is stuck, and Continue on…, plus a Run Claude button per account, as on Windows.
+- macOS app: Wake shows each account's last wake, next due and last result, and the recent wake events, as on Windows.
+- macOS app: a Diff button on a saved setup profile, comparing it with the live `~/.claude`, as on Windows.
+- macOS app: Import from cswap in Backup & Maintenance (haryx backend only), as on Windows.
+- macOS app: Hide routine checks over the auto-switch log, on by default, as on Windows.
 - Windows app: Warp as a terminal choice, as on macOS. It opens through a launch configuration in
   Warp's data folder and runs in Warp's own shell (PowerShell unless changed in Warp).
 - `haryx ai doctor` (and `--json`) says whether Claude Code is installed and signed in, and how to

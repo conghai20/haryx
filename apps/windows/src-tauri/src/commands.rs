@@ -217,6 +217,11 @@ pub fn open_terminal(
         .or_else(|| std::env::var_os("USERPROFILE").map(PathBuf::from))
         .ok_or("no folder to open")?;
     let haryx = state.cli()?.exe;
+    if terminal == Terminal::Warp {
+        let app_data = std::env::var_os("APPDATA").ok_or("APPDATA is not set")?;
+        let dir = PathBuf::from(app_data).join(r"warp\Warp\data\launch_configurations");
+        return terminals::open_warp(&job, &haryx, &folder, &dir);
+    }
     let argv = terminals::launch_argv(terminal, &job, &haryx, &folder, &state.terminals)?;
     terminals::launch(&argv, &folder)
 }

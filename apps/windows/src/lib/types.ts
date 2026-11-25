@@ -62,7 +62,7 @@ export interface AutoEvent {
   fromAccount?: number | null;
 }
 
-export type TerminalId = "windows-terminal" | "pwsh" | "powershell" | "cmd" | "git-bash";
+export type TerminalId = "windows-terminal" | "pwsh" | "powershell" | "cmd" | "git-bash" | "warp";
 
 export interface Prefs {
   refreshSeconds: number;

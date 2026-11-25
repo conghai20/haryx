@@ -13,6 +13,8 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ### Added
 
+- Windows app: Warp as a terminal choice, as on macOS. It opens through a launch configuration in
+  Warp's data folder and runs in Warp's own shell (PowerShell unless changed in Warp).
 - `haryx ai doctor` (and `--json`) says whether Claude Code is installed and signed in, and how to
   fix it; `claude` is also found outside PATH (the native installer's `~/.local/bin`,
   `~/.claude/local`, Homebrew and `/usr/local/bin`, and npm's folder on Windows).

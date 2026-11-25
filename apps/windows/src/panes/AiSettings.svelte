@@ -85,6 +85,12 @@
         {#each store.terminals as t (t.id)}<option value={t.id}>{t.title}</option>{/each}
       </select>
     </div>
+    {#if prefs.terminal === "warp"}
+      <p class="caption tertiary">
+        Warp opens through a launch configuration in Warp's data folder and runs in Warp's own shell (PowerShell unless
+        you changed it in Warp).
+      </p>
+    {/if}
     <div class="field">
       <span class="label">Claude starts in</span>
       <span class="truncate value" title={prefs.claudeFolder ?? ""}>{prefs.claudeFolder ?? "your home folder"}</span>

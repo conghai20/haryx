@@ -15,13 +15,13 @@ const TARGETS = [
     id: "mac",
     label: "macOS",
     command: "curl -fsSL https://raw.githubusercontent.com/conghai20/haryx/main/scripts/install.sh | sh",
-    note: "Terminal. macOS 26 or later. Installs HaryX.app with the haryx command.",
+    note: "Terminal. macOS 26 or later. Installs HaryX.app with the haryx command. Needs Claude Code; HaryX offers to install it.",
   },
   {
     id: "win",
     label: "Windows",
     command: "irm https://raw.githubusercontent.com/conghai20/haryx/main/scripts/install.ps1 | iex",
-    note: "PowerShell. Windows 10 22H2 or 11, x64 or ARM64. No admin rights.",
+    note: "PowerShell. Windows 10 22H2 or 11, x64 or ARM64. No admin rights. Needs Claude Code; HaryX offers to install it.",
   },
 ] as const;
 ---

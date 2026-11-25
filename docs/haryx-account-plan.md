@@ -1,10 +1,32 @@
 # HaryX sign-in and encrypted sync across machines: plan
 
-Status: in progress (2026-11-25).
+Status: built (2026-11-25) on `feat/haryx-account`; hosted deployment pending.
 - Phase 0: done (spike locally, GitHub end to end on the hosted project).
-- Phase 1: tasks 2–4 built on `feat/haryx-account`: `haryx login`, `logout` and `whoami`. They were
-  verified against the hosted project with the real Keychain.
-- Remaining: task 1 (Google client), task 5 (`account delete`), then Phases 2–4.
+- Phase 1: `haryx login`, `logout`, `whoami`, `account delete`, verified against the hosted project
+  (sign-in) and the local stack (delete, through the Edge Function).
+- Phases 2–3: `haryx sync` with settings, app preferences, account settings, API-key and setup-token
+  accounts, and setup profiles. Verified by the engine's two-machine tests, pgTAP (22 checks) and
+  `server/supabase/tests/cli-e2e.sh` (the real binary as two machines against the local stack).
+  Hardened after a second security review (see Lessons).
+- Phase 4: the macOS and Windows panes; the apps still need a run on real machines.
+- Not done: the Google OAuth client (task 1), and pushing the migrations and the function to the
+  hosted project (`server/supabase/README.md`), which needs the owner's Supabase access.
+
+Built differently from the plan below:
+- No `sync.enabled` setting: whether an app syncs on its own is an app-local toggle, and the CLI
+  syncs when asked.
+- Mascot styles travel in `app-prefs` (they are app preferences), not in account rows.
+- No `ai login EMAIL` (old task 12): account rows are keyed by email and organization, so after any
+  sign-in on a new machine the next sync applies that account's settings.
+- `sync passphrase` (not `passphrase change`); a hidden `sync has-passphrase --json` tells the apps
+  whether to ask once or twice.
+- The profile index is a `profiles` row; the CLI keeps 3 profiles, the bucket allows 10 files.
+- A token account removed on one machine stays removed there; the other machines keep it. That
+  memory lives in `sync/state.json`, so after `logout`, a reset or a key change the removed account
+  comes back on the next sync. Accepted for now; remove it with `haryx sync forget EMAIL` instead.
+- The keyring row is `{"wrapped", "check"}`: the check (an HMAC of the key) is the only thing that
+  decides "the key changed". Documents carry their own kind, key and version inside the encryption,
+  and profile files carry their name.
 
 ## Decisions
 
@@ -164,8 +186,9 @@ override them for a dev project and for tests.
 - **Changing the passphrase** re-wraps the same key, so nothing else is re-encrypted.
 - **A forgotten passphrase.** Any machine still unlocked can set a new one. If none is, `sync reset`
   deletes the server copy and uploads again from the local store.
-- **Strength.** At least 12 characters. The wrapped keyring sits on Supabase, so a weak passphrase
-  could be brute-forced offline by anyone who obtained the database.
+- **Strength.** At least 12 characters, length only: `aaaaaaaaaaaa` passes. The wrapped keyring
+  sits on Supabase, so a weak passphrase could be brute-forced offline by anyone who obtained the
+  database. A strength estimate (zxcvbn-style) is a later improvement.
 
 ## What syncs
 
@@ -360,3 +383,32 @@ real-time sync.
 - **Headless Chrome cannot render narrower than about 500 px.** Phone-width screenshots taken with
   `--window-size=390,…` are 500-px layouts, cropped. Render phone widths inside iframes of the
   real width instead.
+- **A Storage policy cannot count `storage.objects` itself (Phase 3).** The per-user file cap was
+  first written as a subquery on `storage.objects` inside an insert policy on `storage.objects`.
+  Postgres answered 42P17 (infinite recursion in policy), which Storage reports as a 503
+  "DatabaseInvalidObjectDefinition" inside an HTTP 400. pgTAP did not catch it, because it inserts
+  as one role without the upsert path; the two-machine `cli-e2e.sh` did. The fix is a
+  `security definer` function that counts only the caller's own folder.
+- **The apps and the contract fixtures drifted (Phase 4).** `app-prefs.json` was written before
+  the apps' preference names were read, and both app agents had to work around it. Read the
+  existing keys before writing a fixture that the apps must match.
+- **Security review, 2026-11-25 (Phases 2–3).** A second review of the sync engine found three
+  high-severity bugs, none caught by the 30 engine tests because each test checked what arrived, not
+  what was left behind:
+  - Credential rows kept their merge base, token included, in plain `sync/state.json`. The base now
+    holds a keyed digest of the token.
+  - A value a machine could not take (an alias already used there) still became the base, so the
+    next sync read it as "removed here" and removed it on every machine. What a machine skips now
+    stays at its local value in the base.
+  - A synced setup token for an email that another machine signed in to through the browser
+    replaced that login and its refresh token. Such tokens are now skipped and named.
+
+  It also found that any row that failed to decrypt locked every machine (now only the keyring's
+  key check decides that the key changed; a row that does not open is replaced), that local changes
+  were applied before the server write (now the server goes first, so a lost race changes nothing
+  here), and that the server could move or replay rows (documents now name their kind, key and
+  version inside the encryption). Smaller fixes: profile work files are private and their names
+  validated, `write_private` cleans up its temp file, and the bucket refuses subfolders. Each fix
+  has a two-machine test; the skipped-value test was checked to fail against the old base logic.
+  What would have caught these earlier: asserting on `state.json` and on the other machine after a
+  second round, not just after the first.

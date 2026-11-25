@@ -19,6 +19,17 @@ cannot be released without one. Sections, in this order, only when they have ent
   sign-in did not finish; `--no-browser` prints the link instead. The session is kept in the
   Keychain on macOS and in a private sealed file elsewhere. Claude accounts are untouched: they are
   still signed in with `haryx ai login`, and `haryx login 3` now says so.
+- `haryx sync`: sync between your machines, end-to-end encrypted with a sync passphrase (`sync unlock`;
+  `sync passphrase` changes it). Carries `haryx config` settings (except `history.import`), the apps'
+  preferences (`sync prefs get|set`), each Claude account's alias, priority, threshold and enabled state,
+  and API-key and setup-token accounts. Claude browser logins never leave the machine: accounts that
+  exist only elsewhere are listed by `sync status` to sign in here. `sync forget EMAIL`, `sync reset`.
+- `haryx sync profile push|pull|list|remove`: setup profiles on the server, encrypted (secrets
+  redacted, no history; three at most).
+- `haryx account delete`: deletes the HaryX account and everything synced.
+- macOS and Windows apps: a HaryX Account pane (sign in, unlock, sync, change passphrase, sign out,
+  delete), automatic sync every 15 minutes and after a synced preference changes, and "On your other
+  machines" in Accounts.
 
 ## [0.1.6] - 2026-11-25
 

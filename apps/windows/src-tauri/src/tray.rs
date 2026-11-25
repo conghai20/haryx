@@ -100,10 +100,13 @@ pub fn update(app: &AppHandle) {
     let _ = tray.set_tooltip(Some(tooltip));
 }
 
-/// The active account's mascot as a tray image, when the preference is on. `tick` is the walk frame
-/// while it runs Claude; `None` draws it standing.
+/// The active account's mascot as a tray image, when the preference is on: the same species and
+/// colour as its card. `tick` is the walk frame while it runs Claude; `None` draws it standing with
+/// its mood's mark, as the macOS menu bar does.
 fn mascot_frame(state: &AppState, tick: Option<u64>) -> Option<Image<'static>> {
-    if !state.prefs().tray_mascot {
+    use crate::mascot;
+    let prefs = state.prefs();
+    if !prefs.tray_mascot {
         return None;
     }
     let accounts = state
@@ -112,10 +115,13 @@ fn mascot_frame(state: &AppState, tick: Option<u64>) -> Option<Image<'static>> {
         .unwrap_or_else(|e| e.into_inner())
         .clone();
     let keys: Vec<String> = accounts.iter().map(|a| a.identity_key()).collect();
-    let index = accounts.iter().position(|a| a.active)?;
-    let species = *crate::mascot::assign(&keys).get(index)?;
-    let pose = tick.map_or_else(crate::mascot::Pose::default, crate::mascot::Pose::running);
-    let (rgba, side) = crate::mascot::rgba(&crate::mascot::pixels(species, pose), 2);
+    let active = accounts.iter().find(|a| a.active)?;
+    let style = *mascot::resolve(&prefs.mascot_styles, &keys).get(&active.identity_key())?;
+    let pose = match tick {
+        Some(tick) => mascot::Pose::running(tick),
+        None => mascot::Pose::still(mascot::mood(active, state.active_is_running())),
+    };
+    let (rgba, side) = mascot::rgba(&mascot::pixels(style, pose), 2);
     Some(Image::new_owned(rgba, side, side))
 }
 

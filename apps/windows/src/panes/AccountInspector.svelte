@@ -3,10 +3,35 @@
   import { actions } from "../lib/actions";
   import { store } from "../lib/store.svelte";
   import { FIVE_HOUR_S, SEVEN_DAY_S, displayName, needsRelogin, pctLabel, statusNote } from "../lib/tide";
+  import { SPECIES, baseHue, speciesTitle, type Mood } from "../lib/mascot";
   import type { Account } from "../lib/types";
+  import Mascot from "../components/Mascot.svelte";
   import TideStaff from "../components/TideStaff.svelte";
 
   let { account: a, onclose }: { account: Account; onclose: () => void } = $props();
+
+  let style = $derived(store.styleFor(a));
+  /** The colour slider's value while it is dragged, before it is saved. */
+  let draggedHue = $state<number | null>(null);
+  let hue = $derived(draggedHue ?? style.hue ?? baseHue(style.species));
+
+  const moodCaptions: Record<Mood, string> = {
+    running: "Working: a Claude session is using this account.",
+    idle: "Idle.",
+    tired: "Tired: 90% or more of a quota used.",
+    sleeping: "Sleeping: disabled from rotation.",
+    error: "",
+  };
+  let moodCaption = $derived.by(() => {
+    const mood = store.moodFor(a);
+    return mood === "error" ? `Needs attention: ${statusNote(a) ?? "check login"}.` : moodCaptions[mood];
+  });
+
+  async function saveHue() {
+    if (draggedHue == null) return;
+    await store.setMascotStyle(a, { species: style.species, hue: draggedHue });
+    draggedHue = null;
+  }
 
   let alias = $state("");
   let threshold = $state("");
@@ -15,6 +40,7 @@
     alias = a.alias ?? "";
     threshold = a.threshold != null ? String(a.threshold) : "";
     priority = "";
+    draggedHue = null;
   });
 
   function expiry(iso: string | null | undefined): string {
@@ -53,6 +79,39 @@
     </div>
     <button class="plain" aria-label="Close details" onclick={onclose}>✕</button>
   </header>
+
+  <section class="mascot" aria-label="Mascot">
+    <Mascot account={a} size={112} style={{ species: style.species, hue: draggedHue ?? style.hue }} />
+    <div class="field">
+      <label for="species">Mascot</label>
+      <select
+        id="species"
+        value={style.species}
+        onchange={(e) => store.setMascotStyle(a, { species: e.currentTarget.value, hue: style.hue })}
+      >
+        {#each SPECIES as id (id)}<option value={id}>{speciesTitle(id)}</option>{/each}
+      </select>
+      <span></span>
+    </div>
+    <div class="field">
+      <label for="hue">Colour</label>
+      <input
+        id="hue"
+        type="range"
+        min="0"
+        max="1"
+        step="0.01"
+        value={hue}
+        style:accent-color="hsl({hue * 360} 76% 58%)"
+        oninput={(e) => (draggedHue = Number(e.currentTarget.value))}
+        onchange={saveHue}
+      />
+      <button class="mini" onclick={() => store.setMascotStyle(a, null)}>Reset</button>
+    </div>
+    <p class="caption secondary">{moodCaption}</p>
+  </section>
+
+  <div class="hairline"></div>
 
   {#each [{ label: "5-hour", w: a.usage?.fiveHour, s: FIVE_HOUR_S }, { label: "Week", w: a.usage?.sevenDay, s: SEVEN_DAY_S }] as bar (bar.label)}
     <div class="bar">
@@ -123,6 +182,18 @@
     display: flex;
     flex-direction: column;
     font-size: 13px;
+  }
+  .mascot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .mascot .field {
+    width: 100%;
+  }
+  .mascot p {
+    align-self: flex-start;
   }
   .bar-label {
     display: flex;

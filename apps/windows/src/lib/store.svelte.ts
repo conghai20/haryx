@@ -4,8 +4,9 @@
 import { listen } from "@tauri-apps/api/event";
 import { api } from "./api";
 import { stuckSessions } from "./handoff";
+import { SPECIES, identityKey, mood, resolve, type Mood, type Style } from "./mascot";
 import { ordered } from "./tide";
-import type { Account, AccountList, AutoEvent, Prefs, SessionList, Snapshot, UpdateInfo } from "./types";
+import type { Account, AccountList, AutoEvent, MascotStyle, Prefs, SessionList, Snapshot, UpdateInfo } from "./types";
 
 const AUTO_LOG_MAX = 200;
 const FLASH_MS = 6000;
@@ -31,6 +32,10 @@ class Store {
   active = $derived<Account | null>(this.accounts.find((a) => a.active) ?? null);
   others = $derived<Account[]>(this.accounts.filter((a) => !a.active));
   stuck = $derived(stuckSessions(this.sessions.sessions, this.accounts, this.leftBehind));
+  /** Every account's mascot, by identity key: the same resolution the tray uses. */
+  mascots = $derived<Record<string, Style>>(
+    resolve(this.prefs?.mascotStyles ?? {}, this.accounts.map(identityKey)),
+  );
   lastAutoEvent = $derived<AutoEvent | null>(
     [...this.autoLog].reverse().find((e) => e.kind !== "poll") ?? null,
   );
@@ -115,6 +120,20 @@ class Store {
 
   runningFor(a: Account): number {
     return this.sessions.sessions.filter((s) => s.account === a.number).length;
+  }
+
+  styleFor(a: Account): Style {
+    return this.mascots[identityKey(a)] ?? { species: SPECIES[0]!, hue: null };
+  }
+
+  moodFor(a: Account): Mood {
+    return mood(a, this.runningFor(a) > 0);
+  }
+
+  /** Save an account's mascot choice; `null` returns it to the hashed default. */
+  async setMascotStyle(a: Account, style: MascotStyle | null) {
+    const { [identityKey(a)]: _, ...rest } = this.prefs?.mascotStyles ?? {};
+    await this.savePrefs({ mascotStyles: style ? { ...rest, [identityKey(a)]: style } : rest });
   }
 
   async savePrefs(patch: Partial<Prefs>) {

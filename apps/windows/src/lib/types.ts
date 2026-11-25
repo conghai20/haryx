@@ -77,6 +77,8 @@ export interface Prefs {
   notifyReset: boolean;
   notifyAutoSwitch: boolean;
   trayMascot: boolean;
+  /** Mascot choices by identity key (`email|org`); unlisted accounts get a hashed species. */
+  mascotStyles: Record<string, MascotStyle>;
   launchAtLogin: boolean;
   theme: Theme;
   updateMode: UpdateMode;
@@ -88,6 +90,12 @@ export interface Prefs {
 
 /** The app's look; "system" follows Windows. */
 export type Theme = "system" | "light" | "dark";
+
+/** One account's mascot choice (macOS `MascotStyle`); `hue` 0–1, absent = the species' colour. */
+export interface MascotStyle {
+  species: string;
+  hue?: number | null;
+}
 
 export type UpdateMode = "automatic" | "notify" | "manual";
 

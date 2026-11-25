@@ -18,6 +18,7 @@
     tier,
   } from "../lib/tide";
   import Lockup from "../components/Lockup.svelte";
+  import Mascot from "../components/Mascot.svelte";
   import TideStaff from "../components/TideStaff.svelte";
 
   let active = $derived(store.active);
@@ -51,6 +52,7 @@
   {#if active}
     <section class="active" aria-label="Active account">
       <div class="row">
+        <Mascot account={active} size={36} />
         <div class="name truncate" title={active.email}>
           <strong>{displayName(active)}</strong>
           {#if active.plan?.label}<span class="badge">{active.plan.label}</span>{/if}
@@ -99,9 +101,12 @@
         {@const f = a.usage?.fiveHour}
         {@const w = a.usage?.sevenDay}
         <div class="grid row-item" class:off={a.disabled}>
-          <span class="truncate" title={a.email}>
-            {displayName(a)}
-            {#if a.plan?.label}<span class="caption tertiary">{a.plan.label}</span>{/if}
+          <span class="identity" title={a.email}>
+            <Mascot account={a} size={18} />
+            <span class="truncate">
+              {displayName(a)}
+              {#if a.plan?.label}<span class="caption tertiary">{a.plan.label}</span>{/if}
+            </span>
           </span>
           <span class="num" class:warn-text={(f?.pct ?? 0) >= HIGH_PCT}>{pctLabel(f?.pct)}</span>
           <span class="num" class:warn-text={(w?.pct ?? 0) >= HIGH_PCT}>{pctLabel(w?.pct)}</span>
@@ -256,6 +261,12 @@
   }
   .row-item:hover {
     background: color-mix(in srgb, var(--fill-strong) 50%, transparent);
+  }
+  .identity {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
   }
   .row-item.off {
     opacity: 0.5;

@@ -2,10 +2,12 @@
 //! config folder, written atomically. Unknown or missing keys fall back to defaults, so an old or
 //! hand-edited file never stops the app.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::mascot::MascotStyle;
 use crate::terminals::Terminal;
 use crate::updater::UpdateMode;
 
@@ -36,6 +38,8 @@ pub struct Prefs {
     pub notify_auto_switch: bool,
     /// Show the active account's mascot in the tray instead of the HaryX mark.
     pub tray_mascot: bool,
+    /// Mascot choices by account identity (`email|org`); accounts not listed get a hashed species.
+    pub mascot_styles: BTreeMap<String, MascotStyle>,
     /// Start HaryX when you sign in to Windows.
     pub launch_at_login: bool,
     /// Light or dark, or whatever Windows uses.
@@ -66,6 +70,7 @@ impl Default for Prefs {
             notify_reset: true,
             notify_auto_switch: true,
             tray_mascot: false,
+            mascot_styles: BTreeMap::new(),
             launch_at_login: false,
             theme: Theme::System,
             update_mode: UpdateMode::Notify,
@@ -179,6 +184,47 @@ mod tests {
         );
         assert_eq!(Theme::System.window_theme(), None);
         assert_eq!(Theme::Light.window_theme(), Some(tauri::Theme::Light));
+    }
+
+    #[test]
+    fn mascot_styles_round_trip_and_default_empty() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join(FILE_NAME), r#"{"trayMascot": true}"#).unwrap();
+        assert!(load(tmp.path()).mascot_styles.is_empty());
+        let prefs = Prefs {
+            mascot_styles: BTreeMap::from([
+                (
+                    "a@x.com|".to_string(),
+                    MascotStyle {
+                        species: "cat".into(),
+                        hue: Some(0.25),
+                    },
+                ),
+                (
+                    "b@x.com|org".to_string(),
+                    MascotStyle {
+                        species: "robot".into(),
+                        hue: None,
+                    },
+                ),
+            ]),
+            ..Prefs::default()
+        };
+        save(tmp.path(), &prefs).unwrap();
+        let text = std::fs::read_to_string(tmp.path().join(FILE_NAME)).unwrap();
+        assert!(text.contains(r#""mascotStyles""#));
+        assert!(
+            !text.contains(r#""hue": null"#),
+            "an unset hue is left out, as on macOS"
+        );
+        assert_eq!(load(tmp.path()), prefs);
+        // The UI may send an explicit null hue.
+        std::fs::write(
+            tmp.path().join(FILE_NAME),
+            r#"{"mascotStyles": {"a@x.com|": {"species": "frog", "hue": null}}}"#,
+        )
+        .unwrap();
+        assert_eq!(load(tmp.path()).mascot_styles["a@x.com|"].hue, None);
     }
 
     #[test]

@@ -13,6 +13,7 @@
     statusNote,
     tier,
   } from "../lib/tide";
+  import Mascot from "../components/Mascot.svelte";
   import TideStaff from "../components/TideStaff.svelte";
   import Inspector from "./AccountInspector.svelte";
 
@@ -35,14 +36,15 @@
       >
         <button class="hit" aria-label="Inspect {displayName(a)}" onclick={() => (selectedNumber = a.number)}></button>
         <div class="head">
+          <Mascot account={a} size={72} />
           <div class="who">
             <strong class="truncate">{displayName(a)}</strong>
             <span class="caption tertiary truncate">#{a.number} · {a.email}</span>
-          </div>
-          <div class="badges">
-            {#if a.active}<span class="badge live">Active</span>{/if}
-            {#if a.plan?.label}<span class="badge">{a.plan.label}</span>{/if}
-            {#if a.disabled}<span class="badge">Off</span>{/if}
+            <div class="badges">
+              {#if a.active}<span class="badge live">Active</span>{/if}
+              {#if a.plan?.label}<span class="badge">{a.plan.label}</span>{/if}
+              {#if a.disabled}<span class="badge">Off</span>{/if}
+            </div>
           </div>
         </div>
         <div class="reading">
@@ -147,18 +149,21 @@
     gap: 8px;
   }
   .head {
-    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
   }
   .who {
     display: flex;
     flex-direction: column;
+    flex: 1;
     min-width: 0;
     font-size: 13px;
   }
   .badges {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
-    flex-shrink: 0;
+    margin-top: 4px;
   }
   .reading {
     justify-content: space-between;

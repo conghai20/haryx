@@ -20,6 +20,9 @@ cannot be released without one. Sections, in this order, only when they have ent
 - macOS only (Windows has no Desktop launcher yet): each account card has a Claude Desktop button, Set Up Desktop until that account has
   signed in to Desktop, then Open Desktop. The account menus offer Set Up Claude Desktop too. Neither
   switches Claude Code.
+- Windows app: pixel mascots on every account card, the tray flyout's rows and the inspector, with
+  the macOS moods (walking while Claude runs, tired at 90%, asleep when held out, "!" when signed
+  out) and a per-account species and colour picker; the tray mascot uses the same choice.
 
 ### Changed
 

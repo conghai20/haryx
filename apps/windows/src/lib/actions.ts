@@ -54,7 +54,21 @@ export const actions = {
     }
   },
 
-  signIn: (a: Account | null) => actions.terminal({ kind: "login", slot: a ? a.number : null }),
+  /** Sign in (again) in HaryX's own sign-in window; a terminal only when that cannot start. */
+  async signIn(a: Account | null) {
+    const slot = a ? a.number : null;
+    try {
+      await api.loginStart(slot, a ? `Sign In Again: ${a.email}` : "Sign In New Account");
+    } catch (e) {
+      const fallback = await ask(`The sign-in window could not start: ${e}`, {
+        title: "Sign in",
+        kind: "warning",
+        okLabel: "Use a terminal instead",
+        cancelLabel: "Cancel",
+      });
+      if (fallback) await actions.terminal({ kind: "login", slot });
+    }
+  },
   runAs: (a: Account, folder?: string | null) => actions.terminal({ kind: "run-as", slot: a.number }, folder),
   /** End a session and resume its conversation on `to` (null = best), in a terminal in its folder. */
   continueSession: (pid: number, to: number | null, folder: string) =>

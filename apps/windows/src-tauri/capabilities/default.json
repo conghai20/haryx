@@ -2,10 +2,11 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "What the HaryX windows may call: the app's own commands, events, notifications and file pickers.",
-  "windows": ["main", "flyout"],
+  "windows": ["main", "flyout", "login-*"],
   "permissions": [
     "core:default",
     "core:window:allow-hide",
+    "core:window:allow-close",
     "notification:default",
     "dialog:allow-open",
     "dialog:allow-save",

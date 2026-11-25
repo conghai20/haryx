@@ -185,6 +185,11 @@ pub fn open_link(url: &str) -> Result<(), String> {
     if !is_allowed_link(url) {
         return Err(format!("not opening {url}"));
     }
+    open_in_browser(url)
+}
+
+/// Open `url` in the default browser. Callers decide which URLs may be opened.
+pub fn open_in_browser(url: &str) -> Result<(), String> {
     let opener = if cfg!(windows) {
         "explorer.exe"
     } else {

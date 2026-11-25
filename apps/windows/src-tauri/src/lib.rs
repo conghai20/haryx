@@ -5,6 +5,7 @@ mod autostart;
 mod autoswitch;
 mod cli;
 mod commands;
+mod login;
 mod mascot;
 mod models;
 mod notify;
@@ -40,6 +41,7 @@ pub fn run() {
             let state = Arc::new(AppState::new(config_dir, commands::bundled_bin(&handle)));
             let prefs = state.prefs();
             app.manage(Arc::clone(&state));
+            app.manage(login::Logins::default());
             tray::build(&handle)?;
             state::start_loops(&handle, tray::update);
             tray::start_animation(&handle);
@@ -72,6 +74,11 @@ pub fn run() {
             commands::update_restart,
             commands::update_set,
             commands::open_link,
+            commands::login_start,
+            commands::login_get,
+            commands::login_send,
+            commands::login_cancel,
+            commands::login_open,
         ])
         .build(tauri::generate_context!())
         .expect("error while building HaryX")

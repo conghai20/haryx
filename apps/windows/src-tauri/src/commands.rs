@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::autoswitch::AutoEvent;
 use crate::cli::DEFAULT_TIMEOUT;
+use crate::login::Logins;
 use crate::settings::{self, Prefs};
 use crate::state::{self, AppState};
 use crate::terminals::{self, Job, Terminal};
@@ -302,6 +303,35 @@ pub fn update_set(
         });
     }
     Ok(())
+}
+
+/// Sign in (again, into `slot`, or a new account) in the app's own sign-in window.
+#[tauri::command]
+pub fn login_start(app: AppHandle, slot: Option<u32>, title: String) -> Result<u64, String> {
+    crate::login::start(&app, slot, title)
+}
+
+#[tauri::command]
+pub fn login_get(logins: State<'_, Logins>, id: u64) -> Option<crate::login::View> {
+    logins.view(id)
+}
+
+/// Type a line (the pasted code, or a y/n answer) into the run, with the Return a terminal sends.
+#[tauri::command]
+pub fn login_send(logins: State<'_, Logins>, id: u64, line: String) -> Result<(), String> {
+    logins.send(id, &line)
+}
+
+#[tauri::command]
+pub fn login_cancel(logins: State<'_, Logins>, id: u64) {
+    logins.cancel(id);
+}
+
+/// Open the sign-in link the run printed. The UI names the run, never the URL.
+#[tauri::command]
+pub fn login_open(logins: State<'_, Logins>, id: u64) -> Result<(), String> {
+    let url = logins.url(id).ok_or("no sign-in link yet")?;
+    updater::open_in_browser(&url)
 }
 
 #[cfg(test)]

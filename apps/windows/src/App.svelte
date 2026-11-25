@@ -3,8 +3,9 @@
   import { store } from "./lib/store.svelte";
   import Flyout from "./views/Flyout.svelte";
   import Dashboard from "./views/Dashboard.svelte";
+  import Login from "./views/Login.svelte";
 
-  let { view }: { view: "flyout" | "dashboard" } = $props();
+  let { view }: { view: "flyout" | "dashboard" | "login" } = $props();
   let failed = $state<string | null>(null);
 
   onMount(() => {
@@ -23,6 +24,8 @@
   <div class="banner error" role="alert">HaryX could not start: {failed}</div>
 {:else if view === "flyout"}
   <Flyout />
+{:else if view === "login"}
+  <Login />
 {:else}
   <Dashboard />
 {/if}

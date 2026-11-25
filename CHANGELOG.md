@@ -11,6 +11,29 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+### Added
+
+- Both apps: a Theme setting (System, Light, Dark). macOS: App Preferences, applied to the
+  dashboard and the menu bar panel. Windows: Preferences, applied to the title bars and both windows.
+- Windows app: a switch for the tray mascot (Show the active account's mascot in the tray), which
+  had a preference but no way to turn it on.
+- macOS only (Windows has no Desktop launcher yet): each account card has a Claude Desktop button, Set Up Desktop until that account has
+  signed in to Desktop, then Open Desktop. The account menus offer Set Up Claude Desktop too. Neither
+  switches Claude Code.
+
+### Changed
+
+- macOS app: CLI Settings is now AI Settings and also holds the usage refresh, menu bar reading and
+  mascot, Terminal, Claude Desktop and Notifications settings, which moved out of App Preferences.
+  App Preferences keeps launch at login, the terminal command and the CLI path.
+- Windows app: Settings moved into the AI group as AI settings (usage refresh, tray mascot,
+  terminal, start folder, notifications, haryx settings). A new HaryX › Preferences keeps start with
+  Windows, Theme and the haryx path.
+
+### Fixed
+
+- macOS app: a Desktop folder that exists but never signed in offers Set Up Desktop, not Open.
+
 ## [0.1.5] - 2026-11-24
 
 ### Added

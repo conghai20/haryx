@@ -98,17 +98,11 @@ pub struct ClaudeCli {
 }
 
 impl ClaudeCli {
-    /// `claude` from `PATH`.
+    /// `claude` from `PATH` or the usual install folders.
     pub fn from_path() -> Result<Self> {
-        crate::spawn::resolve(
-            std::ffi::OsStr::new("claude"),
-            std::env::var_os("PATH").as_deref(),
-        )
-        .filter(|p| p.is_file())
-        .map(|bin| ClaudeCli { bin })
-        .ok_or_else(|| {
-            Error::General("'claude' was not found on PATH; plugins were not installed".into())
-        })
+        crate::claude_setup::claude_bin()
+            .map(|bin| ClaudeCli { bin })
+            .map_err(|e| Error::General(format!("{e} Plugins were not installed.")))
     }
 
     fn run(&self, args: &[&str]) -> Result<()> {

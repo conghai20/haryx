@@ -4,6 +4,7 @@ pub(crate) mod accounts;
 mod auto;
 mod config;
 mod desktop;
+mod doctor;
 mod guard;
 mod listing;
 mod profile;
@@ -85,6 +86,7 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Profile(action) => profile::run(&action, debug),
         Command::Wake(action) => wake::run(&action, debug),
         Command::Desktop(action) => desktop::run(&action, debug),
+        Command::Doctor { json } => doctor::run(json, debug),
         Command::Sessions { json } => sessions::run(json, debug),
         Command::Usage { action, json } => usage::run(&action, json, debug),
         Command::SessionsContinue {

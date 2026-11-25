@@ -74,6 +74,7 @@ Commands:
   {ai} help                       show this help
   {ai} list                       list managed accounts
   {ai} status                     show current account
+  {ai} doctor [--json]            check Claude Code is installed and signed in
   {ai} switch                     rotate to the next account
   {ai} switch <num|email>         switch to a specific account
   {ai} add                        add the current account

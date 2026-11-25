@@ -23,6 +23,7 @@ pub mod printer;
 
 // Core.
 pub mod autoswitch;
+pub mod claude_setup;
 pub mod credentials;
 pub mod desktop;
 pub mod handoff;

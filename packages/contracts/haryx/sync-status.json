@@ -1,0 +1,17 @@
+{
+  "signedIn": true,
+  "unlocked": true,
+  "lastSyncAt": "2026-11-25T10:00:00Z",
+  "otherMachineAccounts": [
+    { "email": "work@example.com", "organizationName": "Acme", "alias": "work" }
+  ],
+  "overwritten": [
+    {
+      "at": 1795600800,
+      "kind": "account",
+      "label": "you@example.com: alias",
+      "kept": "local",
+      "lost": "old-name"
+    }
+  ]
+}

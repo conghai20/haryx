@@ -11,6 +11,8 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-11-25
+
 ### Added
 
 - macOS app: a Sessions section (after Usage) listing every running Claude Code session across accounts, newest first, with its account, folder, pid, how long it has run, "out of quota" when it is stuck, and Continue on…, plus a Run Claude button per account, as on Windows.
@@ -259,7 +261,8 @@ cannot be released without one. Sections, in this order, only when they have ent
 First release: the `haryx` CLI (a Rust port of claude-swap, drop-in compatible with `cswap`) and
 the HaryX macOS menu bar app.
 
-[Unreleased]: https://github.com/conghai20/haryx/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/conghai20/haryx/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/conghai20/haryx/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/conghai20/haryx/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/conghai20/haryx/compare/v0.1.2...v0.1.4
 [0.1.2]: https://github.com/conghai20/haryx/compare/v0.1.1...v0.1.2

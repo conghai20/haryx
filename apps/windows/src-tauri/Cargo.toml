@@ -1,6 +1,6 @@
 [package]
 name = "haryx-windows"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2024"
 license = "MIT"
 description = "HaryX for Windows: tray app over the haryx CLI"

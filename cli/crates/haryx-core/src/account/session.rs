@@ -1,14 +1,10 @@
-//! The HaryX session on this machine: where it is kept and how it stays fresh.
-//!
-//! macOS keeps it in the Keychain (service `haryx-account`, account `session`) through the same
-//! `security` binary every other haryx secret uses. Elsewhere it is `<store>/account/session`, sealed
-//! as slot backups are ([`crate::credentials::sealed`]: a 0600 file, DPAPI on Windows).
+//! The HaryX session on this machine: where it is kept ([`Vault`], name `session`) and how it stays
+//! fresh.
 //!
 //! Renewal happens on use, under `<store>/account/session.lock`, re-reading after the lock so two
 //! processes never spend the same refresh token. Supabase tolerates a reuse inside 10 s anyway
 //! (spike), so the lock is for renewals further apart.
 
-use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -16,13 +12,11 @@ use serde::{Deserialize, Serialize};
 
 use super::AccountError;
 use super::client::Backend;
-use crate::credentials::sealed;
+use super::vault::{Vault, storage};
 use crate::keychain::{SECURITY_STDIN_LINE_LIMIT, Security};
 use crate::locking::FileLock;
 
-pub const KEYCHAIN_SERVICE: &str = "haryx-account";
-pub const KEYCHAIN_ACCOUNT: &str = "session";
-const FILE_NAME: &str = "session";
+const NAME: &str = "session";
 const LOCK_NAME: &str = "session.lock";
 /// Renew when less than this is left on the access token.
 const RENEW_MARGIN_S: i64 = 60;
@@ -80,92 +74,60 @@ impl Session {
 }
 
 #[derive(Debug, Clone)]
-enum Vault {
-    Keychain(Security),
-    File,
-}
-
-#[derive(Debug, Clone)]
 pub struct SessionStore {
-    dir: PathBuf,
     vault: Vault,
 }
 
 impl SessionStore {
     /// The store for this OS, under the haryx store root.
     pub fn for_store(store_root: &Path) -> Self {
-        let dir = store_root.join("account");
-        if cfg!(target_os = "macos") {
-            SessionStore::keychain(dir, Security::system())
-        } else {
-            SessionStore::file(dir)
+        SessionStore {
+            vault: Vault::for_store(store_root),
         }
     }
 
     pub fn file(dir: PathBuf) -> Self {
         SessionStore {
-            dir,
-            vault: Vault::File,
+            vault: Vault::file(dir),
         }
     }
 
     pub fn keychain(dir: PathBuf, security: Security) -> Self {
         SessionStore {
-            dir,
-            vault: Vault::Keychain(security),
+            vault: Vault::keychain(dir, security),
         }
+    }
+
+    /// Where the session lives; the sync key lives beside it.
+    pub fn vault(&self) -> &Vault {
+        &self.vault
     }
 
     pub fn load(&self) -> Result<Option<Session>, AccountError> {
-        let text = match &self.vault {
-            Vault::Keychain(security) => security
-                .get_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT, None)
-                .map_err(storage)?,
-            Vault::File => match std::fs::read(self.dir.join(FILE_NAME)) {
-                Ok(bytes) => Some(sealed::unseal(&bytes).map_err(AccountError::Storage)?),
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
-                Err(err) => return Err(storage(err)),
-            },
-        };
         // A value this build cannot read is treated as signed out, not as a hard failure.
-        Ok(text.and_then(|t| serde_json::from_str(&t).ok()))
+        Ok(self
+            .vault
+            .read(NAME)?
+            .and_then(|t| serde_json::from_str(&t).ok()))
     }
 
     pub fn save(&self, session: &Session) -> Result<(), AccountError> {
-        match &self.vault {
-            Vault::Keychain(security) => {
-                let full = serde_json::to_string(session).map_err(storage)?;
-                let text = if full.len() > MAX_KEYCHAIN_JSON {
-                    serde_json::to_string(&session.compact()).map_err(storage)?
-                } else {
-                    full
-                };
-                security
-                    .set_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT, &text)
-                    .map_err(storage)
-            }
-            Vault::File => {
-                let text = serde_json::to_string(session).map_err(storage)?;
-                write_private(&self.dir, FILE_NAME, &sealed::seal(&text).map_err(storage)?)
-            }
-        }
+        let full = serde_json::to_string(session).map_err(storage)?;
+        let text = if self.vault.is_keychain() && full.len() > MAX_KEYCHAIN_JSON {
+            serde_json::to_string(&session.compact()).map_err(storage)?
+        } else {
+            full
+        };
+        self.vault.write(NAME, &text)
     }
 
     /// Forget the session. Already gone counts as done.
     pub fn clear(&self) -> Result<(), AccountError> {
-        match &self.vault {
-            Vault::Keychain(security) => security
-                .delete_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT)
-                .map_err(storage),
-            Vault::File => match std::fs::remove_file(self.dir.join(FILE_NAME)) {
-                Err(err) if err.kind() != std::io::ErrorKind::NotFound => Err(storage(err)),
-                _ => Ok(()),
-            },
-        }
+        self.vault.remove(NAME)
     }
 
     pub fn lock(&self) -> Result<FileLock, AccountError> {
-        FileLock::lock(self.dir.join(LOCK_NAME), LOCK_TIMEOUT).map_err(storage)
+        FileLock::lock(self.vault.dir().join(LOCK_NAME), LOCK_TIMEOUT).map_err(storage)
     }
 
     /// The session with an access token good for at least a minute, renewing it if needed.
@@ -205,29 +167,6 @@ impl SessionStore {
             Err(other) => Err(other),
         }
     }
-}
-
-fn storage(err: impl std::fmt::Display) -> AccountError {
-    AccountError::Storage(err.to_string())
-}
-
-/// Write `name` in `dir` readable by this user only, replacing any old copy in one step.
-fn write_private(dir: &Path, name: &str, text: &str) -> Result<(), AccountError> {
-    std::fs::create_dir_all(dir).map_err(storage)?;
-    let tmp = dir.join(format!(".{name}.tmp"));
-    let mut options = std::fs::OpenOptions::new();
-    options.write(true).create(true).truncate(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-        options.mode(0o600);
-        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700)).map_err(storage)?;
-    }
-    let mut file = options.open(&tmp).map_err(storage)?;
-    file.write_all(text.as_bytes()).map_err(storage)?;
-    file.sync_all().map_err(storage)?;
-    drop(file);
-    std::fs::rename(&tmp, dir.join(name)).map_err(storage)
 }
 
 #[cfg(test)]
@@ -271,21 +210,12 @@ mod tests {
     }
 
     #[test]
-    fn file_store_round_trips_and_is_private() {
+    fn session_round_trips_through_the_vault() {
         let (_dir, store) = store();
         assert_eq!(store.load().unwrap(), None);
         let s = session("at", "rt", NOW + 3600);
         store.save(&s).unwrap();
         assert_eq!(store.load().unwrap(), Some(s));
-        let raw = std::fs::read_to_string(store.dir.join(FILE_NAME)).unwrap();
-        assert!(!raw.contains("rt"), "stored sealed, not as plain JSON");
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mode = |p: &Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
-            assert_eq!(mode(&store.dir.join(FILE_NAME)), 0o600);
-            assert_eq!(mode(&store.dir), 0o700);
-        }
         store.clear().unwrap();
         store.clear().unwrap();
         assert_eq!(store.load().unwrap(), None);
@@ -294,7 +224,7 @@ mod tests {
     #[test]
     fn an_unreadable_value_counts_as_signed_out() {
         let (_dir, store) = store();
-        write_private(&store.dir, FILE_NAME, &sealed::seal("not json").unwrap()).unwrap();
+        store.vault().write(NAME, "not json").unwrap();
         assert_eq!(store.load().unwrap(), None);
     }
 

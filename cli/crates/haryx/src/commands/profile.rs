@@ -197,7 +197,7 @@ fn save(
     Ok(())
 }
 
-fn export(
+pub(super) fn export(
     env: &ProfileEnv,
     name: &str,
     file: &str,
@@ -301,7 +301,7 @@ struct ApplyOpts {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn import(
+pub(super) fn import(
     env: &ProfileEnv,
     name: &str,
     file: &str,

@@ -9,7 +9,7 @@ use super::help::{HELP_TEMPLATE, p};
 use super::{Command, Error, Invocation};
 
 /// The top-level verbs this parser owns.
-pub const ACCOUNT_VERBS: &[&str] = &["login", "logout", "whoami"];
+pub const ACCOUNT_VERBS: &[&str] = &["login", "logout", "whoami", "account"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AccountAction {
@@ -22,6 +22,11 @@ pub enum AccountAction {
         json: bool,
     },
     Whoami {
+        json: bool,
+    },
+    /// `account delete`: the HaryX account and everything it synced.
+    Delete {
+        yes: bool,
         json: bool,
     },
 }
@@ -91,6 +96,36 @@ struct WhoamiArgs {
     debug: bool,
 }
 
+#[derive(Parser, Debug)]
+#[command(
+    name = "account",
+    bin_name = format!("{} account", haryx_core::PROG),
+    about = p("Manage the HaryX account itself."),
+    help_template = HELP_TEMPLATE,
+    disable_help_subcommand = true,
+)]
+struct AccountArgs {
+    #[command(subcommand)]
+    verb: AccountVerb,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum AccountVerb {
+    /// Delete your HaryX account and everything it synced, on every machine. Claude accounts on
+    /// your machines are not touched.
+    Delete {
+        /// Do not ask for confirmation
+        #[arg(long, short = 'y')]
+        yes: bool,
+        /// Print the result as JSON
+        #[arg(long)]
+        json: bool,
+        /// Enable debug logging
+        #[arg(long)]
+        debug: bool,
+    },
+}
+
 fn login_epilog() -> String {
     p(
         "This is the HaryX account, used to sync between your machines. To sign in a Claude
@@ -138,6 +173,11 @@ pub(super) fn parse(verb: &str, rest: &[String]) -> Result<Invocation, Error> {
                     },
                 )
             }
+            "account" => {
+                let args = AccountArgs::try_parse_from(argv(verb, rest))?;
+                let AccountVerb::Delete { yes, json, debug } = args.verb;
+                (debug, AccountAction::Delete { yes, json })
+            }
             "logout" => {
                 let args = LogoutArgs::try_parse_from(argv(verb, rest))?;
                 (args.debug, AccountAction::Logout { json: args.json })
@@ -170,6 +210,7 @@ mod tests {
         LoginArgs::command().debug_assert();
         LogoutArgs::command().debug_assert();
         WhoamiArgs::command().debug_assert();
+        AccountArgs::command().debug_assert();
     }
 
     #[test]

@@ -44,6 +44,7 @@ pub mod settings;
 pub mod snapshot;
 pub mod subscription;
 pub mod switcher;
+pub mod sync;
 pub mod transfer;
 pub mod update_check;
 pub mod usage_history;

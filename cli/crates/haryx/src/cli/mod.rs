@@ -29,6 +29,7 @@ mod main_parser;
 mod profile_parser;
 mod sessions_parser;
 mod subparsers;
+mod sync_parser;
 mod usage_parser;
 pub use usage_parser::UsageAction;
 mod top;
@@ -38,6 +39,7 @@ pub use account_parser::AccountAction;
 pub use clap::Error;
 pub use desktop_parser::DesktopAction;
 pub use profile_parser::{PartFlags, PluginsChoice, ProfileAction, SecretsChoice};
+pub use sync_parser::SyncAction;
 pub use wake_parser::WakeAction;
 
 /// One parsed invocation: the action plus the options every parser shares.
@@ -151,8 +153,11 @@ pub enum Command {
     Sessions { json: bool },
     /// `ai usage [index|report|quota|summary] [--json]`.
     Usage { action: UsageAction, json: bool },
-    /// `login`, `logout`, `whoami` (top level): the HaryX account, not a Claude account.
+    /// `login`, `logout`, `whoami`, `account delete` (top level): the HaryX account, not a Claude
+    /// account.
     Account(AccountAction),
+    /// `sync [...]` (top level): encrypted sync between the account's machines.
+    Sync(SyncAction),
     /// `ai sessions continue SESSION [--to NUM|EMAIL|best] [--no-launch] [--json]`.
     SessionsContinue {
         session: String,
@@ -284,6 +289,8 @@ impl Command {
             Self::Account(AccountAction::Login { .. }) => "login",
             Self::Account(AccountAction::Logout { .. }) => "logout",
             Self::Account(AccountAction::Whoami { .. }) => "whoami",
+            Self::Account(AccountAction::Delete { .. }) => "account delete",
+            Self::Sync(_) => "sync",
         }
     }
 }
@@ -361,6 +368,7 @@ pub fn parse(argv: &[String], interactive: bool) -> Result<Invocation, Error> {
         Some((first, rest)) if account_parser::ACCOUNT_VERBS.contains(&first.as_str()) => {
             account_parser::parse(first, rest)
         }
+        Some((first, rest)) if first == "sync" => sync_parser::parse(rest),
         Some((first, _)) if AI_ONLY.contains(&first.as_str()) => Err(top::moved_to_ai(first)),
         Some((first, rest)) if rest.is_empty() && TOP_HELP.contains(&first.as_str()) => {
             Err(top::help())

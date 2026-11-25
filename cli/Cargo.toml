@@ -27,6 +27,7 @@ log = { version = "0.4", features = ["std"] }
 ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier", "json"] }
 rand = "0.9"
 sha2 = "0.10"
+hmac = "0.12"
 unicode-normalization = "0.1"
 base64 = "0.22"
 tempfile = "3"

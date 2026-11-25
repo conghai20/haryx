@@ -39,6 +39,29 @@ impl Backend {
         &self.base
     }
 
+    /// The publishable key, sent with every request.
+    pub fn key(&self) -> &str {
+        &self.key
+    }
+
+    /// Delete the signed-in user and everything they synced (the `delete-account` Edge Function,
+    /// which holds the only key allowed to delete users).
+    pub fn delete_account(&self, access_token: &str) -> Result<(), AccountError> {
+        let bearer = format!("Bearer {access_token}");
+        http::post(
+            &format!("{}/functions/v1/delete-account", self.base),
+            &[
+                ("apikey", &self.key),
+                ("authorization", &bearer),
+                ("content-type", "application/json"),
+            ],
+            b"{}",
+            TIMEOUT,
+        )
+        .map(drop)
+        .map_err(to_account_error)
+    }
+
     /// The compiled-in project, or the one named by the environment.
     pub fn from_env() -> Self {
         let var = |name: &str| std::env::var(name).ok().filter(|v| !v.trim().is_empty());

@@ -136,6 +136,10 @@ impl SettingSpec {
 use SettingKind::{Bool, Choice, Float, Int, String as Text};
 
 /// Every key, in registry order (the order `haryx config` lists them).
+/// Settings that stay on this machine when the HaryX account syncs: `history.import` is a decision
+/// about this machine's own past transcripts. Every other setting syncs.
+pub const LOCAL_ONLY_SETTINGS: &[&str] = &["history.import"];
+
 pub static SETTING_SPECS: [SettingSpec; 18] = [
     SettingSpec::new(
         "autoswitch",

@@ -11,6 +11,7 @@ mod listing;
 mod profile;
 mod profile_view;
 mod sessions;
+mod sync;
 mod upgrade;
 mod usage;
 mod wake;
@@ -85,6 +86,7 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Move { account, slot } => accounts::move_account(&account, &slot, debug),
         Command::Login(opts) => accounts::login(&opts, debug),
         Command::Account(action) => account::run(&action),
+        Command::Sync(action) => sync::run(&action, debug),
         Command::Profile(action) => profile::run(&action, debug),
         Command::Wake(action) => wake::run(&action, debug),
         Command::Desktop(action) => desktop::run(&action, debug),

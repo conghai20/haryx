@@ -10,11 +10,13 @@ mod loopback;
 mod page;
 mod pkce;
 pub mod session;
+pub mod vault;
 
 use std::time::Duration;
 
 pub use client::Backend;
 pub use session::{Session, SessionStore, User};
+pub use vault::Vault;
 
 use loopback::{Callback, Loopback};
 use pkce::Pkce;

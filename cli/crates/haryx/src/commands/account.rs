@@ -1,12 +1,17 @@
-//! `haryx login`, `logout`, `whoami`: the command side of [`haryx_core::account`].
+//! `haryx login`, `logout`, `whoami`, `account delete`: the command side of
+//! [`haryx_core::account`].
 //!
-//! `--json` shapes: `packages/contracts/haryx/whoami.json` and `login-events.json`.
+//! `--json` shapes: `packages/contracts/haryx/whoami.json` and `login-events.json`; `account
+//! delete --json` answers `{"ok": true}` or `{"ok": false, "code": …, "message": …}`.
 
 use haryx_core::account::{
     self, AccountError, Backend, LOGIN_TIMEOUT, Provider, SessionStore, User, browser,
 };
+use std::io::IsTerminal as _;
+
 use haryx_core::printer::{accent, dimmed};
-use haryx_core::{AI_PROG, PROG, paths};
+use haryx_core::switcher::prompt;
+use haryx_core::{AI_PROG, PROG, paths, sync};
 use serde_json::{Value, json};
 
 use super::{CommandError, guard};
@@ -14,7 +19,7 @@ use crate::cli::AccountAction;
 
 pub fn run(action: &AccountAction) -> Result<(), CommandError> {
     guard::refuse_root()?;
-    let store = session_store()?;
+    let (root, store) = session_store()?;
     let backend = Backend::from_env();
     match *action {
         AccountAction::Login {
@@ -22,17 +27,27 @@ pub fn run(action: &AccountAction) -> Result<(), CommandError> {
             no_browser,
             json,
         } => login(&backend, &store, provider, no_browser, json),
-        AccountAction::Logout { json } => logout(&backend, &store, json),
+        AccountAction::Logout { json } => logout(&backend, &store, &root, json),
         AccountAction::Whoami { json } => whoami(&store, json),
+        AccountAction::Delete { yes, json } => delete(&backend, &store, &root, yes, json),
     }
 }
 
-fn session_store() -> Result<SessionStore, CommandError> {
+fn session_store() -> Result<(std::path::PathBuf, SessionStore), CommandError> {
     let root = paths::store_root().map_err(|err| CommandError {
         message: format!("Error: {err}"),
         exit_code: 1,
     })?;
-    Ok(SessionStore::for_store(&root))
+    let store = SessionStore::for_store(&root);
+    Ok((root, store))
+}
+
+/// Signed out here: the sync key and sync state go too, so a later sign-in as someone else starts
+/// clean. Best effort; the session is already gone.
+fn forget_sync(root: &std::path::Path, store: &SessionStore) {
+    if let Err(err) = sync::forget_local(root, store.vault()) {
+        log::warn!("could not clear this machine's sync key: {err}");
+    }
 }
 
 fn user_json(user: &User) -> Value {
@@ -100,9 +115,15 @@ fn login(
     }
 }
 
-fn logout(backend: &Backend, store: &SessionStore, json: bool) -> Result<(), CommandError> {
+fn logout(
+    backend: &Backend,
+    store: &SessionStore,
+    root: &std::path::Path,
+    json: bool,
+) -> Result<(), CommandError> {
     let user = account::logout(backend, store, jiff::Timestamp::now().as_second())
         .map_err(|err| failure(&err, json))?;
+    forget_sync(root, store);
     if json {
         print_line(&status_json(None));
     } else if let Some(user) = user {
@@ -144,4 +165,56 @@ fn failure(err: &AccountError, json: bool) -> CommandError {
         message: format!("Error: {err}"),
         exit_code: 1,
     }
+}
+
+fn delete(
+    backend: &Backend,
+    store: &SessionStore,
+    root: &std::path::Path,
+    yes: bool,
+    json: bool,
+) -> Result<(), CommandError> {
+    let fail = |err: AccountError| {
+        if json {
+            print_line(&json!({"ok": false, "code": err.code(), "message": err.to_string()}));
+            return CommandError::silent(1);
+        }
+        CommandError {
+            message: format!("Error: {err}"),
+            exit_code: 1,
+        }
+    };
+    let now = jiff::Timestamp::now().as_second();
+    let Some(session) = store.current(backend, now).map_err(fail)? else {
+        return Err(fail(AccountError::SignedOut("not signed in".into())));
+    };
+    if !yes {
+        if !std::io::stdin().is_terminal() {
+            return Err(fail(AccountError::Refused("confirm with --yes".into())));
+        }
+        let question = format!(
+            "Delete the HaryX account {} and everything it synced, on every machine? Claude \
+             accounts are not touched. [y/N] ",
+            session.user.email
+        );
+        if !prompt(&question)
+            .unwrap_or_default()
+            .trim()
+            .eq_ignore_ascii_case("y")
+        {
+            println!("Nothing changed.");
+            return Ok(());
+        }
+    }
+    backend
+        .delete_account(&session.access_token)
+        .map_err(fail)?;
+    store.clear().map_err(fail)?;
+    forget_sync(root, store);
+    if json {
+        print_line(&json!({"ok": true}));
+    } else {
+        println!("Deleted the HaryX account {}.", session.user.email);
+    }
+    Ok(())
 }

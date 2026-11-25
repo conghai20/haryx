@@ -1091,6 +1091,7 @@ dependencies = [
  "dirs",
  "flate2",
  "fs4",
+ "hmac",
  "jiff",
  "junction",
  "libc",

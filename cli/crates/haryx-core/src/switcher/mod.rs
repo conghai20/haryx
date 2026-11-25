@@ -20,6 +20,7 @@ mod sequence;
 mod session_profile;
 mod storage;
 mod switch;
+mod synced;
 mod usage;
 mod usage_active;
 

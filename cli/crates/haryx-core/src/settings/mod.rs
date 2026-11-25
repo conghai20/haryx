@@ -22,7 +22,9 @@ use crate::error::{Error, Result};
 use crate::fsutil::{WriteOptions, atomic_write_text, publish_target};
 use crate::models::pyfmt::{json_dumps_pretty, repr_json};
 
-pub use specs::{SETTING_SPECS, SettingKind, SettingSpec, SettingValue, setting_spec};
+pub use specs::{
+    LOCAL_ONLY_SETTINGS, SETTING_SPECS, SettingKind, SettingSpec, SettingValue, setting_spec,
+};
 pub use unrecognized::UnrecognizedKey;
 
 pub const SETTINGS_SCHEMA_VERSION: i64 = 1;

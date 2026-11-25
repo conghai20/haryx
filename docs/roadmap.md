@@ -21,6 +21,12 @@ another account in one click; offered after auto-switch. Plan: [session-handoff-
 Tokens and API-price cost by account, project, session and model, quota % over time, and a weekly
 summary, from Claude Code's own transcripts, kept locally. Plan: [usage-history-plan.md](usage-history-plan.md).
 
+## HaryX account and sync
+Sign in with GitHub or Google (`haryx login`) and sync settings, app preferences, account metadata,
+and setup profiles between your machines, end-to-end encrypted with a passphrase. Each machine
+signs in to Claude itself.
+Backend: Supabase. Plan: [haryx-account-plan.md](haryx-account-plan.md).
+
 ## Distribution
 Homebrew (formula + cask), crates.io, Developer ID signed and notarized DMG on GitHub releases, and pip/npm wrapper
 packages for the CLI on macOS, Linux and Windows.

@@ -49,6 +49,8 @@ final class AppStore {
     private(set) var loginSessions: [LoginSession] = []
     /// slot → live Claude processes using it
     private(set) var sessions: [Int: [ClaudeProcess]] = [:]
+    /// Live Claude processes on no known account (no active account, or a foreign CLAUDE_CONFIG_DIR).
+    private(set) var unassignedSessions: [ClaudeProcess] = []
     /// Default-profile sessions an auto-switch left on their old account: pid → that account.
     var leftBehind: [Int32: Int] = [:]
     var panelVisible = false
@@ -346,6 +348,8 @@ final class AppStore {
         knownProcesses = current
         if !leftBehind.isEmpty { pruneLeftBehind(alive: Set(current.keys)) }
         if bySlot != sessions { sessions = bySlot }
+        let unassigned = current.values.filter { $0.1 == nil }.map(\.0)
+        if Set(unassigned) != Set(unassignedSessions) { unassignedSessions = unassigned }
         updateMenuBarAnimation()
     }
 

@@ -1,6 +1,7 @@
 # HaryX sign-in and encrypted sync across machines: plan
 
-Status: built (2026-11-25) on `feat/haryx-account`; hosted deployment pending.
+Status: built (2026-11-25) on `feat/haryx-account`; deployed to the hosted project `haryx-dev` the
+same day (both migrations, the `delete-account` function).
 - Phase 0: done (spike locally, GitHub end to end on the hosted project).
 - Phase 1: `haryx login`, `logout`, `whoami`, `account delete`, verified against the hosted project
   (sign-in) and the local stack (delete, through the Edge Function).
@@ -9,8 +10,7 @@ Status: built (2026-11-25) on `feat/haryx-account`; hosted deployment pending.
   `server/supabase/tests/cli-e2e.sh` (the real binary as two machines against the local stack).
   Hardened after a second security review (see Lessons).
 - Phase 4: the macOS and Windows panes; the apps still need a run on real machines.
-- Not done: the Google OAuth client (task 1), and pushing the migrations and the function to the
-  hosted project (`server/supabase/README.md`), which needs the owner's Supabase access.
+- Not done: the Google OAuth client (task 1).
 
 Built differently from the plan below:
 - No `sync.enabled` setting: whether an app syncs on its own is an app-local toggle, and the CLI

@@ -99,6 +99,9 @@ struct ProfilesPane: View {
             Spacer()
             if model.loading { ProgressView().controlSize(.small) }
             if model.selected != ProfileJSON.defaultName {
+                Button("Diff") { sheet = .diff(model.selected) }
+                    .buttonStyle(.glass)
+                    .help("Compare this profile with the live ~/.claude")
                 Button("Apply…") { sheet = .apply(model.selected) }.buttonStyle(.glassProminent)
                 Button(role: .destructive) { confirmDelete = true } label: { Image(systemName: "trash") }
                     .help("Delete this saved profile")

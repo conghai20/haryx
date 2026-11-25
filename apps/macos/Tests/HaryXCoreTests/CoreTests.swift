@@ -225,6 +225,33 @@ func profileFixture<T: Decodable>(_ type: T.Type, _ name: String) throws -> T {
     #expect(status.account(1)?.on == true)
     #expect(status.account(3)?.summary() == nil)
     #expect(status.account(2)?.summary() == "wake skipped: weekly cap")
+    #expect(status.account(1)?.lastWakeAt == Date(timeIntervalSince1970: 1_795_496_412))
+    let events = status.recentEvents()
+    #expect(events.map(\.account) == ["2", "1"], "newest first")
+    #expect(events.first?.date == Date(timeIntervalSince1970: 1_795_502_463))
+    #expect(events.first?.result == "skip:weekly-cap")
+    #expect(status.recentEvents(limit: 1).count == 1)
+}
+
+@Test func wakeResultTextMatchesWindows() {
+    #expect(WakeStatus.resultText(nil) == "—")
+    #expect(WakeStatus.resultText("woke") == "Woke")
+    #expect(WakeStatus.resultText("not-due") == "Not due")
+    #expect(WakeStatus.resultText("skip:weekly-cap") == "Skipped: weekly cap")
+    #expect(WakeStatus.resultText("failed:http-401") == "Failed: http 401")
+    #expect(WakeStatus.resultText("other") == "other")
+}
+
+@Test func decodesProfileDiff() throws {
+    let diff = try profileFixture(ProfileDiff.self, "profile-diff.json")
+    #expect(diff.left == "work")
+    #expect(diff.right == "default")
+    #expect(diff.differences.map(\.id) == ["skills/review"])
+    #expect(diff.sameCount == 5)
+    #expect(diff.differences.first?.stateText(left: "work") == "differs")
+    let only = ProfileDiffItem(category: "skills", id: "x", state: "only-left")
+    #expect(only.stateText(left: "work") == "only in work")
+    #expect(ProfileArgs.diff("work") == ["ai", "profile", "diff", "work", "--json"])
 }
 
 @Test func wakeSummaryPrefersFailuresAndNextDue() {

@@ -1,7 +1,7 @@
 import HaryXCore
 import SwiftUI
 
-/// `haryx ai wake`: settings and the background agent.
+/// `haryx ai wake`: the background agent, settings, each account's last wake and the recent events.
 struct WakePane: View {
     @Environment(AppStore.self) private var store
     @State private var quietOn = false
@@ -17,6 +17,7 @@ struct WakePane: View {
                 agentSection(wake)
                 settingsSection
                 accountsSection(wake)
+                eventsSection(wake)
             } else if store.wakeError != nil {
                 Section {
                     Label("This haryx has no wake command. Update it (haryx upgrade) to use Wake.",
@@ -67,7 +68,7 @@ struct WakePane: View {
     }
 
     private func accountsSection(_ wake: WakeStatus) -> some View {
-        Section("Accounts") {
+        Section {
             let onCount = store.accounts.filter { wake.account($0.number)?.on == true }.count
             Toggle(isOn: Binding(get: { !store.accounts.isEmpty && onCount == store.accounts.count },
                                  set: { on in Task { await store.setWakeAll(on) } })) {
@@ -79,10 +80,48 @@ struct WakePane: View {
                 let row = wake.account(a.number)
                 Toggle(isOn: Binding(get: { row?.on ?? false }, set: { on in Task { await store.setWake(a, on) } })) {
                     Text(a.displayName)
-                    if let s = row?.summary() { Text(s) }
+                    if let row { statusLine(row) }
                 }
             }
+        } header: {
+            Text("Accounts")
+        } footer: {
+            if !wake.agentInstalled, wake.accounts.contains(where: \.on) {
+                Text("The background check is off, so opted-in accounts are not checked. Install it above.")
+            }
         }
+    }
+
+    /// "Last wake … · Next due … · Not due", the result in red when the wake failed.
+    private func statusLine(_ row: WakeAccount) -> Text {
+        let failed = row.lastResult?.hasPrefix("failed") == true
+        let result = Text(WakeStatus.resultText(row.lastResult)).foregroundStyle(failed ? Color.red : Color.secondary)
+        return Text("Last wake \(Self.when(row.lastWakeAt)) · Next due \(Self.when(row.nextDue)) · \(result)")
+    }
+
+    private func eventsSection(_ wake: WakeStatus) -> some View {
+        Section("Recent events") {
+            let events = wake.recentEvents()
+            if events.isEmpty { Text("No wakes yet.").foregroundStyle(.secondary) }
+            ForEach(Array(events.enumerated()), id: \.offset) { _, ev in
+                HStack {
+                    Text(Self.when(ev.date)).monospacedDigit().foregroundStyle(.tertiary).frame(width: 130, alignment: .leading)
+                    Text(eventName(ev.account)).lineLimit(1)
+                    Spacer()
+                    Text(WakeStatus.resultText(ev.result)).foregroundStyle(ev.failed ? Color.red : Color.secondary)
+                }
+                .font(.callout)
+            }
+        }
+    }
+
+    private func eventName(_ ref: String?) -> String {
+        guard let ref else { return "—" }
+        return Int(ref).flatMap(store.account(slot:))?.displayName ?? "Account \(ref)"
+    }
+
+    static func when(_ date: Date?) -> String {
+        date?.formatted(date: .numeric, time: .shortened) ?? "—"
     }
 
     private var quietText: String {

@@ -13,6 +13,12 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ### Added
 
+- `haryx ai doctor` (and `--json`) says whether Claude Code is installed and signed in, and how to
+  fix it; `claude` is also found outside PATH (the native installer's `~/.local/bin`,
+  `~/.claude/local`, Homebrew and `/usr/local/bin`, and npm's folder on Windows).
+  Both apps show a banner on Accounts and in the menu bar panel / tray flyout while something is
+  wrong, with Install Claude Code (a terminal running Anthropic's installer: `install.sh` on macOS,
+  `install.ps1` on Windows), Open Claude to Sign In, and Check Again.
 - Both apps: a Theme setting (System, Light, Dark). macOS: App Preferences, applied to the
   dashboard and the menu bar panel. Windows: Preferences, applied to the title bars and both windows.
 - Windows app: Sign In Again and Sign in new account open HaryX's own sign-in window, as on macOS (the sign-in link with Open and Copy, live status, a field for the code the sign-in page shows), instead of a terminal. A terminal is offered only if that window cannot start.

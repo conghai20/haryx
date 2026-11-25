@@ -4,6 +4,7 @@
   import { actions } from "../lib/actions";
   import { api } from "../lib/api";
   import { store } from "../lib/store.svelte";
+  import ClaudeSetupBanner from "../components/ClaudeSetupBanner.svelte";
   import { bestTarget } from "../lib/handoff";
   import {
     FIVE_HOUR_S,
@@ -48,6 +49,7 @@
   </header>
 
   <div class="hairline"></div>
+  <ClaudeSetupBanner compact />
 
   {#if active}
     <section class="active" aria-label="Active account">

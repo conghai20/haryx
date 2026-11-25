@@ -13,6 +13,7 @@
     statusNote,
     tier,
   } from "../lib/tide";
+  import ClaudeSetupBanner from "../components/ClaudeSetupBanner.svelte";
   import Mascot from "../components/Mascot.svelte";
   import TideStaff from "../components/TideStaff.svelte";
   import Inspector from "./AccountInspector.svelte";
@@ -23,6 +24,7 @@
 
 <div class="layout" class:with-inspector={selected}>
   <div class="cards">
+    <ClaudeSetupBanner />
     {#each store.accounts as a (a.number)}
       {@const five = a.usage?.fiveHour}
       {@const week = a.usage?.sevenDay}

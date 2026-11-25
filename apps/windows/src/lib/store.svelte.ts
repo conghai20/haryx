@@ -6,7 +6,7 @@ import { api } from "./api";
 import { stuckSessions } from "./handoff";
 import { SPECIES, identityKey, mood, resolve, type Mood, type Style } from "./mascot";
 import { ordered } from "./tide";
-import type { Account, AccountList, AutoEvent, MascotStyle, Prefs, SessionList, Snapshot, UpdateInfo } from "./types";
+import type { Account, AccountList, AutoEvent, ClaudeSetup, MascotStyle, Prefs, SessionList, Snapshot, UpdateInfo } from "./types";
 
 const AUTO_LOG_MAX = 200;
 const FLASH_MS = 6000;
@@ -22,6 +22,8 @@ class Store {
   cliPath = $state<string | null>(null);
   storeRoot = $state<string | null>(null);
   update = $state<UpdateInfo | null>(null);
+  /** `haryx ai doctor`: null until read. */
+  claudeSetup = $state<ClaudeSetup | null>(null);
   /** Default-profile sessions an auto-switch left on their old account: pid → that account. */
   leftBehind = $state<Record<number, number>>({});
   busy = $state<string | null>(null);
@@ -44,6 +46,7 @@ class Store {
 
   async init() {
     this.apply(await api.snapshot());
+    void this.checkClaudeSetup();
     await listen<{ list: AccountList | null; error: string | null }>("accounts", (e) => {
       if (e.payload.list) this.list = e.payload.list;
       this.error = e.payload.error;
@@ -65,6 +68,15 @@ class Store {
     await listen<Prefs>("prefs", (e) => (this.prefs = e.payload));
     await listen<UpdateInfo>("update", (e) => (this.update = e.payload));
     setInterval(() => (this.now = Date.now()), 30_000);
+  }
+
+  /** Re-read whether Claude Code is installed and signed in. A failed read keeps the last answer. */
+  async checkClaudeSetup() {
+    try {
+      this.claudeSetup = await api.json<ClaudeSetup>(["ai", "doctor", "--json"]);
+    } catch {
+      // An older haryx without `ai doctor`, or a CLI error the accounts list already reports.
+    }
   }
 
   apply(s: Snapshot) {

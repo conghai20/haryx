@@ -59,7 +59,13 @@ pub enum Job {
     /// `haryx ai sessions continue <pid> --to <slot|best>`: end a session that ran out and resume
     /// its conversation on another account.
     Continue { pid: u32, to: Option<u32> },
+    /// Anthropic's Claude Code installer for Windows (what `haryx ai doctor` reports). Fixed here:
+    /// the UI names the job, never the command.
+    InstallClaude,
 }
+
+/// `haryx ai doctor`'s Windows install command, run by PowerShell from whichever shell opens.
+const INSTALL_CLAUDE: &str = "irm https://claude.ai/install.ps1 | iex";
 
 /// The program files each terminal is started through.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -162,6 +168,12 @@ fn job_words(job: &Job, haryx: &Path) -> Option<Vec<String>> {
             words.extend(slot.map(|n| n.to_string()));
             Some(words)
         }
+        Job::InstallClaude => Some(vec![
+            "powershell.exe".into(),
+            "-NoProfile".into(),
+            "-Command".into(),
+            INSTALL_CLAUDE.into(),
+        ]),
         Job::Continue { pid, to } => Some(vec![
             exe,
             "ai".into(),
@@ -371,6 +383,20 @@ mod tests {
         assert_eq!(
             words.last().unwrap(),
             r"& 'C:\Users\o''neil\bin\haryx.exe' 'ai' 'login' '4'"
+        );
+    }
+
+    #[test]
+    fn install_claude_runs_the_powershell_installer_from_any_shell() {
+        assert_eq!(
+            argv(Terminal::Cmd, Job::InstallClaude).last().unwrap(),
+            r#""powershell.exe" "-NoProfile" "-Command" "irm https://claude.ai/install.ps1 | iex""#
+        );
+        assert_eq!(
+            argv(Terminal::Powershell, Job::InstallClaude)
+                .last()
+                .unwrap(),
+            "& 'powershell.exe' '-NoProfile' '-Command' 'irm https://claude.ai/install.ps1 | iex'"
         );
     }
 

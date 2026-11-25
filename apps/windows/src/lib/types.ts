@@ -147,7 +147,18 @@ export type Job =
   | { kind: "run-as"; slot: number }
   | { kind: "run-mapped" }
   | { kind: "login"; slot: number | null }
-  | { kind: "continue"; pid: number; to: number | null };
+  | { kind: "continue"; pid: number; to: number | null }
+  | { kind: "install-claude" };
+
+/** `haryx ai doctor --json`: whether Claude Code is installed and signed in, and how to fix it. */
+export interface ClaudeSetup {
+  ready: boolean;
+  claude: string | null;
+  email: string | null;
+  installCommand: string;
+  /** First is the one to fix first (signing in needs Claude Code installed). */
+  problems: { code: "claude_missing" | "not_signed_in" | string; message: string; fix: string }[];
+}
 
 /** One in-app sign-in run (`login::View` in the backend). */
 export interface LoginView {

@@ -35,6 +35,8 @@ pub struct Prefs {
     pub notify_usage: bool,
     pub notify_login: bool,
     pub notify_reset: bool,
+    /// A Claude session that ran 1 minute or longer finished.
+    pub notify_session: bool,
     pub notify_auto_switch: bool,
     /// Show the active account's mascot in the tray instead of the HaryX mark.
     pub tray_mascot: bool,
@@ -68,6 +70,7 @@ impl Default for Prefs {
             notify_usage: true,
             notify_login: true,
             notify_reset: true,
+            notify_session: true,
             notify_auto_switch: true,
             tray_mascot: false,
             mascot_styles: BTreeMap::new(),
@@ -118,6 +121,7 @@ impl Prefs {
             Category::Usage => self.notify_usage,
             Category::Login => self.notify_login,
             Category::Reset => self.notify_reset,
+            Category::Session => self.notify_session,
         }
     }
 }
@@ -160,6 +164,10 @@ mod tests {
         let loaded = load(tmp.path());
         assert_eq!(loaded.refresh_seconds, 45);
         assert!(loaded.notify_usage);
+        assert!(
+            loaded.notify_session,
+            "an older file gains the new toggle, on"
+        );
     }
 
     #[test]

@@ -159,8 +159,8 @@ fn relogin_of_inactive_account_stores_fresh_login_and_keeps_active_login() {
         text(&out)
     );
     assert!(
-        s.claude_calls().contains("--email a@example.com"),
-        "{}",
+        !s.claude_calls().contains("--email"),
+        "re-login must not pre-fill the email (claude.ai then sends a 6-digit code): {}",
         s.claude_calls()
     );
     assert!(

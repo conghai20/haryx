@@ -38,9 +38,9 @@ public struct DesktopFolder: Decodable, Sendable, Hashable {
 
 /// What Claude Desktop can do for one account.
 public enum DesktopTarget: Equatable, Sendable {
-    /// The folder exists: Desktop can open on it.
+    /// The folder exists and has signed in: Desktop can open on it.
     case ready(folder: String)
-    /// No folder yet: Desktop opens on a new empty one and the user signs in once.
+    /// No folder yet, or one that never signed in: Desktop opens on it and the user signs in once.
     case setUp(folder: String)
     /// The folder is signed into another account: leave it alone.
     case mismatch
@@ -55,7 +55,7 @@ public enum ClaudeDesktop {
     public static func target(for number: Int, in status: DesktopStatus) -> DesktopTarget {
         guard let row = status.folder(number), let folder = row.folder else { return .unavailable }
         if row.mismatch { return .mismatch }
-        return row.folderExists ? .ready(folder: folder) : .setUp(folder: folder)
+        return row.folderExists && row.signedInUuid != nil ? .ready(folder: folder) : .setUp(folder: folder)
     }
 
     /// The argument that opens Desktop on `folder`.
@@ -100,7 +100,7 @@ public struct DesktopLine: Equatable, Sendable {
         /// Open Desktop on a new empty folder for the active account, to sign in once.
         case setUp
 
-        public var title: String { self == .open ? "Open" : "Set Up Desktop" }
+        public var title: String { self == .open ? "Open Desktop" : "Set Up Desktop" }
     }
 
     public let text: String

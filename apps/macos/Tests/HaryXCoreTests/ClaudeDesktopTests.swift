@@ -12,7 +12,9 @@ private let statusJSON = """
     {"number": 3, "email": "c@x.com", "alias": "", "uuid": "cccc", "folder": "/s/desktop/cccc",
      "folderExists": true, "signedInUuid": "aaaa", "mismatch": true},
     {"number": 4, "email": "d@token.local", "alias": "", "uuid": "", "folder": null,
-     "folderExists": false, "signedInUuid": null, "mismatch": false}
+     "folderExists": false, "signedInUuid": null, "mismatch": false},
+    {"number": 5, "email": "e@x.com", "alias": "", "uuid": "eeee", "folder": "/s/desktop/eeee",
+     "folderExists": true, "signedInUuid": null, "mismatch": false}
   ]
 }
 """
@@ -27,6 +29,8 @@ private func status() throws -> DesktopStatus {
     #expect(ClaudeDesktop.target(for: 2, in: s) == .setUp(folder: "/s/desktop/bbbb"))
     #expect(ClaudeDesktop.target(for: 3, in: s) == .mismatch)
     #expect(ClaudeDesktop.target(for: 4, in: s) == .unavailable)
+    #expect(ClaudeDesktop.target(for: 5, in: s) == .setUp(folder: "/s/desktop/eeee"),
+            "a folder that never signed in still needs setting up")
     #expect(ClaudeDesktop.target(for: 9, in: s) == .unavailable)
 }
 

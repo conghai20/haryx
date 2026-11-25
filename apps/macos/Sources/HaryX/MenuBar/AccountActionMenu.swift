@@ -1,7 +1,8 @@
 import AppKit
 import HaryXCore
 
-/// Left-click menu for an account in the menu bar panel: Info, Sign In Again, Switch, Force Switch, Remove.
+/// Left-click menu for an account in the menu bar panel: Info, Sign In Again, Set Up Claude Desktop,
+/// Switch, Force Switch, Remove.
 /// Built with AppKit so it pops at the cursor without wrapping the row in a SwiftUI `Menu`
 /// (which would swallow clicks on the row's own "Use" button).
 @MainActor
@@ -19,8 +20,15 @@ enum AccountActionMenu {
             }
             signIn.isEnabled = !store.loginPending(for: account)
             menu.addItem(signIn)
-            menu.addItem(.separator())
         }
+        if store.offersDesktopSetUp(account) {
+            let desktop = ActionItem("Set Up Claude Desktop…", symbol: "macwindow") {
+                Task { await store.openDesktop(as: account) }
+            }
+            desktop.isEnabled = store.busy == nil
+            menu.addItem(desktop)
+        }
+        if account.canRelogin || store.offersDesktopSetUp(account) { menu.addItem(.separator()) }
         let switchItem = ActionItem("Switch", symbol: "arrow.left.arrow.right") {
             Task { await store.switchTo(account) }
         }

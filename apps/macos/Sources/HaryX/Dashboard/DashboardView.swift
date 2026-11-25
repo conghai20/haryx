@@ -247,6 +247,14 @@ struct AccountCard: View {
                     Button("Switch") { Task { await store.switchTo(account) } }.buttonStyle(.glassProminent)
                 }
                 Spacer()
+                if let desktop = store.desktopAction(for: account) {
+                    Button(desktop.title, systemImage: "macwindow") { Task { await store.openDesktop(as: account) } }
+                        .buttonStyle(.glass)
+                        .disabled(store.busy != nil)
+                        .help(desktop == .setUp
+                            ? "Open Claude Desktop on \(account.email)'s own folder, to sign in once"
+                            : "Open Claude Desktop as \(account.email)")
+                }
                 Menu {
                     TerminalMenuItems { store.runClaude(as: account, app: $0) }
                 } label: { Image(systemName: "terminal") } primaryAction: {

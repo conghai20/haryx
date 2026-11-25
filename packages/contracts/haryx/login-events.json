@@ -1,0 +1,20 @@
+[
+  {
+    "event": "browser",
+    "url": "https://ygvcznwlugaxqqmlsssh.supabase.co/auth/v1/authorize?provider=github&redirect_to=http%3A%2F%2F127.0.0.1%3A54849%2Fcallback&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=s256",
+    "opened": true
+  },
+  {
+    "event": "signed_in",
+    "user": {
+      "id": "3f0c9b1e-7d2a-4c55-9e41-0b6f2d8a1c77",
+      "email": "you@example.com",
+      "provider": "github"
+    }
+  },
+  {
+    "event": "error",
+    "code": "timeout",
+    "message": "No sign-in arrived within 5 minutes."
+  }
+]

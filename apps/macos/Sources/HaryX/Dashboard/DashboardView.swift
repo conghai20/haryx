@@ -190,16 +190,18 @@ struct AccountsPane: View {
         .toolbar {
             ToolbarItemGroup {
                 Menu {
-                    Button("Sign In New Account…") { addSheet = .login }
-                    Button("Add Current Claude Login…") { addSheet = .current }
-                    Button("Add Setup Token / API Key…") { addSheet = .token }
-                } label: { Label("Add", systemImage: "plus") }
+                    Section("Add") {
+                        Button("Sign In New Account…") { addSheet = .login }
+                        Button("Add Current Claude Login…") { addSheet = .current }
+                        Button("Add Setup Token / API Key…") { addSheet = .token }
+                    }
+                    SignInMenuSection(showsNewAccount: false)
+                } label: { Label("Add or Sign In", systemImage: "plus") }
                 Menu {
                     ForEach(AppStore.SwitchMode.allCases) { mode in
                         Button(mode.title) { Task { await store.switchNext(mode) } }
                     }
                 } label: { Label("Switch", systemImage: "arrow.left.arrow.right") }
-                Menu { SignInMenuSection() } label: { Label("Sign In", systemImage: "person.badge.key") }
                 Button { Task { await store.refresh(); await store.loadExtras() } } label: {
                     Label("Refresh", systemImage: "arrow.clockwise").spinning(store.isRefreshing)
                 }

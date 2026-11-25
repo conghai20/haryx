@@ -23,7 +23,8 @@ cannot be released without one. Sections, in this order, only when they have ent
   switches Claude Code.
 - Windows app: pixel mascots on every account card, the tray flyout's rows and the inspector, with
   the macOS moods (walking while Claude runs, tired at 90%, asleep when held out, "!" when signed
-  out) and a per-account species and colour picker; the tray mascot uses the same choice.
+  out) and a per-account species and colour picker; the tray mascot uses the same choice. The
+  macOS folder mappings list also shows mascots; Windows has no folder mappings pane yet.
 
 ### Changed
 

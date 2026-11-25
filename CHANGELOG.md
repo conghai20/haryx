@@ -15,6 +15,7 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 - Both apps: a Theme setting (System, Light, Dark). macOS: App Preferences, applied to the
   dashboard and the menu bar panel. Windows: Preferences, applied to the title bars and both windows.
+- Windows app: Sign In Again and Sign in new account open HaryX's own sign-in window, as on macOS (the sign-in link with Open and Copy, live status, a field for the code the sign-in page shows), instead of a terminal. A terminal is offered only if that window cannot start.
 - Windows app: a switch for the tray mascot (Show the active account's mascot in the tray), which
   had a preference but no way to turn it on.
 - macOS only (Windows has no Desktop launcher yet): each account card has a Claude Desktop button, Set Up Desktop until that account has

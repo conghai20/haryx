@@ -141,6 +141,19 @@ export type Job =
   | { kind: "login"; slot: number | null }
   | { kind: "continue"; pid: number; to: number | null };
 
+/** One in-app sign-in run (`login::View` in the backend). */
+export interface LoginView {
+  id: number;
+  title: string;
+  state: "running" | "succeeded" | "failed" | "cancelled";
+  message: string | null;
+  /** The run's output, escape sequences removed. */
+  text: string;
+  url: string | null;
+  awaitingCode: boolean;
+  awaitingAnswer: boolean;
+}
+
 export interface RunResult {
   ok: boolean;
   status: number;

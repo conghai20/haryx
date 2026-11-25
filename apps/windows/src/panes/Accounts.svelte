@@ -20,6 +20,13 @@
 
   let selectedNumber = $state<number | null>(null);
   let selected = $derived(store.accounts.find((a) => a.number === selectedNumber) ?? null);
+
+  // The flyout's Info: select the account it named.
+  $effect(() => {
+    if (store.revealSlot == null) return;
+    selectedNumber = store.revealSlot;
+    store.revealSlot = null;
+  });
 </script>
 
 <div class="layout" class:with-inspector={selected}>

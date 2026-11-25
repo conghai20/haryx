@@ -33,15 +33,36 @@
     draggedHue = null;
   }
 
+  /** The slot range macOS's Move stepper allows. */
+  const SLOT_MIN = 1;
+  const SLOT_MAX = 99;
+
   let alias = $state("");
   let threshold = $state("");
   let priority = $state("");
+  let moveSlot = $state(1);
+  let swapSlot = $state("");
   $effect(() => {
     alias = a.alias ?? "";
     threshold = a.threshold != null ? String(a.threshold) : "";
     priority = "";
+    moveSlot = a.number;
+    swapSlot = "";
     draggedHue = null;
   });
+
+  async function moveToSlot() {
+    const slot = Number(moveSlot);
+    if (!Number.isInteger(slot) || slot < SLOT_MIN || slot > SLOT_MAX)
+      return store.flash(`Slot must be a whole number ${SLOT_MIN}–${SLOT_MAX}`, true);
+    // Keep this account selected at its new slot.
+    if (await actions.move(a, slot)) store.revealSlot = slot;
+  }
+
+  async function swapWith() {
+    const other = store.accounts.find((x) => String(x.number) === swapSlot);
+    if (other && (await actions.swap(a, other))) store.revealSlot = other.number;
+  }
 
   function expiry(iso: string | null | undefined): string {
     if (!iso) return "unknown";
@@ -133,8 +154,13 @@
 
   <div class="buttons">
     {#if !a.active}<button class="primary" onclick={() => actions.use(a)}>Switch</button>{/if}
+    <button
+      title="Activate the stored credentials without backing up the current login (--force)"
+      onclick={() => actions.forceUse(a)}>Force Switch…</button
+    >
     <button class:prominent={needsRelogin(a)} onclick={() => actions.signIn(a)}>Sign In Again</button>
     <button onclick={() => actions.runAs(a)}>Claude as this account</button>
+    <button onclick={() => actions.runInFolder(a)}>Run Claude in folder…</button>
   </div>
 
   <form class="field" onsubmit={(e) => { e.preventDefault(); saveAlias(); }}>
@@ -151,6 +177,24 @@
     <label for="priority">Priority tier</label>
     <input id="priority" bind:value={priority} placeholder="0" inputmode="numeric" />
     <button type="submit">Save</button>
+  </form>
+
+  <div class="hairline"></div>
+
+  <form class="field" onsubmit={(e) => { e.preventDefault(); moveToSlot(); }}>
+    <label for="move">Move to slot</label>
+    <input id="move" type="number" min={SLOT_MIN} max={SLOT_MAX} step="1" bind:value={moveSlot} />
+    <button type="submit" disabled={moveSlot === a.number || !!store.busy}>Move</button>
+  </form>
+  <form class="field" onsubmit={(e) => { e.preventDefault(); swapWith(); }}>
+    <label for="swap">Swap with</label>
+    <select id="swap" bind:value={swapSlot}>
+      <option value="">—</option>
+      {#each store.accounts.filter((x) => x.number !== a.number) as x (x.number)}
+        <option value={String(x.number)}>{x.number}: {displayName(x)}</option>
+      {/each}
+    </select>
+    <button type="submit" disabled={swapSlot === "" || !!store.busy}>Swap</button>
   </form>
 
   <div class="hairline"></div>

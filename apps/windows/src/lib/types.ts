@@ -75,6 +75,7 @@ export interface Prefs {
   notifyUsage: boolean;
   notifyLogin: boolean;
   notifyReset: boolean;
+  notifySession: boolean;
   notifyAutoSwitch: boolean;
   trayMascot: boolean;
   /** Mascot choices by identity key (`email|org`); unlisted accounts get a hashed species. */
@@ -139,6 +140,13 @@ export interface Snapshot {
   storeRoot: string | null;
   platform: string;
   update: UpdateInfo;
+}
+
+/** A folder whose plain `haryx run` uses an account (`haryx map`; backend `models::Mapping`). */
+export interface Mapping {
+  path: string;
+  email: string;
+  organizationUuid: string;
 }
 
 export type Job =

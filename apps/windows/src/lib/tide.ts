@@ -75,6 +75,11 @@ export function needsRelogin(a: Account): boolean {
   return ["relogin_required", "no_credentials", "foreign_credential"].includes(a.usageStatus);
 }
 
+/** Token and API-key slots (`add-token`) hold no Claude login, so signing in cannot renew them. */
+export function canRelogin(a: Account): boolean {
+  return a.usageStatus !== "api_key" && !a.email.endsWith("@token.local");
+}
+
 export function statusNote(a: Account): string | null {
   switch (a.usageStatus) {
     case "ok":

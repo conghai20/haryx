@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FIVE_HOUR_S, expectedPct, ordered, paceLine, shortName, tier } from "./tide";
+import { FIVE_HOUR_S, canRelogin, expectedPct, ordered, paceLine, shortName, tier } from "./tide";
 import type { Account } from "./types";
 
 const NOW = Date.parse("2026-11-24T12:00:00Z");
@@ -50,5 +50,11 @@ describe("accounts", () => {
   it("short name is the alias or the email's local part", () => {
     expect(shortName(acct(1, false, "work"))).toBe("work");
     expect(shortName(acct(2, false))).toBe("u2");
+  });
+
+  it("token and API-key slots cannot sign in again", () => {
+    expect(canRelogin(acct(1, false))).toBe(true);
+    expect(canRelogin({ ...acct(2, false), usageStatus: "api_key" })).toBe(false);
+    expect(canRelogin({ ...acct(3, false), email: "abc@token.local" })).toBe(false);
   });
 });

@@ -67,6 +67,8 @@ pub fn run() {
             commands::auto_stop,
             commands::open_terminal,
             commands::open_dashboard,
+            commands::mappings,
+            commands::reveal,
             commands::hide_flyout,
             commands::quit,
             commands::update_check,

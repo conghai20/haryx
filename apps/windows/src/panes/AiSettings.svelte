@@ -22,6 +22,7 @@
     { key: "notifyUsage", label: "Usage at 80% and 95%, and running out early" },
     { key: "notifyLogin", label: "Sign-in needed or expiring, plan expired" },
     { key: "notifyReset", label: "Quota reset after running out" },
+    { key: "notifySession", label: "Claude session finished (ran 1 min or longer)" },
     { key: "notifyAutoSwitch", label: "Auto-switch problems" },
   ];
 

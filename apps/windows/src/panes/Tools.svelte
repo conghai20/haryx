@@ -97,6 +97,9 @@
 
   const upgrade = () => store.run("Upgrading haryx", ["upgrade"]);
 
+  /** The data folder, or haryx.log selected in it, in Explorer. */
+  const reveal = (what: "store" | "log") => api.reveal(what).catch((e) => store.flash(String(e), true));
+
   async function purgeAll() {
     const ok = await ask(
       "Every stored account, backup and setting is removed. Your current Claude Code login stays as it is. This can't be undone.",
@@ -184,7 +187,11 @@
   <h2 id="t-haryx">haryx</h2>
   <p class="caption truncate" title={store.cliPath ?? ""}>Executable: {store.cliPath ?? "not found"}</p>
   {#if store.storeRoot}<p class="caption truncate" title={store.storeRoot}>Data folder: {store.storeRoot}</p>{/if}
-  <div><button disabled={!!store.busy || !store.cliPath} onclick={upgrade}>Upgrade haryx</button></div>
+  <div class="line">
+    <button disabled={!!store.busy || !store.cliPath} onclick={upgrade}>Upgrade haryx</button>
+    <button onclick={() => reveal("store")}>Open data folder</button>
+    <button onclick={() => reveal("log")}>Show log</button>
+  </div>
 </section>
 
 <div class="hairline"></div>

@@ -29,8 +29,6 @@ Still open:
   manual pull request.
 - **Claude Desktop follow** on Windows still needs its sign-in test; the app does not offer it.
 - **Unclaimed credentials** are read from `haryx unclaimed` text (no `--json` yet), as on macOS.
-- **Folder mappings pane**: macOS lists mapped folders (with each account's mascot) in Tools;
-  Windows has no such pane yet.
 
 ## Goal
 

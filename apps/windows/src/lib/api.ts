@@ -1,7 +1,7 @@
 // Calls into the Rust backend. Every CLI call goes through `haryx` (allowlisted verbs, no shell).
 
 import { invoke } from "@tauri-apps/api/core";
-import type { Job, LoginView, Prefs, RunResult, Snapshot, TerminalId, UpdateMode } from "./types";
+import type { Job, LoginView, Mapping, Prefs, RunResult, Snapshot, TerminalId, UpdateMode } from "./types";
 
 export const api = {
   snapshot: () => invoke<Snapshot>("snapshot"),
@@ -14,7 +14,12 @@ export const api = {
   autoStop: () => invoke<void>("auto_stop"),
   openTerminal: (job: Job, terminal?: TerminalId | null, folder?: string | null) =>
     invoke<void>("open_terminal", { job, terminal: terminal ?? null, folder: folder ?? null }),
-  openDashboard: (pane?: string) => invoke<void>("open_dashboard", { pane: pane ?? null }),
+  /** `account` opens Accounts with that slot selected. */
+  openDashboard: (pane?: string, account?: number) =>
+    invoke<void>("open_dashboard", { pane: pane ?? null, account: account ?? null }),
+  mappings: () => invoke<Mapping[]>("mappings"),
+  /** Show haryx's data folder or its log file in Explorer. */
+  reveal: (what: "store" | "log") => invoke<void>("reveal", { what }),
   hideFlyout: () => invoke<void>("hide_flyout"),
   quit: () => invoke<void>("quit"),
   updateCheck: (refresh: boolean) => invoke<void>("update_check", { refresh }),

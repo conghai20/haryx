@@ -36,8 +36,23 @@ cannot be released without one. Sections, in this order, only when they have ent
   switches Claude Code.
 - Windows app: pixel mascots on every account card, the tray flyout's rows and the inspector, with
   the macOS moods (walking while Claude runs, tired at 90%, asleep when held out, "!" when signed
-  out) and a per-account species and colour picker; the tray mascot uses the same choice. The
-  macOS folder mappings list also shows mascots; Windows has no folder mappings pane yet.
+  out) and a per-account species and colour picker; the tray mascot uses the same choice. Both
+  apps' folder mappings lists show them too.
+- Windows app: a Folder mappings pane (AI group, after Wake), as on macOS: mapped folders with
+  their account's mascot, Run Claude in one, Unmap, and Choose folder and map… for an account.
+  The tray flyout's terminal menu lists mapped folders, one click runs Claude there.
+- Windows app: Move to slot and Swap with… in the account inspector, as on macOS.
+- Windows app: Force Switch, as on macOS: in the inspector (it asks first) and in the flyout's
+  account menu.
+- Windows app: Run Claude in folder… in the inspector (as that account) and Claude in folder… in
+  the flyout's terminal menu (the active account), as on macOS.
+- Windows app: clicking an account in the tray flyout opens its menu, as on macOS: Info (the
+  dashboard with that account selected), Sign In Again…, Switch, Force Switch, Remove….
+- Windows app: Sign In New Account… in the flyout's terminal menu, as on macOS.
+- Windows app: a "Claude session finished" notification for sessions that ran 1 minute or
+  longer, on by default, with its switch in AI settings, as on macOS.
+- Windows app: Open data folder and Show log (`haryx.log`, selected in Explorer) in Tools, as on
+  macOS.
 
 ### Changed
 

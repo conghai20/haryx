@@ -6,7 +6,7 @@ import { api } from "./api";
 import { stuckSessions } from "./handoff";
 import { SPECIES, identityKey, mood, resolve, type Mood, type Style } from "./mascot";
 import { ordered } from "./tide";
-import type { Account, AccountList, AutoEvent, ClaudeSetup, MascotStyle, Prefs, SessionList, Snapshot, UpdateInfo } from "./types";
+import type { Account, AccountList, AutoEvent, ClaudeSetup, Mapping, MascotStyle, Prefs, SessionList, Snapshot, UpdateInfo } from "./types";
 
 const AUTO_LOG_MAX = 200;
 const FLASH_MS = 6000;
@@ -26,6 +26,10 @@ class Store {
   claudeSetup = $state<ClaudeSetup | null>(null);
   /** Default-profile sessions an auto-switch left on their old account: pid → that account. */
   leftBehind = $state<Record<number, number>>({});
+  /** Folders `haryx map` ties to an account, sorted by path. */
+  mappings = $state<Mapping[]>([]);
+  /** An account the dashboard should select (the flyout's Info); Accounts takes and clears it. */
+  revealSlot = $state<number | null>(null);
   busy = $state<string | null>(null);
   message = $state<{ text: string; error: boolean } | null>(null);
   now = $state(Date.now());
@@ -47,10 +51,13 @@ class Store {
   async init() {
     this.apply(await api.snapshot());
     void this.checkClaudeSetup();
+    void this.loadMappings();
     await listen<{ list: AccountList | null; error: string | null }>("accounts", (e) => {
       if (e.payload.list) this.list = e.payload.list;
       this.error = e.payload.error;
       this.now = Date.now();
+      // Every haryx command refreshes the accounts, so a map or unmap made elsewhere shows up too.
+      void this.loadMappings();
     });
     await listen<SessionList>("sessions", (e) => {
       this.sessions = e.payload;
@@ -77,6 +84,19 @@ class Store {
     } catch {
       // An older haryx without `ai doctor`, or a CLI error the accounts list already reports.
     }
+  }
+
+  async loadMappings() {
+    try {
+      this.mappings = await api.mappings();
+    } catch (e) {
+      this.flash(String(e), true);
+    }
+  }
+
+  /** The account a mapping names, matched by identity (slots move; email and org do not). */
+  accountFor(m: Mapping): Account | null {
+    return this.accounts.find((a) => identityKey(a) === `${m.email}|${m.organizationUuid}`) ?? null;
   }
 
   apply(s: Snapshot) {

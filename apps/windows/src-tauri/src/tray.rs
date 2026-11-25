@@ -276,18 +276,43 @@ pub fn hide_flyout(app: &AppHandle) {
 
 /// Show the dashboard (creating it the first time), optionally on `pane`.
 pub fn show_dashboard(app: &AppHandle, pane: Option<&str>) {
+    open_dashboard(app, pane, None);
+}
+
+/// Open the dashboard on Accounts with `slot` selected (the flyout's Info).
+pub fn reveal_account(app: &AppHandle, slot: u32) {
+    open_dashboard(app, Some("accounts"), Some(slot));
+}
+
+/// The dashboard's page. A window built for a pane or an account starts there: it is not yet
+/// listening for the events an open window gets.
+fn dashboard_url(pane: Option<&str>, account: Option<u32>) -> String {
+    let query: Vec<String> = pane
+        .filter(|p| p.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'))
+        .map(|p| format!("pane={p}"))
+        .into_iter()
+        .chain(account.map(|a| format!("account={a}")))
+        .collect();
+    if query.is_empty() {
+        "index.html".into()
+    } else {
+        format!("index.html?{}", query.join("&"))
+    }
+}
+
+fn open_dashboard(app: &AppHandle, pane: Option<&str>, account: Option<u32>) {
     hide_flyout(app);
     let window = match app.get_webview_window(DASHBOARD) {
         Some(w) => w,
         None => {
-            let built =
-                WebviewWindowBuilder::new(app, DASHBOARD, WebviewUrl::App("index.html".into()))
-                    .title("HaryX")
-                    .inner_size(1080.0, 720.0)
-                    .min_inner_size(760.0, 520.0)
-                    .theme(app.state::<Arc<AppState>>().prefs().theme.window_theme())
-                    .visible(false)
-                    .build();
+            let url = dashboard_url(pane, account);
+            let built = WebviewWindowBuilder::new(app, DASHBOARD, WebviewUrl::App(url.into()))
+                .title("HaryX")
+                .inner_size(1080.0, 720.0)
+                .min_inner_size(760.0, 520.0)
+                .theme(app.state::<Arc<AppState>>().prefs().theme.window_theme())
+                .visible(false)
+                .build();
             match built {
                 Ok(w) => {
                     let handle = w.clone();
@@ -312,11 +337,25 @@ pub fn show_dashboard(app: &AppHandle, pane: Option<&str>) {
     if let Some(pane) = pane {
         let _ = app.emit_to(DASHBOARD, "open-pane", pane);
     }
+    if let Some(slot) = account {
+        let _ = app.emit_to(DASHBOARD, "reveal-account", slot);
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dashboard_url_carries_the_pane_and_account() {
+        assert_eq!(dashboard_url(None, None), "index.html");
+        assert_eq!(dashboard_url(Some("about"), None), "index.html?pane=about");
+        assert_eq!(dashboard_url(Some("a&b=c"), None), "index.html");
+        assert_eq!(
+            dashboard_url(Some("accounts"), Some(3)),
+            "index.html?pane=accounts&account=3"
+        );
+    }
 
     const MONITOR: (f64, f64, f64, f64) = (0.0, 0.0, 1920.0, 1040.0);
 

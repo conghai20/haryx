@@ -9,6 +9,7 @@
   import Usage from "../panes/Usage.svelte";
   import AutoSwitch from "../panes/AutoSwitch.svelte";
   import Wake from "../panes/Wake.svelte";
+  import Mappings from "../panes/Mappings.svelte";
   import Profiles from "../panes/Profiles.svelte";
   import Tools from "../panes/Tools.svelte";
   import AiSettings from "../panes/AiSettings.svelte";
@@ -21,6 +22,7 @@
     { id: "sessions", group: "AI", title: "Sessions", icon: "▸", component: Sessions },
     { id: "auto", group: "AI", title: "Auto-switch", icon: "⇄", component: AutoSwitch },
     { id: "wake", group: "AI", title: "Wake", icon: "◷", component: Wake },
+    { id: "mappings", group: "AI", title: "Folder mappings", icon: "▣", component: Mappings },
     { id: "profiles", group: "AI", title: "Setup profiles", icon: "❏", component: Profiles },
     { id: "tools", group: "AI", title: "Tools", icon: "⚒", component: Tools },
     { id: "settings", group: "AI", title: "AI settings", icon: "☰", component: AiSettings },
@@ -32,12 +34,27 @@
   let selected = $state<PaneId>("accounts");
   let current = $derived(panes.find((p) => p.id === selected) ?? panes[0]);
 
+  function openPane(id: string | null) {
+    if (panes.some((p) => p.id === id)) selected = id as PaneId;
+  }
+
+  function reveal(slot: number) {
+    selected = "accounts";
+    store.revealSlot = slot;
+  }
+
   onMount(() => {
-    const off = listen<string>("open-pane", (e) => {
-      if (panes.some((p) => p.id === e.payload)) selected = e.payload as PaneId;
-    });
+    // A window opened for a pane or an account starts there (it missed the events below).
+    const params = new URLSearchParams(location.search);
+    openPane(params.get("pane"));
+    const slot = Number(params.get("account"));
+    if (Number.isInteger(slot) && slot > 0) reveal(slot);
+    const offs = [
+      listen<string>("open-pane", (e) => openPane(e.payload)),
+      listen<number>("reveal-account", (e) => reveal(e.payload)),
+    ];
     return () => {
-      off.then((f) => f());
+      offs.forEach((off) => off.then((f) => f()));
     };
   });
 </script>

@@ -1,7 +1,7 @@
 // Account actions shared by the flyout and the dashboard. Destructive ones ask first with a native
 // dialog, then answer the CLI's own y/N prompt on stdin.
 
-import { ask } from "@tauri-apps/plugin-dialog";
+import { ask, open } from "@tauri-apps/plugin-dialog";
 import { api } from "./api";
 import { store } from "./store.svelte";
 import { displayName } from "./tide";
@@ -41,6 +41,47 @@ export const actions = {
       cancelLabel: "Cancel",
     });
     if (ok) await store.run("Removing", ["remove", ref(a)], { stdin: "y\n", success: `Removed ${a.email}` });
+  },
+
+  /** The inspector's Force Switch asks first, as on macOS; the flyout menu's does not. */
+  async forceUse(a: Account) {
+    const ok = await ask("Activates the stored credentials without first backing up the current login.", {
+      title: `Force switch to ${displayName(a)}?`,
+      kind: "warning",
+      okLabel: "Force Switch",
+      cancelLabel: "Cancel",
+    });
+    if (ok) await actions.use(a, true);
+  },
+
+  move: (a: Account, slot: number) => store.run("Moving", ["move", ref(a), String(slot)]),
+  swap: (a: Account, b: Account) => store.run("Swapping", ["swap", ref(a), ref(b)]),
+  async map(a: Account, path: string) {
+    await store.run("Mapping", ["map", ref(a), path]);
+    await store.loadMappings();
+  },
+  async unmap(path: string) {
+    await store.run("Unmapping", ["unmap", path]);
+    await store.loadMappings();
+  },
+
+  /** A folder from the system picker, or null when cancelled. */
+  async chooseFolder(title: string): Promise<string | null> {
+    try {
+      const folder = await open({ directory: true, title });
+      return typeof folder === "string" ? folder : null;
+    } catch (e) {
+      store.flash(String(e), true);
+      return null;
+    }
+  },
+
+  /** Claude in a picked folder, as `a` (null = the active account). */
+  async runInFolder(a: Account | null) {
+    const folder = await actions.chooseFolder("Run Claude here");
+    if (!folder) return;
+    if (a) await actions.runAs(a, folder);
+    else await actions.terminal({ kind: "claude" }, folder);
   },
 
   addCurrent: () => store.run("Adding the current login", ["add"], { success: "Current Claude Code login added" }),

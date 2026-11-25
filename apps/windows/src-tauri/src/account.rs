@@ -57,9 +57,19 @@ pub struct AccountLogin {
     cancelled: Arc<Mutex<bool>>,
 }
 
+/// The `haryx login --provider` value for a provider the UI names; anything else is refused.
+pub fn provider_arg(provider: &str) -> Result<&'static str, String> {
+    match provider {
+        "github" => Ok("github"),
+        "google" => Ok("google"),
+        other => Err(format!("unknown sign-in provider: {other}")),
+    }
+}
+
 impl AccountLogin {
-    /// Start the sign-in; a run already going is left alone.
-    pub fn start(&self, app: &AppHandle) -> Result<(), String> {
+    /// Start the sign-in with `provider`; a run already going is left alone.
+    pub fn start(&self, app: &AppHandle, provider: &str) -> Result<(), String> {
+        let provider = provider_arg(provider)?;
         let mut slot = self.child.lock().unwrap_or_else(|e| e.into_inner());
         if slot
             .as_mut()
@@ -72,7 +82,7 @@ impl AccountLogin {
         }
         let cli = app.state::<Arc<AppState>>().cli()?;
         let mut child = cli
-            .command(&["login", "--provider", "github", "--json"])
+            .command(&["login", "--provider", provider, "--json"])
             .env("NO_COLOR", "1")
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -198,5 +208,13 @@ mod tests {
             serde_json::to_value(LoginEvent::Cancelled).unwrap(),
             serde_json::json!({"event": "cancelled"})
         );
+    }
+
+    #[test]
+    fn provider_arg_takes_only_known_providers() {
+        assert_eq!(provider_arg("github"), Ok("github"));
+        assert_eq!(provider_arg("google"), Ok("google"));
+        assert!(provider_arg("github --evil").is_err());
+        assert!(provider_arg("").is_err());
     }
 }

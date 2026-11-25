@@ -402,13 +402,15 @@ pub fn login_open(logins: State<'_, Logins>, id: u64) -> Result<(), String> {
     updater::open_in_browser(&url)
 }
 
-/// Start the HaryX sign-in (`haryx login --json`); its events arrive as `account-login`.
+/// Start the HaryX sign-in (`haryx login --provider <provider> --json`); its events arrive as
+/// `account-login`.
 #[tauri::command]
 pub fn account_login_start(
     app: AppHandle,
     login: State<'_, crate::account::AccountLogin>,
+    provider: String,
 ) -> Result<(), String> {
-    login.start(&app)
+    login.start(&app, &provider)
 }
 
 #[tauri::command]

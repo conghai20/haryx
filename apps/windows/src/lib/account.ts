@@ -89,6 +89,15 @@ export function syncedAgo(iso: string | null, now: number): string {
   return `Synced ${new Date(at).toLocaleString()}`;
 }
 
+/** The ways to sign in to HaryX; the id is `haryx login --provider`. */
+export const SIGN_IN_PROVIDERS = [
+  { id: "github", label: "GitHub", available: true },
+  // Waits for its OAuth client on the hosted project.
+  { id: "google", label: "Google", available: false },
+] as const;
+
+export type SignInProvider = (typeof SIGN_IN_PROVIDERS)[number]["id"];
+
 export function providerName(provider: string): string {
   return provider === "github" ? "GitHub" : provider === "google" ? "Google" : provider;
 }

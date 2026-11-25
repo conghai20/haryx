@@ -1,6 +1,7 @@
 // Calls into the Rust backend. Every CLI call goes through `haryx` (allowlisted verbs, no shell).
 
 import { invoke } from "@tauri-apps/api/core";
+import type { SignInProvider } from "./account";
 import type { Job, LoginView, Mapping, Prefs, RunResult, Snapshot, SyncInfo, SyncResult, TerminalId, UpdateMode } from "./types";
 
 export const api = {
@@ -32,7 +33,7 @@ export const api = {
   loginCancel: (id: number) => invoke<void>("login_cancel", { id }),
   loginOpen: (id: number) => invoke<void>("login_open", { id }),
   /** HaryX sign-in; its events arrive as `account-login`. */
-  accountLoginStart: () => invoke<void>("account_login_start"),
+  accountLoginStart: (provider: SignInProvider) => invoke<void>("account_login_start", { provider }),
   accountLoginCancel: () => invoke<void>("account_login_cancel"),
   accountLoginOpen: () => invoke<void>("account_login_open"),
   syncNow: () => invoke<SyncResult | null>("sync_now"),

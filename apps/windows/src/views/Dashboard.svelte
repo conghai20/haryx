@@ -4,6 +4,7 @@
   import { listen } from "@tauri-apps/api/event";
   import { store } from "../lib/store.svelte";
   import Lockup from "../components/Lockup.svelte";
+  import AccountFooter from "../components/AccountFooter.svelte";
   import Accounts from "../panes/Accounts.svelte";
   import Sessions from "../panes/Sessions.svelte";
   import Usage from "../panes/Usage.svelte";
@@ -27,7 +28,8 @@
     { id: "profiles", group: "AI", title: "Setup profiles", icon: "❏", component: Profiles },
     { id: "tools", group: "AI", title: "Tools", icon: "⚒", component: Tools },
     { id: "settings", group: "AI", title: "AI settings", icon: "☰", component: AiSettings },
-    { id: "account", group: "HaryX", title: "HaryX Account", icon: "◉", component: Account },
+    // Reached from the sidebar footer, not listed.
+    { id: "account", group: "", title: "HaryX Account", icon: "◉", component: Account },
     { id: "preferences", group: "HaryX", title: "Preferences", icon: "⚙", component: Preferences },
     { id: "about", group: "HaryX", title: "About & updates", icon: "ⓘ", component: About },
   ] as const;
@@ -84,6 +86,7 @@
         </button>
       {/each}
     {/each}
+    <div class="nav-footer"><AccountFooter onopen={() => (selected = "account")} /></div>
   </nav>
 
   <main>
@@ -115,6 +118,10 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+  }
+  .nav-footer {
+    margin-top: auto;
+    padding: 8px 0 0;
   }
   .brand {
     padding: 0 8px 12px;

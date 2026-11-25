@@ -1,5 +1,6 @@
 <script lang="ts">
-  // App preferences (saved by the app) and haryx's own settings (`config list/set/unset`).
+  // AI settings: the app's AI-side preferences (usage refresh, tray, terminal, notifications) above
+  // haryx's own settings (`config list/set/unset`). The app's own preferences are in Preferences.
   import { onMount } from "svelte";
   import { open } from "@tauri-apps/plugin-dialog";
   import { api } from "../lib/api";
@@ -49,10 +50,6 @@
     if (typeof folder === "string") await store.savePrefs({ claudeFolder: folder });
   }
 
-  async function chooseHaryx() {
-    const file = await open({ title: "haryx.exe", filters: [{ name: "haryx", extensions: ["exe"] }] });
-    if (typeof file === "string") await store.savePrefs({ haryxPath: file });
-  }
 
   onMount(loadConfig);
 </script>
@@ -60,19 +57,25 @@
 {#if store.prefs}
   {@const prefs = store.prefs}
   <section>
-    <h2>HaryX</h2>
-    <label class="check">
-      <input type="checkbox" checked={prefs.launchAtLogin} onchange={(e) => store.savePrefs({ launchAtLogin: e.currentTarget.checked })} />
-      Start HaryX when you sign in to Windows
-    </label>
+    <h2>Usage & tray</h2>
     <div class="field">
       <label for="refresh">Refresh accounts every</label>
       <select id="refresh" value={String(prefs.refreshSeconds)} onchange={(e) => store.savePrefs({ refreshSeconds: Number(e.currentTarget.value) })}>
         {#each [30, 60, 120, 300, 600] as s (s)}<option value={String(s)}>{s < 60 ? `${s} seconds` : `${s / 60} min`}</option>{/each}
       </select>
     </div>
+    <label class="check">
+      <input type="checkbox" checked={prefs.trayMascot} onchange={(e) => store.savePrefs({ trayMascot: e.currentTarget.checked })} />
+      Show the active account's mascot in the tray (it walks while Claude runs)
+    </label>
+  </section>
+
+  <div class="hairline"></div>
+
+  <section>
+    <h2>Terminal</h2>
     <div class="field">
-      <label for="terminal">Terminal</label>
+      <label for="terminal">Open terminals in</label>
       <select
         id="terminal"
         value={prefs.terminal ?? ""}
@@ -88,13 +91,6 @@
       <button onclick={chooseFolder}>Choose…</button>
       {#if prefs.claudeFolder}<button class="plain" onclick={() => store.savePrefs({ claudeFolder: null })}>Reset</button>{/if}
     </div>
-    <div class="field">
-      <span class="label">haryx</span>
-      <span class="truncate value" title={store.cliPath ?? ""}>{store.cliPath ?? "not found"}</span>
-      <button onclick={chooseHaryx}>Choose…</button>
-      {#if prefs.haryxPath}<button class="plain" onclick={() => store.savePrefs({ haryxPath: null })}>Use PATH</button>{/if}
-    </div>
-    {#if store.storeRoot}<p class="caption tertiary">Data folder: {store.storeRoot}</p>{/if}
   </section>
 
   <div class="hairline"></div>

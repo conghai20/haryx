@@ -10,6 +10,13 @@
   onMount(() => {
     store.init().catch((e) => (failed = String(e)));
   });
+
+  // The Theme preference pins light or dark; without it the page follows Windows.
+  $effect(() => {
+    const theme = store.prefs?.theme ?? "system";
+    if (theme === "system") delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = theme;
+  });
 </script>
 
 {#if failed}

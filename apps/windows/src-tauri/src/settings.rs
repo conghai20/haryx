@@ -38,6 +38,8 @@ pub struct Prefs {
     pub tray_mascot: bool,
     /// Start HaryX when you sign in to Windows.
     pub launch_at_login: bool,
+    /// Light or dark, or whatever Windows uses.
+    pub theme: Theme,
     /// How much HaryX does on its own when a release comes out.
     pub update_mode: UpdateMode,
     /// A release the user chose to skip.
@@ -65,11 +67,35 @@ impl Default for Prefs {
             notify_auto_switch: true,
             tray_mascot: false,
             launch_at_login: false,
+            theme: Theme::System,
             update_mode: UpdateMode::Notify,
             skipped_version: None,
             last_update_check: None,
             weekly_summary: false,
             last_weekly_summary: None,
+        }
+    }
+}
+
+/// The app's look. An unknown value (a newer or hand-edited file) reads as `System`, so it never
+/// discards the rest of the preferences.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Theme {
+    Light,
+    Dark,
+    #[default]
+    #[serde(other)]
+    System,
+}
+
+impl Theme {
+    /// The window theme to force; `None` follows Windows.
+    pub fn window_theme(self) -> Option<tauri::Theme> {
+        match self {
+            Theme::System => None,
+            Theme::Light => Some(tauri::Theme::Light),
+            Theme::Dark => Some(tauri::Theme::Dark),
         }
     }
 }
@@ -129,6 +155,30 @@ mod tests {
         let loaded = load(tmp.path());
         assert_eq!(loaded.refresh_seconds, 45);
         assert!(loaded.notify_usage);
+    }
+
+    #[test]
+    fn theme_round_trips_and_an_unknown_one_means_system() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dark = Prefs {
+            theme: Theme::Dark,
+            ..Prefs::default()
+        };
+        save(tmp.path(), &dark).unwrap();
+        assert_eq!(load(tmp.path()).theme, Theme::Dark);
+        std::fs::write(
+            tmp.path().join(FILE_NAME),
+            r#"{"refreshSeconds": 45, "theme": "sepia"}"#,
+        )
+        .unwrap();
+        let loaded = load(tmp.path());
+        assert_eq!(loaded.theme, Theme::System);
+        assert_eq!(
+            loaded.refresh_seconds, 45,
+            "an unknown theme must not discard the other keys"
+        );
+        assert_eq!(Theme::System.window_theme(), None);
+        assert_eq!(Theme::Light.window_theme(), Some(tauri::Theme::Light));
     }
 
     #[test]

@@ -162,6 +162,7 @@ pub fn set_prefs(
         state::locate_cli(&prefs, bundled.as_deref());
     *state.prefs.lock().unwrap_or_else(|e| e.into_inner()) = prefs.clone();
     crate::autostart::apply(&app, &prefs);
+    crate::tray::apply_theme(&app);
     let _ = app.emit("prefs", &prefs);
     state.refresh_soon();
     Ok(())

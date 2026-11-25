@@ -243,6 +243,7 @@ fn create_flyout(app: &AppHandle) -> tauri::Result<tauri::WebviewWindow> {
     .always_on_top(true)
     .visible(false)
     .shadow(true)
+    .theme(app.state::<Arc<AppState>>().prefs().theme.window_theme())
     .build()?;
     let handle = window.clone();
     window.on_window_event(move |event| {
@@ -251,6 +252,14 @@ fn create_flyout(app: &AppHandle) -> tauri::Result<tauri::WebviewWindow> {
         }
     });
     Ok(window)
+}
+
+/// Give every open window the Theme preference (title bar and the page's light/dark scheme).
+pub fn apply_theme(app: &AppHandle) {
+    let theme = app.state::<Arc<AppState>>().prefs().theme.window_theme();
+    for window in app.webview_windows().values() {
+        let _ = window.set_theme(theme);
+    }
 }
 
 pub fn hide_flyout(app: &AppHandle) {
@@ -270,6 +279,7 @@ pub fn show_dashboard(app: &AppHandle, pane: Option<&str>) {
                     .title("HaryX")
                     .inner_size(1080.0, 720.0)
                     .min_inner_size(760.0, 520.0)
+                    .theme(app.state::<Arc<AppState>>().prefs().theme.window_theme())
                     .visible(false)
                     .build();
             match built {

@@ -11,7 +11,8 @@
   import Wake from "../panes/Wake.svelte";
   import Profiles from "../panes/Profiles.svelte";
   import Tools from "../panes/Tools.svelte";
-  import Settings from "../panes/Settings.svelte";
+  import AiSettings from "../panes/AiSettings.svelte";
+  import Preferences from "../panes/Preferences.svelte";
   import About from "../panes/About.svelte";
 
   const panes = [
@@ -22,7 +23,8 @@
     { id: "wake", group: "AI", title: "Wake", icon: "◷", component: Wake },
     { id: "profiles", group: "AI", title: "Setup profiles", icon: "❏", component: Profiles },
     { id: "tools", group: "AI", title: "Tools", icon: "⚒", component: Tools },
-    { id: "settings", group: "HaryX", title: "Settings", icon: "⚙", component: Settings },
+    { id: "settings", group: "AI", title: "AI settings", icon: "☰", component: AiSettings },
+    { id: "preferences", group: "HaryX", title: "Preferences", icon: "⚙", component: Preferences },
     { id: "about", group: "HaryX", title: "About & updates", icon: "ⓘ", component: About },
   ] as const;
 

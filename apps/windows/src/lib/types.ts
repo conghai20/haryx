@@ -78,12 +78,16 @@ export interface Prefs {
   notifyAutoSwitch: boolean;
   trayMascot: boolean;
   launchAtLogin: boolean;
+  theme: Theme;
   updateMode: UpdateMode;
   skippedVersion: string | null;
   lastUpdateCheck: number | null;
   weeklySummary: boolean;
   lastWeeklySummary: number | null;
 }
+
+/** The app's look; "system" follows Windows. */
+export type Theme = "system" | "light" | "dark";
 
 export type UpdateMode = "automatic" | "notify" | "manual";
 

@@ -36,7 +36,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         case .wake: "Wake"
         case .mappings: "Folder Mappings"
         case .profiles: "Setup Profiles"
-        case .config: "CLI Settings"
+        case .config: "AI Settings"
         case .maintenance: "Backup & Maintenance"
         case .preferences: "App Preferences"
         case .about: "About & Updates"

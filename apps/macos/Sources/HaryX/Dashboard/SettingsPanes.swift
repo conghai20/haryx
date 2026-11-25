@@ -123,6 +123,10 @@ struct ConfigPane: View {
 
     var body: some View {
         Form {
+            UsageDisplaySection()
+            TerminalSettingsSection()
+            DesktopSettingsSection()
+            NotificationSettingsSection()
             let groups = Dictionary(grouping: store.config) { String($0.key.split(separator: ".").first ?? "") }
             ForEach(groups.keys.sorted(), id: \.self) { group in
                 ConfigSection(title: group.capitalized, entries: groups[group] ?? [], unsaved: $unsaved)

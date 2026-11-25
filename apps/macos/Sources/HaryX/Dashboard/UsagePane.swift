@@ -14,7 +14,7 @@ struct UsagePane: View {
                 ImportChoice(model: model)
             } else if let status = model.status, !status.enabled {
                 ContentUnavailableView("Usage history is off", systemImage: "chart.bar.xaxis",
-                                       description: Text("Turn it on in CLI Settings (history.enabled)."))
+                                       description: Text("Turn it on in AI Settings (history.enabled)."))
             } else {
                 UsageContent(model: model)
             }

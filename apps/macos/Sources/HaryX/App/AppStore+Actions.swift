@@ -292,6 +292,15 @@ extension AppStore {
         openTerminal(app, command: command, folder: folder)
     }
 
+    /// Opens a terminal running Anthropic's Claude Code installer (the command the CLI reports).
+    func installClaude() {
+        guard let command = claudeSetup?.installCommand else { return }
+        openTerminal(command: command)
+    }
+
+    /// Opens a terminal running `claude`, which asks to sign in the first time.
+    func signInToClaude() { openTerminal(command: "claude") }
+
     /// Mapped folder: plain `cswap run` picks the account from the mapping.
     func runMapped(_ mapping: DirectoryMapping, app: TerminalApp = .preferred) {
         guard let cli else { return }

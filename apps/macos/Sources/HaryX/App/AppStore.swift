@@ -36,6 +36,8 @@ final class AppStore {
     private(set) var wakeError: String?
     /// `haryx ai desktop status`; nil while "Claude Desktop follows Use" is off.
     private(set) var desktop: DesktopStatus?
+    /// `haryx ai doctor`: nil until read, or with a cswap backend.
+    private(set) var claudeSetup: ClaudeSetup?
     /// Whether Claude Desktop runs, and on which folder; read when the panel opens.
     private(set) var desktopRun: DesktopRun = .notRunning
     private(set) var cli: CSwapCLI?
@@ -255,6 +257,13 @@ final class AppStore {
         apply(await wakeStatus)
         loadMappings()
         await reloadDesktop()
+        await checkClaudeSetup()
+    }
+
+    /// Re-read whether Claude Code is installed and signed in. A failed read keeps the last answer.
+    func checkClaudeSetup() async {
+        guard let cli, cli.flavor == .haryx else { claudeSetup = nil; return }
+        if let setup = try? await cli.json(ClaudeSetup.self, ["ai", "doctor", "--json"]) { claudeSetup = setup }
     }
 
     /// Re-read `haryx ai wake status` alone (local files only), so the panel shows what the

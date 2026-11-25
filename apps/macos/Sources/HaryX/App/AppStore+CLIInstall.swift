@@ -46,7 +46,7 @@ extension AppStore {
         }
         relocateCLI()
         let dir = systemWide ? "/usr/local/bin" : "~/.local/bin"
-        let hint = systemWide || CLIInstaller.onPath(CSwapCLI.home + "/.local/bin", path: loginShellPath())
+        let hint = systemWide || CLIInstaller.onPath(CSwapCLI.home + "/.local/bin", path: CSwapCLI.loginShellPath)
             ? "" : " Add ~/.local/bin to your PATH to use it."
         flash("Installed haryx in \(dir).\(hint)")
         return true
@@ -88,18 +88,5 @@ extension AppStore {
         guard let error else { return }
         if (error[NSAppleScript.errorNumber] as? Int) == -128 { throw AdminError.cancelled }
         throw AdminError.failed(error[NSAppleScript.errorMessage] as? String ?? "Unknown error")
-    }
-
-    /// The PATH a login shell sees (GUI apps get a bare one).
-    private func loginShellPath() -> String? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = ["-lc", "printf %s \"$PATH\""]
-        let out = Pipe()
-        process.standardOutput = out
-        process.standardError = FileHandle.nullDevice
-        guard (try? process.run()) != nil else { return nil }
-        process.waitUntilExit()
-        return String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
     }
 }

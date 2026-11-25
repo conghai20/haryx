@@ -156,6 +156,7 @@ struct AccountsPane: View {
 
     var body: some View {
         ScrollView {
+            if store.claudeSetup?.ready == false { ClaudeSetupBanner().padding([.horizontal, .top], 20) }
             if store.accounts.isEmpty {
                 ContentUnavailableView {
                     Label("No accounts yet", systemImage: "person.crop.circle.badge.plus")

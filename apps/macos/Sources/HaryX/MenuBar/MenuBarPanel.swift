@@ -10,6 +10,7 @@ struct MenuBarPanel: View {
             VStack(alignment: .leading, spacing: 0) {
                 header
                 Hairline().padding(.vertical, 10)
+                if store.claudeSetup?.ready == false { ClaudeSetupBanner(compact: true).padding(.bottom, 8) }
                 if let active = store.active {
                     ActiveTide(account: active)
                 } else if let error = store.refreshError {

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<title>{{title}}</title>
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsPSJIQVJZWCI+PHRpdGxlPkhBUllYPC90aXRsZT48cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxMiIgZmlsbD0iIzEwMTgyNyIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDMyIDMyKSBzY2FsZSgxLjA1MykiPjxwYXRoIGQ9Ik0tMTYgLTE5IEwtOS4xIC0xOSBMLTkuMSAtMTEuNyBMLTMuOCAtNS40IEMzIC0xMC41IDExLjUgLTEyLjggMTYgLTE5IEMxNCAtMTIuNSA3IC02LjIgLTQuNSAyLjUgTC0xNiAtMTEuNyBaIiBmaWxsPSIjRjFGNUY5IiBzdHJva2U9IiNGMUY1RjkiIHN0cm9rZS13aWR0aD0iMS4yIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiB0cmFuc2Zvcm09InJvdGF0ZSgxODApIHNjYWxlKDEuMDUgMS4yKSIvPjxwYXRoIGQ9Ik0tMTYgLTE5IEwtOS4xIC0xOSBMLTkuMSAtMTEuNyBMLTMuOCAtNS40IEMzIC0xMC41IDExLjUgLTEyLjggMTYgLTE5IEMxNCAtMTIuNSA3IC02LjIgLTQuNSAyLjUgTC0xNiAtMTEuNyBaIiBmaWxsPSIjMjJEM0VFIiBzdHJva2U9IiMyMkQzRUUiIHN0cm9rZS13aWR0aD0iMS4yIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiB0cmFuc2Zvcm09InNjYWxlKDEuMDUgMS4yKSIvPjwvZz48L3N2Zz4K">
+<style>
+/* The sign-in return page, in the site's "Ink & tide" world (DESIGN.md › Web): Soft White paper or
+   Midnight Navy ground, one live cyan, the drawn Wing H as the only illustration. Self-contained:
+   fonts are subsets embedded below, so the page makes no request. */
+@font-face{font-family:"HaryX Display";src:url(data:font/woff2;base64,{{font_display}}) format("woff2");font-weight:500;font-display:block}
+@font-face{font-family:"HaryX Text";src:url(data:font/woff2;base64,{{font_text}}) format("woff2");font-weight:400;font-display:block}
+@font-face{font-family:"HaryX Mono";src:url(data:font/woff2;base64,{{font_mono}}) format("woff2");font-weight:400;font-display:block}
+
+:root{
+  color-scheme:light dark;
+  --navy:#101827;--cyan:#22d3ee;--white:#f1f5f9;
+  --ground:var(--white);--ink:var(--navy);--ink-2:#3d4a5e;--ink-3:#5b6a80;
+  --rule-strong:rgb(16 24 39 / .32);--live:#0e7490;
+  --mark-a:var(--cyan);--mark-b:var(--navy);
+  --selection:rgb(34 211 238 / .45);
+  --gutter:clamp(16px,4.5vw,72px);
+  --ease-out:cubic-bezier(.16,1,.3,1);
+  --part-x:4.2px;--part-y:3.5px;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ground:var(--navy);--ink:var(--white);--ink-2:#b4c0d0;--ink-3:#8a98ad;
+    --rule-strong:rgb(241 245 249 / .3);--live:var(--cyan);
+    --mark-b:var(--white);--selection:rgb(34 211 238 / .35);
+  }
+}
+*,*::before,*::after{box-sizing:border-box}
+/* The ground is painted by <html> only: a body background would cover the mark and the water,
+   which sit at negative z-index behind the copy. */
+html{-webkit-text-size-adjust:100%;background:var(--ground)}
+body{
+  margin:0;min-height:100vh;min-height:100svh;
+  display:grid;grid-template-rows:auto 1fr;grid-template-columns:minmax(0,1fr);
+  padding:var(--gutter) var(--gutter) clamp(40px,9vh,104px);
+  color:var(--ink);
+  font:400 1.0625rem/1.6 "HaryX Text","Geist",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow-x:clip;
+}
+::selection{background:var(--selection);color:var(--ink)}
+
+.wordmark{display:block;height:18px;width:auto;color:var(--ink)}
+
+/* The Wing H, drawn without its tile. Parted, the halves are a route not yet made; joined, the X. */
+.mark{position:fixed;z-index:-1;top:clamp(64px,12vh,128px);right:calc(var(--gutter) + 2vw);height:clamp(240px,62vh,640px);width:auto;overflow:visible}
+.fill{fill:currentColor}
+.half--a{color:var(--mark-a)}
+.half--b{color:var(--mark-b)}
+.drift--a{transform:translate(var(--part-x),calc(-1 * var(--part-y)))}
+.drift--b{transform:translate(calc(-1 * var(--part-x)),var(--part-y))}
+[data-state=done] .drift{transform:none}
+
+main{align-self:end;display:grid;grid-template-columns:minmax(0,1fr);gap:22px}
+.title{
+  margin:0;max-width:13ch;text-wrap:balance;
+  font:500 clamp(3rem,min(7.4vw,10.5vh),6rem)/.96 "HaryX Display","Space Grotesk",system-ui,sans-serif;
+  letter-spacing:-.04em;
+}
+/* Full-bleed water between the headline and the text, passing behind the mark. */
+.tide{position:relative;z-index:-2;width:100vw;margin:-6px 0 -10px calc(-1 * var(--gutter));height:clamp(44px,5vw,72px)}
+.tideline{display:block;width:100%;height:100%;overflow:visible}
+.tideline-path{fill:none;stroke:var(--live);stroke-width:2.25px;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.tide--still .tideline-path{stroke:var(--rule-strong);stroke-width:1px}
+
+.lede{margin:0;max-width:46ch;color:var(--ink-2);font-size:clamp(1.0625rem,1.4vw,1.25rem);text-wrap:pretty}
+.who{color:var(--ink);overflow-wrap:anywhere}
+.note{margin:0;max-width:46ch;color:var(--ink-3);font-size:.9375rem;text-wrap:pretty}
+.cmd{margin:2px 0 0}
+.cmd code{
+  display:inline-block;padding:14px 16px;border:1px solid var(--rule-strong);border-radius:2px;
+  font:400 .9375rem/1.5 "HaryX Mono","Geist Mono",ui-monospace,monospace;
+}
+.prompt{color:var(--live);-webkit-user-select:none;user-select:none}
+
+@media (max-width:760px){
+  .mark{position:absolute;top:calc(var(--gutter) + 44px);right:calc(var(--gutter) + 28px);height:min(30vh,260px)}
+}
+@media (prefers-reduced-motion:no-preference){
+  [data-state=done] .drift--a{animation:join-a 1.2s var(--ease-out) .15s both}
+  [data-state=done] .drift--b{animation:join-b 1.2s var(--ease-out) .15s both}
+  [data-state=done] .tideline-path{stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.6s cubic-bezier(.65,0,.35,1) .75s forwards}
+}
+@keyframes join-a{from{transform:translate(var(--part-x),calc(-1 * var(--part-y)))}}
+@keyframes join-b{from{transform:translate(calc(-1 * var(--part-x)),var(--part-y))}}
+@keyframes draw{to{stroke-dashoffset:0}}
+.nowrap{white-space:nowrap}
+</style>
+</head>
+<body data-state="{{state}}">
+<header>
+<svg class="wordmark" viewBox="-2 -2 190 44" role="img" aria-label="HaryX"><g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="butt" stroke-linejoin="bevel"><path d="M3.5 0V40M26.5 0V40M3.5 20H26.5"/><path transform="translate(38 0)" d="M3.5 40 16.5 3 29.5 40M9.2 27H23.8"/><path transform="translate(79 0)" d="M3.5 40V3.5H15A9.5 9.5 0 0 1 15 22.5H3.5M14.5 22.5 26 40"/><path transform="translate(116 0)" d="M3.5 0 15.5 18 27.5 0M15.5 18V40"/><path transform="translate(155 0)" d="M3.5 0 27.5 40M27.5 0 3.5 40"/></g></svg>
+</header>
+<svg class="mark" viewBox="-22 -30 44 60" aria-hidden="true"><g transform="scale(1.228)"><g class="drift drift--b"><g class="half half--b" transform="rotate(180) scale(1.05 1.2)"><path class="fill" d="M-16 -19 L-9.1 -19 L-9.1 -11.7 L-3.8 -5.4 C3 -10.5 11.5 -12.8 16 -19 C14 -12.5 7 -6.2 -4.5 2.5 L-16 -11.7 Z"/></g></g><g class="drift drift--a"><g class="half half--a" transform="scale(1.05 1.2)"><path class="fill" d="M-16 -19 L-9.1 -19 L-9.1 -11.7 L-3.8 -5.4 C3 -10.5 11.5 -12.8 16 -19 C14 -12.5 7 -6.2 -4.5 2.5 L-16 -11.7 Z"/></g></g></g></svg>
+<main>
+{{content}}
+</main>
+</body>
+</html>

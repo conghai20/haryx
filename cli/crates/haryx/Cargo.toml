@@ -36,6 +36,7 @@ libc.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+tiny_http.workspace = true
 
 [lints]
 workspace = true

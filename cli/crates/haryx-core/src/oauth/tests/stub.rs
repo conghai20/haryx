@@ -107,6 +107,10 @@ impl Stub {
         }
     }
 
+    pub fn base(&self) -> &str {
+        &self.base
+    }
+
     pub fn api(&self) -> Api {
         Api::with_base(&self.base)
     }

@@ -1,5 +1,6 @@
 //! Routes a parsed [`Command`] to its implementation.
 
+mod account;
 pub(crate) mod accounts;
 mod auto;
 mod config;
@@ -83,6 +84,7 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
         Command::Swap { first, second } => accounts::swap(&first, &second, debug),
         Command::Move { account, slot } => accounts::move_account(&account, &slot, debug),
         Command::Login(opts) => accounts::login(&opts, debug),
+        Command::Account(action) => account::run(&action),
         Command::Profile(action) => profile::run(&action, debug),
         Command::Wake(action) => wake::run(&action, debug),
         Command::Desktop(action) => desktop::run(&action, debug),

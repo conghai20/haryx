@@ -56,6 +56,9 @@ Sections:
 
 Commands:
   {prog} help             show this help
+  {prog} login            sign this machine in to your HaryX account
+  {prog} logout           sign this machine out of HaryX
+  {prog} whoami           show the HaryX account this machine uses
   {prog} upgrade          self-upgrade to latest
 
 Aliases: update=upgrade. Bare '{prog}' in a terminal opens the AI dashboard ('{ai} tui').")

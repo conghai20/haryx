@@ -12,7 +12,7 @@
 
 mod fetch;
 mod format;
-mod http;
+pub(crate) mod http;
 mod probe;
 mod refresh;
 mod usage;

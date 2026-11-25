@@ -22,6 +22,7 @@ pub mod poll_policy;
 pub mod printer;
 
 // Core.
+pub mod account;
 pub mod autoswitch;
 pub mod claude_setup;
 pub mod credentials;

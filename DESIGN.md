@@ -451,6 +451,14 @@ The primary action, used in the hero and again at the close, kept in sync across
 #### Header and Footer
 Header: wordmark left, text links right (What it does, Install, Releases, GitHub) with transparent underlines that turn cyan on hover. Footer: wordmark, project links, and the fine print, above a light rule.
 
+#### Sign-in Return Page
+The page the browser lands on after `haryx login` (`cli/crates/haryx-core/assets/callback.html`, served by the CLI on its one-shot `127.0.0.1` listener). It is the same world at poster scale: drawn wordmark top-left, the Drawn Mark top-right (62vh, 30vh under 760px), the headline bottom-left in Web Display, then the Tide Line, then a lede in Web Lede with the account's email in ink. It is answered only once the sign-in has finished, so it never claims success early.
+
+- **Done:** "Signed in." The mark's halves start parted (4.2 × 3.5 user units) and join into the X (1.2s, ease-out), then the cyan tide line draws (1.6s, from 0.75s). Reduced motion shows the joined mark and the drawn line.
+- **Failed:** "Sign-in didn't finish." The halves stay parted, a route not made; the line lies flat as a 1px strong rule (no cyan: nothing is live); the lede gives the reason, then `$ haryx login` in a command field.
+
+It makes no request: Space Grotesk 500, Geist 400 and Geist Mono 400 are embedded as subsets (about 9 KB, `assets/fonts`, OFL), the favicon is a data URI, and a CSP of `default-src 'none'` is sent with it. The display subset holds only the two headlines' glyphs; a new headline needs a new subset.
+
 ### Do's and Don'ts (web)
 
 #### Do:

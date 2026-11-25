@@ -11,6 +11,15 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+### Added
+
+- `haryx login`, `haryx logout` and `haryx whoami` (each with `--json`): sign this machine in to a
+  HaryX account with GitHub (`--provider google` once Google is set up), for sync between machines
+  (coming). The browser opens and returns to a HaryX page that says who signed in, or why the
+  sign-in did not finish; `--no-browser` prints the link instead. The session is kept in the
+  Keychain on macOS and in a private sealed file elsewhere. Claude accounts are untouched: they are
+  still signed in with `haryx ai login`, and `haryx login 3` now says so.
+
 ## [0.1.6] - 2026-11-25
 
 ### Added

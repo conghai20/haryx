@@ -18,9 +18,11 @@
 //! Added: `import --from-cswap`, which copies accounts from an existing cswap store.
 //!
 //! Sections: every command above lives under `haryx ai` (`haryx ai list`, `haryx ai login 3`). The
-//! upstream spellings without `ai` stay as undocumented aliases, except `login`, which is new and whose
-//! top-level name is kept for a future HaryX account sign-in. `haryx --help` lists the sections.
+//! upstream spellings without `ai` stay as undocumented aliases, except `login`: top-level `haryx
+//! login` (with `logout` and `whoami`) is the HaryX account itself ([`account_parser`]). `haryx
+//! --help` lists the sections.
 
+mod account_parser;
 mod desktop_parser;
 pub mod help;
 mod main_parser;
@@ -32,6 +34,7 @@ pub use usage_parser::UsageAction;
 mod top;
 mod wake_parser;
 
+pub use account_parser::AccountAction;
 pub use clap::Error;
 pub use desktop_parser::DesktopAction;
 pub use profile_parser::{PartFlags, PluginsChoice, ProfileAction, SecretsChoice};
@@ -148,6 +151,8 @@ pub enum Command {
     Sessions { json: bool },
     /// `ai usage [index|report|quota|summary] [--json]`.
     Usage { action: UsageAction, json: bool },
+    /// `login`, `logout`, `whoami` (top level): the HaryX account, not a Claude account.
+    Account(AccountAction),
     /// `ai sessions continue SESSION [--to NUM|EMAIL|best] [--no-launch] [--json]`.
     SessionsContinue {
         session: String,
@@ -276,6 +281,9 @@ impl Command {
             Self::Sessions { .. } => "sessions",
             Self::SessionsContinue { .. } => "sessions continue",
             Self::Usage { .. } => "usage",
+            Self::Account(AccountAction::Login { .. }) => "login",
+            Self::Account(AccountAction::Logout { .. }) => "logout",
+            Self::Account(AccountAction::Whoami { .. }) => "whoami",
         }
     }
 }
@@ -330,11 +338,9 @@ pub fn translate_subcommand(argv: &[String]) -> Vec<String> {
 /// The section every account, usage and session command lives under: `haryx ai list`.
 pub const AI_SECTION: &str = "ai";
 
-/// Commands that work only inside the `ai` section: their top-level names are kept for HaryX itself
-/// (`haryx login` will sign in to a HaryX account).
-pub const AI_ONLY: &[&str] = &[
-    "login", "profile", "wake", "desktop", "sessions", "usage", "doctor",
-];
+/// Commands that work only inside the `ai` section: their top-level names are kept for HaryX itself.
+/// `login` left this list when `haryx login` became the HaryX account sign-in.
+pub const AI_ONLY: &[&str] = &["profile", "wake", "desktop", "sessions", "usage", "doctor"];
 
 /// Top-level help requests, answered with the section overview instead of the `ai` command list.
 const TOP_HELP: &[&str] = &["help", "--help", "-h"];
@@ -352,6 +358,9 @@ pub fn parse(argv: &[String], interactive: bool) -> Result<Invocation, Error> {
     match argv.split_first() {
         None if !interactive => Err(top::no_command()),
         Some((first, rest)) if first == AI_SECTION => parse_ai(rest, interactive),
+        Some((first, rest)) if account_parser::ACCOUNT_VERBS.contains(&first.as_str()) => {
+            account_parser::parse(first, rest)
+        }
         Some((first, _)) if AI_ONLY.contains(&first.as_str()) => Err(top::moved_to_ai(first)),
         Some((first, rest)) if rest.is_empty() && TOP_HELP.contains(&first.as_str()) => {
             Err(top::help())

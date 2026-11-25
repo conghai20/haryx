@@ -1,6 +1,8 @@
 <script lang="ts">
   // Account cards (active first, then switch order) and an inspector for the selected one.
+  import { onMount } from "svelte";
   import { actions } from "../lib/actions";
+  import { haryxAccount } from "../lib/haryx.svelte";
   import { store } from "../lib/store.svelte";
   import {
     FIVE_HOUR_S,
@@ -20,6 +22,10 @@
 
   let selectedNumber = $state<number | null>(null);
   let selected = $derived(store.accounts.find((a) => a.number === selectedNumber) ?? null);
+
+  onMount(() => {
+    void haryxAccount.init();
+  });
 
   // The flyout's Info: select the account it named.
   $effect(() => {
@@ -101,6 +107,25 @@
     <Inspector account={selected} onclose={() => (selectedNumber = null)} />
   {/if}
 </div>
+
+{#if haryxAccount.signedIn && haryxAccount.otherMachines.length > 0}
+  <section class="others" aria-labelledby="others-title">
+    <h2 id="others-title">On your other machines</h2>
+    <p class="caption tertiary">Sign in here as that account in the browser; its alias, priority and the rest arrive with the next sync. Its login stays on this PC.</p>
+    <ul>
+      {#each haryxAccount.otherMachines as m (m.email)}
+        <li>
+          <div class="who">
+            <strong class="truncate">{m.alias || m.email}</strong>
+            <span class="caption tertiary truncate">{m.alias ? m.email : ""}{m.alias && m.organizationName ? " · " : ""}{m.organizationName ?? ""}</span>
+          </div>
+          <button class="mini primary" aria-label="Sign in {m.email} here" onclick={() => haryxAccount.signInHere(m)}>Sign In Here</button>
+          <button class="mini plain" aria-label="Forget {m.email}" onclick={() => haryxAccount.forget(m)}>Forget</button>
+        </li>
+      {/each}
+    </ul>
+  </section>
+{/if}
 
 {#if store.accounts.length > 0}
   <div class="footer">
@@ -213,6 +238,40 @@
     padding: 24px;
     border-radius: var(--radius-card);
     background: var(--fill);
+  }
+  .others {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 640px;
+  }
+  .others h2 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0;
+  }
+  .others p {
+    margin: 0;
+  }
+  .others ul {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .others li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: var(--radius-card);
+    background: var(--fill);
+  }
+  .others .who {
+    font-size: 12px;
   }
   .footer {
     display: flex;

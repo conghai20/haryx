@@ -447,6 +447,10 @@ pub fn start(app: &AppHandle, slot: Option<u32>, title: String) -> Result<u64, S
         drop(master); // outside the lock: closing a pseudoconsole waits for its output to drain
         emit(&handle, id);
         handle.state::<Arc<AppState>>().refresh_soon();
+        if success {
+            // A new or re-signed account: push its metadata, pull what sync holds for it.
+            crate::sync::request(&handle, Duration::ZERO);
+        }
     });
     Ok(id)
 }

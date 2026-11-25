@@ -87,6 +87,8 @@ export interface Prefs {
   lastUpdateCheck: number | null;
   weeklySummary: boolean;
   lastWeeklySummary: number | null;
+  /** Sync with the HaryX account when signed in and unlocked. This PC only; never synced. */
+  syncEnabled: boolean;
 }
 
 /** The app's look; "system" follows Windows. */
@@ -186,4 +188,77 @@ export interface RunResult {
   status: number;
   stdout: string;
   message: string;
+}
+
+// HaryX account and sync (contracts: packages/contracts/haryx/whoami.json, login-events.json,
+// sync-status.json, sync-result.json).
+
+export interface HaryxUser {
+  id: string;
+  email: string;
+  provider: "github" | "google" | string;
+}
+
+/** `haryx whoami --json` and `haryx logout --json`. */
+export interface Whoami {
+  signedIn: boolean;
+  user: HaryxUser | null;
+}
+
+/** One `haryx login --json` line (backend `account::LoginEvent`); `cancelled` is the app's own. */
+export type AccountLoginEvent =
+  | { event: "browser"; url: string; opened: boolean }
+  | { event: "signed_in"; user: HaryxUser }
+  | { event: "error"; code: string; message: string }
+  | { event: "cancelled" };
+
+/** A Claude account sync knows of that has no login on this PC. */
+export interface OtherMachineAccount {
+  email: string;
+  organizationName?: string | null;
+  alias?: string | null;
+}
+
+/** A value a newer write replaced. `lost` is null when the losing side had it unset. */
+export interface Overwrite {
+  at: number;
+  kind: string;
+  label: string;
+  kept: "local" | "remote" | string;
+  lost: unknown;
+}
+
+/** `haryx sync status --json`: local only, no network. */
+export interface SyncStatus {
+  signedIn: boolean;
+  unlocked: boolean;
+  lastSyncAt: string | null;
+  otherMachineAccounts: OtherMachineAccount[];
+  overwritten: Overwrite[];
+}
+
+/** The `{"ok": false, "code", "message"}` failure every account and sync command can print. */
+export interface CliFailure {
+  ok: false;
+  code: string;
+  message: string;
+}
+
+/** `haryx sync --json`. */
+export type SyncResult =
+  | {
+      ok: true;
+      pushed: number;
+      pulled: number;
+      changed: string[];
+      overwritten: Overwrite[];
+      otherMachineAccounts: OtherMachineAccount[];
+      skipped: unknown[];
+    }
+  | CliFailure;
+
+/** The backend's sync state (`sync::Syncer::info`). */
+export interface SyncInfo {
+  running: boolean;
+  last: SyncResult | null;
 }

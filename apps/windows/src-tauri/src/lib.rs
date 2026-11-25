@@ -1,6 +1,7 @@
 //! HaryX for Windows: a tray app over the `haryx` CLI (plan: `docs/windows-app-plan.md`). The CLI owns
 //! accounts and credentials; this app polls it, shows the result, and runs the commands the UI asks for.
 
+mod account;
 mod autostart;
 mod autoswitch;
 mod cli;
@@ -9,9 +10,11 @@ mod login;
 mod mascot;
 mod models;
 mod notify;
+mod prefsync;
 mod rules;
 mod settings;
 mod state;
+mod sync;
 mod terminals;
 mod tray;
 mod updater;
@@ -42,12 +45,15 @@ pub fn run() {
             let prefs = state.prefs();
             app.manage(Arc::clone(&state));
             app.manage(login::Logins::default());
+            app.manage(account::AccountLogin::default());
+            app.manage(sync::Syncer::default());
             tray::build(&handle)?;
             state::start_loops(&handle, tray::update);
             tray::start_animation(&handle);
             autostart::apply(&handle, &prefs);
             updater::start_loop(&handle);
             weekly::start_loop(&handle);
+            sync::start_loop(&handle);
             if prefs.auto_switch_on_launch {
                 let _ = commands::auto_start(handle.clone(), handle.state());
             }
@@ -81,6 +87,11 @@ pub fn run() {
             commands::login_send,
             commands::login_cancel,
             commands::login_open,
+            commands::account_login_start,
+            commands::account_login_cancel,
+            commands::account_login_open,
+            commands::sync_now,
+            commands::sync_info,
         ])
         .build(tauri::generate_context!())
         .expect("error while building HaryX")

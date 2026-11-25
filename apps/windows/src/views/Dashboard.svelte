@@ -14,6 +14,7 @@
   import Tools from "../panes/Tools.svelte";
   import AiSettings from "../panes/AiSettings.svelte";
   import Preferences from "../panes/Preferences.svelte";
+  import Account from "../panes/Account.svelte";
   import About from "../panes/About.svelte";
 
   const panes = [
@@ -26,6 +27,7 @@
     { id: "profiles", group: "AI", title: "Setup profiles", icon: "❏", component: Profiles },
     { id: "tools", group: "AI", title: "Tools", icon: "⚒", component: Tools },
     { id: "settings", group: "AI", title: "AI settings", icon: "☰", component: AiSettings },
+    { id: "account", group: "HaryX", title: "HaryX Account", icon: "◉", component: Account },
     { id: "preferences", group: "HaryX", title: "Preferences", icon: "⚙", component: Preferences },
     { id: "about", group: "HaryX", title: "About & updates", icon: "ⓘ", component: About },
   ] as const;

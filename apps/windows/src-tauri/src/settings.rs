@@ -55,6 +55,8 @@ pub struct Prefs {
     /// A weekly usage summary toast (off by default), and when it last went out (Unix seconds).
     pub weekly_summary: bool,
     pub last_weekly_summary: Option<u64>,
+    /// Sync with the HaryX account when signed in and unlocked. Kept on this PC only.
+    pub sync_enabled: bool,
 }
 
 impl Default for Prefs {
@@ -81,6 +83,7 @@ impl Default for Prefs {
             last_update_check: None,
             weekly_summary: false,
             last_weekly_summary: None,
+            sync_enabled: true,
         }
     }
 }

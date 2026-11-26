@@ -10,8 +10,9 @@ prompts and `--json` shapes, verified against `packages/contracts/`. Port from `
 across machines through one file. Plan: [ai-profile-plan.md](ai-profile-plan.md).
 
 ## Continue a session on another account
-When an account runs out, end its stuck Claude Code session and resume the same conversation on
-another account in one click; offered after auto-switch. Plan: [session-handoff-plan.md](session-handoff-plan.md).
+When the account of a `haryx run` session runs out, end that stuck session and resume the same
+conversation on another account in one click, in its group first. A plain `claude` session needs
+none: it picks up a switched account by itself. Plan: [session-handoff-plan.md](session-handoff-plan.md).
 
 ## Usage history
 Tokens and API-price cost by account, project, session and model, quota % over time, and a weekly

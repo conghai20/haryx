@@ -153,6 +153,14 @@ impl SessionStore {
         }
         match backend.refresh(&session.refresh_token) {
             Ok(renewed) => {
+                // The response names the account's first provider; keep the one signed in with.
+                let renewed = Session {
+                    user: User {
+                        provider: session.user.provider,
+                        ..renewed.user
+                    },
+                    ..renewed
+                };
                 // The old refresh token is spent: losing the new one would sign out on next use.
                 if let Err(first) = self.save(&renewed) {
                     log::warn!("saving the renewed HaryX session failed, retrying: {first}");
@@ -262,6 +270,27 @@ mod tests {
         assert_eq!(renewed.access_token, "at-2");
         assert_eq!(store.load().unwrap().unwrap().refresh_token, "rt-2");
         assert!(stub.requests()[0].body.contains("rt-1"));
+    }
+
+    #[test]
+    fn a_renewal_keeps_the_provider_this_machine_signed_in_with() {
+        let (_dir, store) = store();
+        let stub = Stub::start(|_| renewed_reply()); // says `github`, the account's first provider
+        let backend = Backend::new(stub.base(), "k");
+        let google = on(backend.base(), "at-1", "rt-1", NOW + 30);
+        let google = Session {
+            user: User {
+                provider: "google".into(),
+                ..google.user
+            },
+            ..google
+        };
+        store.save(&google).unwrap();
+        assert_eq!(
+            store.current(&backend, NOW).unwrap().unwrap().user.provider,
+            "google"
+        );
+        assert_eq!(store.load().unwrap().unwrap().user.provider, "google");
     }
 
     #[test]

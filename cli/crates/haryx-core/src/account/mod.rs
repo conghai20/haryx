@@ -99,7 +99,7 @@ pub fn login(
     open(&backend.authorize_url(provider, &loopback.redirect_uri(), &pkce.challenge));
     let arrival = loopback.wait(timeout)?;
     let outcome = match &arrival.callback {
-        Callback::Code(code) => finish(backend, store, code, &pkce.verifier),
+        Callback::Code(code) => finish(backend, store, provider, code, &pkce.verifier),
         Callback::Denied(reason) => Err(AccountError::Denied(reason.clone())),
     };
     // The browser waits on its page until the outcome is known.
@@ -113,10 +113,20 @@ pub fn login(
 fn finish(
     backend: &Backend,
     store: &SessionStore,
+    provider: Provider,
     code: &str,
     verifier: &str,
 ) -> Result<User, AccountError> {
     let session = backend.exchange_code(code, verifier)?;
+    // The response names the account's first provider, not the one used: linked GitHub and
+    // Google sign-ins share one account. Only this flow knows which was used.
+    let session = Session {
+        user: User {
+            provider: provider.id().to_owned(),
+            ..session.user
+        },
+        ..session
+    };
     let _lock = store.lock()?;
     store.save(&session)?;
     Ok(session.user)
@@ -237,6 +247,26 @@ mod tests {
         let challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .encode(Sha256::digest(verifier.as_bytes()));
         assert_eq!(query_param(&url, "code_challenge"), challenge);
+    }
+
+    #[test]
+    fn a_linked_sign_in_records_the_provider_used_not_the_first_one() {
+        // Supabase keeps `app_metadata.provider` as the account's first provider (GitHub here).
+        let (_dir, store) = store();
+        let stub = Stub::start(|_| Reply::json(200, SESSION));
+        let backend = Backend::new(stub.base(), "k");
+        let seen = Arc::new(Seen::default());
+        let user = login(
+            &backend,
+            &store,
+            Provider::Google,
+            Duration::from_secs(10),
+            browser("code=the-code", Arc::clone(&seen)),
+        )
+        .unwrap();
+        seen.page();
+        assert_eq!(user.provider, "google");
+        assert_eq!(store.load().unwrap().unwrap().user.provider, "google");
     }
 
     #[test]

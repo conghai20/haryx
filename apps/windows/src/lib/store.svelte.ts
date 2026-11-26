@@ -3,6 +3,7 @@
 
 import { listen } from "@tauri-apps/api/event";
 import { api } from "./api";
+import { groupOrdered } from "./groups";
 import { stuckSessions } from "./handoff";
 import { SPECIES, identityKey, mood, resolve, type Mood, type Style } from "./mascot";
 import { ordered } from "./tide";
@@ -36,7 +37,8 @@ class Store {
 
   accounts = $derived<Account[]>(ordered(this.list?.accounts ?? []));
   active = $derived<Account | null>(this.accounts.find((a) => a.active) ?? null);
-  others = $derived<Account[]>(this.accounts.filter((a) => !a.active));
+  /** The other accounts clustered by group, the active account's first, as the CLI's automatic picks prefer it. */
+  others = $derived<Account[]>(groupOrdered(this.accounts.filter((a) => !a.active), this.active));
   stuck = $derived(stuckSessions(this.sessions.sessions, this.accounts, this.leftBehind));
   /** Every account's mascot, by identity key: the same resolution the tray uses. */
   mascots = $derived<Record<string, Style>>(

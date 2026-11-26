@@ -1,6 +1,7 @@
 <script lang="ts">
   // One account in detail: usage bars, identity, and every per-account setting the CLI has.
   import { actions } from "../lib/actions";
+  import { groupNames } from "../lib/groups";
   import { store } from "../lib/store.svelte";
   import { FIVE_HOUR_S, SEVEN_DAY_S, displayName, needsRelogin, pctLabel, statusNote } from "../lib/tide";
   import { SPECIES, baseHue, speciesTitle, type Mood } from "../lib/mascot";
@@ -35,17 +36,22 @@
     draggedHue = null;
   }
 
+  /** The CLI's longest group name (`GROUP_MAX_CHARS`). */
+  const GROUP_MAX_CHARS = 32;
+
   /** The slot range macOS's Move stepper allows. */
   const SLOT_MIN = 1;
   const SLOT_MAX = 99;
 
   let alias = $state("");
+  let group = $state("");
   let threshold = $state("");
   let priority = $state("");
   let moveSlot = $state(1);
   let swapSlot = $state("");
   $effect(() => {
     alias = a.alias ?? "";
+    group = a.group ?? "";
     threshold = a.threshold != null ? String(a.threshold) : "";
     priority = "";
     moveSlot = a.number;
@@ -75,6 +81,11 @@
   async function saveAlias() {
     const value = alias.trim();
     await actions.setAlias(a, value.length > 0 ? value : null);
+  }
+
+  async function saveGroup() {
+    const value = group.trim();
+    await actions.setGroup(a, value.length > 0 ? value : null);
   }
 
   async function saveThreshold() {
@@ -168,6 +179,18 @@
   <form class="field" onsubmit={(e) => { e.preventDefault(); saveAlias(); }}>
     <label for="alias">Alias</label>
     <input id="alias" bind:value={alias} placeholder="none" maxlength="40" />
+    <button type="submit">Save</button>
+  </form>
+  <form
+    class="field"
+    title="Automatic switching tries accounts in the active account's group first. Leave empty to ungroup."
+    onsubmit={(e) => { e.preventDefault(); saveGroup(); }}
+  >
+    <label for="group">Group</label>
+    <input id="group" bind:value={group} placeholder="none" maxlength={GROUP_MAX_CHARS} list="group-names" />
+    <datalist id="group-names">
+      {#each groupNames(store.accounts) as name (name)}<option value={name}></option>{/each}
+    </datalist>
     <button type="submit">Save</button>
   </form>
   <form class="field" onsubmit={(e) => { e.preventDefault(); saveThreshold(); }}>

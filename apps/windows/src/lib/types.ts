@@ -21,6 +21,8 @@ export interface Account {
   usageStatus: string;
   usage?: { fiveHour?: UsageWindow | null; sevenDay?: UsageWindow | null } | null;
   alias?: string | null;
+  /** `haryx group`: absent when ungrouped. */
+  group?: string | null;
   disabled?: boolean | null;
   threshold?: number | null;
   loginExpiresAt?: string | null;

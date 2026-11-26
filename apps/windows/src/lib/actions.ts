@@ -26,6 +26,8 @@ export const actions = {
 
   setAlias: (a: Account, alias: string | null) =>
     store.run("Setting alias", alias ? ["alias", ref(a), alias] : ["alias", ref(a), "--unset"]),
+  setGroup: (a: Account, group: string | null) =>
+    store.run("Setting group", group ? ["group", ref(a), group] : ["group", ref(a), "--unset"]),
 
   setThreshold: (a: Account, pct: number | null) =>
     store.run("Setting threshold", pct == null ? ["threshold", ref(a), "--unset"] : ["threshold", ref(a), String(pct)]),

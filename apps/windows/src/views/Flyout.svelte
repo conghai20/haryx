@@ -6,6 +6,7 @@
   import { api } from "../lib/api";
   import { store } from "../lib/store.svelte";
   import ClaudeSetupBanner from "../components/ClaudeSetupBanner.svelte";
+  import { groupSections, groupsInUse, sharesGroup } from "../lib/groups";
   import { bestTarget, exhausted, resting } from "../lib/handoff";
   import {
     FIVE_HOUR_S,
@@ -117,8 +118,13 @@
       <span>Next in line</span><span class="num">5h</span><span class="num">7d</span><span class="num">Resets</span><span></span>
     </div>
     <div class="rows">
-      {#each store.others as a (a.number)}
+      {#each store.others as a, i (a.number)}
         {@const f = a.usage?.fiveHour}
+        {@const prev = store.others[i - 1]}
+        <!-- The list keeps switch order, so a group is named wherever the run changes. -->
+        {#if groupsInUse(store.accounts) && (!prev || !sharesGroup(a, prev))}
+          <p class="caption secondary group-row" role="heading" aria-level="3">{a.group ?? "Ungrouped"}</p>
+        {/if}
         {@const w = a.usage?.sevenDay}
         <div class="grid row-item" class:off={resting(a)}>
           <button
@@ -212,9 +218,18 @@
         <div class="menu" role="menu">
           <button role="menuitem" onclick={() => actions.terminal({ kind: "shell" })}>New shell</button>
           <button role="menuitem" onclick={() => actions.terminal({ kind: "claude" })}>Claude (active account)</button>
-          {#each store.accounts as a (a.number)}
-            <button role="menuitem" onclick={() => actions.runAs(a)}>Claude as {displayName(a)}</button>
-          {/each}
+          {#if groupsInUse(store.accounts)}
+            {#each groupSections(store.accounts) as section (section.key)}
+              <p class="caption tertiary menu-head">{section.name ?? "Ungrouped"}</p>
+              {#each section.accounts as a (a.number)}
+                <button role="menuitem" onclick={() => actions.runAs(a)}>Claude as {displayName(a)}</button>
+              {/each}
+            {/each}
+          {:else}
+            {#each store.accounts as a (a.number)}
+              <button role="menuitem" onclick={() => actions.runAs(a)}>Claude as {displayName(a)}</button>
+            {/each}
+          {/if}
           <button role="menuitem" onclick={() => terminalAction(() => actions.runInFolder(null))}>Claude in folder…</button>
           {#if store.mappings.length > 0}
             <div class="sep" role="separator"></div>
@@ -315,6 +330,10 @@
   }
   .row-item {
     border-radius: var(--radius-control);
+  }
+  .group-row {
+    margin: 6px 8px 0;
+    font-weight: 500;
   }
   .row-item:hover {
     background: color-mix(in srgb, var(--fill-strong) 50%, transparent);

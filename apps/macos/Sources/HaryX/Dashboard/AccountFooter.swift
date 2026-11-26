@@ -59,10 +59,9 @@ struct SignInMenu: View {
     var body: some View {
         Menu {
             ForEach(AccountSync.SignInProvider.allCases) { provider in
-                Button(provider.isAvailable ? "Continue with \(provider.label)" : "\(provider.label) (coming soon)") {
+                Button("Continue with \(provider.label)") {
                     sync.signIn(with: provider)
                 }
-                .disabled(!provider.isAvailable)
             }
         } label: {
             Label(title, systemImage: "person.crop.circle")

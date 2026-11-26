@@ -91,9 +91,8 @@ export function syncedAgo(iso: string | null, now: number): string {
 
 /** The ways to sign in to HaryX; the id is `haryx login --provider`. */
 export const SIGN_IN_PROVIDERS = [
-  { id: "github", label: "GitHub", available: true },
-  // Waits for its OAuth client on the hosted project.
-  { id: "google", label: "Google", available: false },
+  { id: "github", label: "GitHub" },
+  { id: "google", label: "Google" },
 ] as const;
 
 export type SignInProvider = (typeof SIGN_IN_PROVIDERS)[number]["id"];

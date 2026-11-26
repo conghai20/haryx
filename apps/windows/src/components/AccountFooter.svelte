@@ -83,9 +83,7 @@
       {#if open}
         <div class="menu" role="menu" aria-label="Sign in to HaryX">
           {#each SIGN_IN_PROVIDERS as p (p.id)}
-            <button role="menuitem" disabled={!p.available} onclick={() => signIn(p.id)}>
-              {p.available ? `Continue with ${p.label}` : `${p.label} (coming soon)`}
-            </button>
+            <button role="menuitem" onclick={() => signIn(p.id)}>Continue with {p.label}</button>
           {/each}
         </div>
       {/if}

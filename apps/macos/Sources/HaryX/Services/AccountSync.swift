@@ -30,9 +30,6 @@ final class AccountSync {
             case .google: "Google"
             }
         }
-
-        /// Google waits for its OAuth client on the hosted project.
-        var isAvailable: Bool { self == .github }
     }
 
     /// nil until first read (or with a cswap backend).
@@ -213,7 +210,7 @@ final class AccountSync {
 
     /// `haryx login --provider <id> --json`: it opens the browser and waits up to 5 minutes.
     func signIn(with provider: SignInProvider) {
-        guard let cli, loginProcess == nil, provider.isAvailable else { return }
+        guard let cli, loginProcess == nil else { return }
         signInProvider = provider
         let process = Process()
         process.executableURL = cli.executable

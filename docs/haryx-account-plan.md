@@ -10,7 +10,9 @@ same day (both migrations, the `delete-account` function).
   `server/supabase/tests/cli-e2e.sh` (the real binary as two machines against the local stack).
   Hardened after a second security review (see Lessons).
 - Phase 4: the macOS and Windows panes; the apps still need a run on real machines.
-- Not done: the Google OAuth client (task 1).
+- Google: the CLI and both apps offer it. Its OAuth client (a Google Cloud *Web application* client,
+  redirect URI `https://ygvcznwlugaxqqmlsssh.supabase.co/auth/v1/callback`) is set in the dashboard,
+  not in this repo (task 1).
 
 Built differently from the plan below:
 - No `sync.enabled` setting: whether an app syncs on its own is an app-local toggle, and the CLI
@@ -291,7 +293,7 @@ Probed with `curl`, reading the stored redirect from `auth.flow_state`.
      is 1,359 bytes, or 2,718 hex-encoded, which fits `security -i`.
    - GitHub's profile adds 11 `user_metadata` keys but barely grows the token.
    - The response carries `provider_token`, which is dropped as planned.
-   - **Google is still open**, waiting for the OAuth client (task 1).
+   - **Google works on the hosted project too** (2026-11-26), through the same flow.
 
 ## Tasks
 

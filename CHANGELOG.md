@@ -14,7 +14,7 @@ cannot be released without one. Sections, in this order, only when they have ent
 ### Added
 
 - `haryx login`, `haryx logout` and `haryx whoami` (each with `--json`): sign this machine in to a
-  HaryX account with GitHub (`--provider google` once Google is set up), for sync between machines
+  HaryX account with GitHub or Google (`--provider google`), for sync between machines
   (coming). The browser opens and returns to a HaryX page that says who signed in, or why the
   sign-in did not finish; `--no-browser` prints the link instead. The session is kept in the
   Keychain on macOS and in a private sealed file elsewhere. Claude accounts are untouched: they are
@@ -31,7 +31,7 @@ cannot be released without one. Sections, in this order, only when they have ent
   delete), automatic sync every 15 minutes and after a synced preference changes, and "On your other
   machines" in Accounts.
 - macOS and Windows apps: HaryX sign-in lives in the dashboard sidebar's footer, a dropdown of the
-  ways to sign in (GitHub; Google listed as coming soon). Signed in, the footer shows the account and
+  ways to sign in (GitHub or Google). Signed in, the footer shows the account and
   sync state, with Account & Sync and Sign Out in its menu.
 
 ## [0.1.6] - 2026-11-25

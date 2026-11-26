@@ -25,8 +25,6 @@ class Store {
   update = $state<UpdateInfo | null>(null);
   /** `haryx ai doctor`: null until read. */
   claudeSetup = $state<ClaudeSetup | null>(null);
-  /** Default-profile sessions an auto-switch left on their old account: pid → that account. */
-  leftBehind = $state<Record<number, number>>({});
   /** Folders `haryx map` ties to an account, sorted by path. */
   mappings = $state<Mapping[]>([]);
   /** An account the dashboard should select (the flyout's Info); Accounts takes and clears it. */
@@ -39,7 +37,7 @@ class Store {
   active = $derived<Account | null>(this.accounts.find((a) => a.active) ?? null);
   /** The other accounts clustered by group, the active account's first, as the CLI's automatic picks prefer it. */
   others = $derived<Account[]>(groupOrdered(this.accounts.filter((a) => !a.active), this.active));
-  stuck = $derived(stuckSessions(this.sessions.sessions, this.accounts, this.leftBehind));
+  stuck = $derived(stuckSessions(this.sessions.sessions, this.accounts));
   /** Every account's mascot, by identity key: the same resolution the tray uses. */
   mascots = $derived<Record<string, Style>>(
     resolve(this.prefs?.mascotStyles ?? {}, this.accounts.map(identityKey)),
@@ -63,13 +61,9 @@ class Store {
     });
     await listen<SessionList>("sessions", (e) => {
       this.sessions = e.payload;
-      const alive = new Set(e.payload.sessions.map((s) => s.pid));
-      const kept = Object.entries(this.leftBehind).filter(([pid]) => alive.has(Number(pid)));
-      if (kept.length !== Object.keys(this.leftBehind).length) this.leftBehind = Object.fromEntries(kept);
     });
     await listen<AutoEvent>("auto-event", (e) => {
       this.autoLog = [...this.autoLog, e.payload].slice(-AUTO_LOG_MAX);
-      if (e.payload.kind === "switch") this.noteSwitch(e.payload.fromAccount ?? this.active?.number ?? null);
       if (e.payload.kind === "started") this.autoRunning = true;
       if (e.payload.kind === "stopped" || (e.payload.kind === "error" && e.payload.notificationTitle === "Auto-switch stopped"))
         this.autoRunning = false;
@@ -116,14 +110,6 @@ class Store {
 
   async reload() {
     this.apply(await api.snapshot());
-  }
-
-  /** On an auto-switch, remember which default-profile sessions still hold the old account. */
-  noteSwitch(from: number | null) {
-    if (from == null) return;
-    const left = this.sessions.sessions.filter((s) => s.profile === "default" && s.account === from);
-    if (left.length === 0) return;
-    this.leftBehind = { ...this.leftBehind, ...Object.fromEntries(left.map((s) => [s.pid, from])) };
   }
 
   flash(text: string, error = false) {

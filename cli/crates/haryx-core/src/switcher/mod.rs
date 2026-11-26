@@ -57,6 +57,7 @@ use crate::session::{self, ProfileKeychain};
 use crate::usage_store::UsageStore;
 
 pub use add::{prompt, prompt_secret};
+pub use groups::{GroupAdded, GroupRenamed, groups_of, write_groups};
 pub use listing::{error_note, last_seen_note, sentinel_note};
 pub use login::{LoginOutcome, LoginRequest};
 pub use perform::{Provenance, SwitchOp};

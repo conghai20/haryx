@@ -37,6 +37,8 @@ export const api = {
   accountLoginCancel: () => invoke<void>("account_login_cancel"),
   accountLoginOpen: () => invoke<void>("account_login_open"),
   syncNow: () => invoke<SyncResult | null>("sync_now"),
+  /** Sync now if sync is on and this PC is signed in and unlocked; null when skipped. */
+  syncAfterChange: () => invoke<SyncResult | null>("sync_after_change"),
   syncInfo: () => invoke<SyncInfo>("sync_info"),
   updateSet: (opts: { mode?: UpdateMode; skip?: string }) =>
     invoke<void>("update_set", { mode: opts.mode ?? null, skip: opts.skip ?? null }),

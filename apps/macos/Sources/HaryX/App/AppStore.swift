@@ -136,14 +136,14 @@ final class AppStore {
     var active: Account? { accounts.first(where: \.active) }
 
     /// The other accounts in switch order: usable before signed-out before disabled, then the
-    /// active account's group first (as the CLI's automatic picks prefer it) and the other groups
+    /// accounts sharing a group with the active one first (as the CLI's automatic picks prefer them) and the other groups
     /// by name with the ungrouped last, then the most headroom first (the `best` strategy's reading).
     var nextInLine: [Account] {
         func tier(_ a: Account) -> Int { a.isDisabled ? 2 : (a.needsRelogin ? 1 : 0) }
         let active = self.active
         func group(_ a: Account) -> (Int, String) {
             if let active, a.sharesGroup(with: active) { return (0, "") }
-            return a.group == nil ? (2, "") : (1, a.groupKey)
+            return a.groupNames.isEmpty ? (2, "") : (1, a.groupKeys.min() ?? "")
         }
         return accounts.filter { !$0.active }.sorted {
             if tier($0) != tier($1) { return tier($0) < tier($1) }

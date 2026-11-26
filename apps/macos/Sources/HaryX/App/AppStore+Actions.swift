@@ -165,9 +165,50 @@ extension AppStore {
         await perform("Alias", args)
     }
 
-    func setGroup(_ a: Account, _ group: String?) async {
-        let args = group.map { ["group", ref(a), $0] } ?? ["group", ref(a), "--unset"]
-        await perform("Group", args)
+    /// Adds the account to `group`, keeping its other groups.
+    func addToGroup(_ a: Account, _ group: String) async {
+        if await perform("Group", ["group", ref(a), group]) { accountSync.syncSoon() }
+    }
+
+    /// Takes the account out of `group` only.
+    func removeFromGroup(_ a: Account, _ group: String) async {
+        if await perform("Group", ["group", ref(a), "--remove", group]) { accountSync.syncSoon() }
+    }
+
+    /// Renames a group on every account in it (a name of another group merges the two).
+    func renameGroup(_ old: String, to new: String) async {
+        if await perform("Rename Group", ["group", "--rename", old, new]) { accountSync.syncSoon() }
+    }
+
+    /// Deletes a group: every account in it leaves it; the accounts stay.
+    func deleteGroup(_ name: String) async {
+        if await perform("Delete Group", ["group", "--delete", name]) { accountSync.syncSoon() }
+    }
+
+    /// Takes the account out of all its groups.
+    func clearGroups(_ a: Account) async {
+        if await perform("Group", ["group", ref(a), "--unset"]) { accountSync.syncSoon() }
+    }
+
+    /// Adds several accounts to one group (the CLI takes one account per call), then refreshes
+    /// once. Stops at the first failure and says which account it was.
+    func addToGroup(_ accounts: [Account], _ group: String) async {
+        guard let cli else { flash(CLIError.notFound.localizedDescription, error: true); return }
+        busy = "Group"
+        defer { busy = nil }
+        var done = 0
+        for a in accounts {
+            do {
+                _ = try await cli.checked(["group", ref(a), group])
+                done += 1
+            } catch {
+                flash("\(a.displayName): \(error.localizedDescription)", error: true)
+                break
+            }
+        }
+        if done == accounts.count { flash("Group \(group): \(done) account\(done == 1 ? "" : "s")") }
+        if done > 0 { accountSync.syncSoon() }
+        await refresh()
     }
 
     func setThreshold(_ a: Account, _ pct: Double?) async {

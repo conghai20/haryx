@@ -1,83 +1,108 @@
 import HaryXCore
 import SwiftUI
 
+/// One account in detail. Sections follow how often each part is needed: who it is and its state,
+/// usage, live sessions, switching settings, then rarely used housekeeping under Advanced.
+/// Every setting saves as soon as it changes; text fields save on Return or when focus leaves.
 struct AccountInspector: View {
     @Environment(AppStore.self) private var store
     let account: Account
 
     @State private var alias = ""
     @State private var group = ""
+    /// The account the text fields were filled from, so an edit saves to it even after the selection moves.
+    @State private var loaded: Account?
+    @State private var savedAlias = ""
     @State private var thresholdOn = false
     @State private var threshold = 90.0
     @State private var priority = 0
     @State private var moveSlot = 1
     @State private var swapWith: Int?
+    @State private var showAdvanced = false
     @State private var confirmRemove = false
     @State private var confirmForce = false
+    @FocusState private var focus: InspectorField?
 
     var body: some View {
         Form {
-            MascotSection(account: account)
-
-            Section("Actions") {
-                HStack {
-                    Button("Switch") { Task { await store.switchTo(account) } }
-                        .buttonStyle(.glassProminent).disabled(account.active)
-                    Button("Force Switch…") { confirmForce = true }
-                        .help("Activate stored credentials without backing up the current login (--force)")
-                }
-                Menu("Run Claude as This Account") { TerminalMenuItems { store.runClaude(as: account, app: $0) } }
-                Button("Run Claude in Folder…") {
-                    if let dir = AppStore.chooseFolder(prompt: "Run Claude Here") { store.runClaude(as: account, folder: dir) }
-                }
-            }
-
+            InspectorHeader(account: account)
             UsageSection(account: account)
-
             WakeSection(account: account)
-
-            Section("Identity") {
-                LabeledContent("Email", value: account.email)
-                if let org = account.organizationName { LabeledContent("Organization", value: org) }
-                HStack {
-                    TextField("Alias", text: $alias, prompt: Text("letters, digits, . - _"))
-                    Button("Save") { Task { await store.setAlias(account, alias) } }
-                        .disabled(alias.isEmpty || alias == account.alias)
-                    if account.alias != nil {
-                        Button("Clear") { Task { await store.setAlias(account, nil) } }
-                    }
-                }
-                GroupField(account: account, group: $group)
+            SessionsSection(account: account)
+            switchingSection
+            advancedSection
+            Section {
+                Button("Remove Account…", role: .destructive) { confirmRemove = true }
             }
+        }
+        .formStyle(.grouped)
+        .onAppear(perform: load)
+        .onChange(of: account) { old, new in
+            if old.identityKey != new.identityKey {
+                commitText()
+                load()
+            } else {
+                syncUnfocused()
+            }
+        }
+        .onChange(of: focus) { old, _ in if old != nil { commitText() } }
+        .confirmationDialog("Remove \(account.displayName)?", isPresented: $confirmRemove) {
+            Button("Remove", role: .destructive) { Task { await store.remove(account); DashboardRouter.shared.selectedSlot = nil } }
+        } message: {
+            Text("Deletes its stored credentials and config backup. The Claude account itself is untouched.")
+        }
+        .confirmationDialog("Switch to \(account.displayName) without saving the current login?", isPresented: $confirmForce) {
+            Button("Switch Anyway", role: .destructive) { Task { await store.switchTo(account, force: true) } }
+        } message: {
+            Text("Activates the stored credentials without first backing up the current login (--force). Use it when the current login is broken.")
+        }
+    }
 
-            Section("Rotation") {
-                Toggle("Included in rotation", isOn: Binding(get: { !account.isDisabled },
-                                                              set: { on in Task { await store.setDisabled(account, !on) } }))
-                Toggle("Custom switch-away threshold", isOn: $thresholdOn)
-                if thresholdOn {
+    private var switchingSection: some View {
+        Section {
+            Toggle("Included in rotation", isOn: Binding(get: { !account.isDisabled },
+                                                          set: { on in Task { await store.setDisabled(account, !on) } }))
+            GroupField(account: account, group: $group, focus: $focus, onCommit: commitText)
+            Toggle("Custom switch-away threshold", isOn: Binding(get: { thresholdOn }, set: { on in
+                thresholdOn = on
+                Task { await store.setThreshold(account, on ? threshold : nil) }
+            }))
+            if thresholdOn {
+                LabeledContent("Switch away at") {
                     HStack {
-                        Slider(value: $threshold, in: 50...99.9, step: 0.5)
-                        Text("\(threshold, specifier: "%.1f")%").monospacedDigit().frame(width: 52)
+                        Slider(value: $threshold, in: 50...99.9, step: 0.5) { editing in
+                            if !editing { Task { await store.setThreshold(account, threshold) } }
+                        }
+                        .accessibilityValue("\(threshold, specifier: "%.1f") percent")
+                        Text("\(threshold, specifier: "%.1f")%").monospacedDigit().frame(width: 52, alignment: .trailing)
                     }
                 }
-                Button("Apply Threshold") { Task { await store.setThreshold(account, thresholdOn ? threshold : nil) } }
-                    .disabled(thresholdOn ? threshold == account.threshold : account.threshold == nil)
-                Stepper("Priority tier: \(priority)", value: $priority, in: 0...1000, step: 10)
-                HStack {
-                    Button("Apply Priority") { Task { await store.setPriority(account, priority) } }
-                        .disabled(priority == (store.priorities[account.number] ?? 0))
-                    Button("Reset") { Task { await store.setPriority(account, nil) } }
-                }
-                Text("Priority is used by the priority-consume-first strategy.").font(.caption).foregroundStyle(.secondary)
             }
+        } header: {
+            Text("Switching")
+        } footer: {
+            Text("Automatic switching tries accounts that share a group with the active one first, and moves off this account once its usage passes the threshold.")
+        }
+    }
 
-            Section("Slot") {
+    private var advancedSection: some View {
+        Section {
+            DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
+                MascotControls(account: account)
+                TextField("Alias", text: $alias, prompt: Text("none"))
+                    .focused($focus, equals: .alias)
+                    .help("A short name shown instead of the email: letters, digits, . - _")
+                    .onSubmit(commitText)
+                Stepper("Priority: \(priority == 0 ? "none" : "\(priority)")", value: $priority, in: 0...1000, step: 10) { editing in
+                    if !editing { Task { await store.setPriority(account, priority == 0 ? nil : priority) } }
+                }
+                .help("Read only by the priority-consume-first auto-switch strategy.")
                 HStack {
-                    Stepper("Move to slot \(moveSlot)", value: $moveSlot, in: 1...99)
+                    Stepper("Position in list: \(moveSlot)", value: $moveSlot, in: 1...99)
                     Button("Move") { Task { await store.move(account, to: moveSlot) } }.disabled(moveSlot == account.number)
                 }
                 HStack {
-                    Picker("Swap with", selection: $swapWith) {
+                    Picker("Swap places with", selection: $swapWith) {
                         Text("—").tag(Int?.none)
                         ForEach(store.accounts.filter { $0.number != account.number }) { Text("\($0.number): \($0.displayName)").tag(Int?.some($0.number)) }
                     }
@@ -86,99 +111,117 @@ struct AccountInspector: View {
                     }
                     .disabled(swapWith == nil)
                 }
-            }
-
-            SessionsSection(account: account)
-
-            Section {
-                Button("Remove Account…", role: .destructive) { confirmRemove = true }
+                Button("Switch Without Saving Current Login…") { confirmForce = true }
+                    .disabled(account.active)
+                    .help("Activate stored credentials without backing up the current login (--force)")
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .formStyle(.grouped)
-        .onAppear(perform: load)
-        .onChange(of: account) { load() }
-        .confirmationDialog("Remove \(account.displayName)?", isPresented: $confirmRemove) {
-            Button("Remove", role: .destructive) { Task { await store.remove(account); DashboardRouter.shared.selectedSlot = nil } }
-        } message: {
-            Text("Deletes its stored credentials and config backup. The Claude account itself is untouched.")
+    }
+
+    /// Saves a changed alias, and adds a typed group, to the account the fields were filled from.
+    private func commitText() {
+        guard let target = loaded else { return }
+        let newAlias = alias.trimmingCharacters(in: .whitespaces)
+        if newAlias != savedAlias {
+            savedAlias = newAlias
+            Task { await store.setAlias(target, newAlias.isEmpty ? nil : newAlias) }
         }
-        .confirmationDialog("Force switch to \(account.displayName)?", isPresented: $confirmForce) {
-            Button("Force Switch", role: .destructive) { Task { await store.switchTo(account, force: true) } }
-        } message: {
-            Text("Activates the stored credentials without first backing up the current login.")
+        // The group field adds one group (an account can be in several) and then empties.
+        let newGroup = group.trimmingCharacters(in: .whitespaces)
+        group = ""
+        if !newGroup.isEmpty, !target.isInGroup(newGroup) {
+            Task { await store.addToGroup(target, newGroup) }
         }
     }
 
     private func load() {
+        loaded = account
         alias = account.alias ?? ""
-        group = account.group ?? ""
+        group = ""
+        savedAlias = alias
         thresholdOn = account.threshold != nil
         threshold = account.threshold ?? store.configValue("autoswitch.threshold").flatMap { if case .number(let n) = $0 { n } else { nil } } ?? 90
         priority = store.priorities[account.number] ?? 0
         moveSlot = account.number
+        swapWith = nil
+    }
+
+    /// A refresh of the same account: take its new values, but leave a field being typed in alone.
+    private func syncUnfocused() {
+        loaded = account
+        if focus != .alias { alias = account.alias ?? ""; savedAlias = alias }
+        thresholdOn = account.threshold != nil
+        if let t = account.threshold { threshold = t }
+        moveSlot = account.number
     }
 }
 
-/// The account's group: type a new name, or pick one already in use. Automatic switching prefers
-/// the active account's group.
-private struct GroupField: View {
-    @Environment(AppStore.self) private var store
-    let account: Account
-    @Binding var group: String
-    /// The CLI's limit (`GROUP_MAX_CHARS`).
-    private static let maxLength = 32
+fileprivate enum InspectorField { case alias, group }
 
-    private var trimmed: String { group.trimmingCharacters(in: .whitespaces) }
-
-    var body: some View {
-        HStack {
-            TextField("Group", text: $group, prompt: Text("none"))
-                .onChange(of: group) { _, new in if new.count > Self.maxLength { group = String(new.prefix(Self.maxLength)) } }
-            let others = AccountGroups.names(store.accounts).filter { $0.lowercased() != trimmed.lowercased() }
-            if !others.isEmpty {
-                Menu {
-                    ForEach(others, id: \.self) { name in Button(name) { group = name } }
-                } label: { Image(systemName: "chevron.down") }
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .help("Use an existing group")
-                .accessibilityLabel("Existing groups")
-            }
-            Button("Save") { Task { await store.setGroup(account, trimmed) } }
-                .disabled(trimmed.isEmpty || trimmed == account.group)
-            if account.group != nil {
-                Button("Clear") { Task { await store.setGroup(account, nil) } }
-            }
-        }
-        .help("Automatic switching tries accounts in the active account's group first")
-    }
-}
-
-private struct MascotSection: View {
+/// Mascot, name, state, and the actions used most: Switch, Sign In Again, Run Claude.
+private struct InspectorHeader: View {
     @Environment(AppStore.self) private var store
     let account: Account
 
     var body: some View {
-        let style = store.style(for: account)
         Section {
+            HStack(spacing: 12) {
+                MascotView(style: store.style(for: account), mood: store.mood(for: account), size: 56, phase: store.phase(for: account))
+                    .help(moodCaption)
+                    .accessibilityLabel(moodCaption)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(account.displayName).font(.title3.weight(.semibold)).lineLimit(1).truncationMode(.middle)
+                    if let detail { Text(detail).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
+                    Text(stateText).font(.callout.weight(.medium)).foregroundStyle(stateColor)
+                }
+                Spacer(minLength: 0)
+            }
+            if let note = account.statusNote {
+                Label(note, systemImage: "exclamationmark.triangle.fill").foregroundStyle(Brand.warn)
+            }
             HStack {
-                Spacer()
-                MascotView(style: style, mood: store.mood(for: account), size: 112, phase: store.phase(for: account))
-                Spacer()
+                if !account.active {
+                    Button("Switch") { Task { await store.switchTo(account) } }
+                        .buttonStyle(.glassProminent)
+                        .keyboardShortcut(.return, modifiers: .command)
+                        .help("Switch to \(account.displayName) (⌘↩)")
+                }
+                if account.offersSignIn { SignInAgainButton(account: account, prominent: account.needsRelogin) }
+                Menu("Run Claude") {
+                    TerminalMenuItems { store.runClaude(as: account, app: $0) }
+                    Divider()
+                    Button("In Folder…") {
+                        if let dir = AppStore.chooseFolder(prompt: "Run Claude Here") { store.runClaude(as: account, folder: dir) }
+                    }
+                }
+                .fixedSize()
+                .help("Start Claude Code as this account in a new terminal")
+                Spacer(minLength: 0)
             }
-            Picker("Mascot", selection: Binding(get: { style.species }, set: { store.styles.set(MascotStyle(species: $0, hue: style.hue), for: account.identityKey) })) {
-                ForEach(Species.allCases) { Text($0.title).tag($0) }
-            }
-            HStack {
-                Text("Colour")
-                Slider(value: Binding(get: { style.hue ?? style.species.baseHSB.h },
-                                      set: { store.styles.set(MascotStyle(species: style.species, hue: $0), for: account.identityKey) }),
-                       in: 0...1)
-                    .tint(Color(hue: style.hue ?? style.species.baseHSB.h, saturation: 0.7, brightness: 0.9))
-                Button("Reset") { store.styles.set(nil, for: account.identityKey) }.controlSize(.small)
-            }
-            Text(moodCaption).font(.caption).foregroundStyle(.secondary)
         }
+    }
+
+    /// The email and organisation when the title is an alias; else just the organisation.
+    private var detail: String? {
+        let parts = (account.alias == nil ? [] : [account.email]) + [account.organizationName].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private var sessionCount: Int { store.sessions[account.number]?.count ?? 0 }
+
+    private var stateText: String {
+        let running = sessionCount == 0 ? nil : "\(sessionCount) session\(sessionCount == 1 ? "" : "s") running"
+        if account.active { return ["In use", running].compactMap { $0 }.joined(separator: " · ") }
+        if let running { return running }
+        if account.needsRelogin { return "Sign-in needed" }
+        if account.isDisabled { return "Out of rotation" }
+        return "Ready"
+    }
+
+    private var stateColor: Color {
+        if account.active || sessionCount > 0 { return Brand.cyanText }
+        return account.needsRelogin ? Brand.warn : .secondary
     }
 
     private var moodCaption: String {
@@ -187,8 +230,80 @@ private struct MascotSection: View {
         case .idle: "Idle."
         case .angry: "Angry: 75% or more of a quota used."
         case .tired: "Tired: 90% or more of a quota used."
-        case .sleeping: account.isDisabled ? "Sleeping: disabled from rotation." : "Sleeping: at its limit until the quota resets."
+        case .sleeping: account.isDisabled ? "Sleeping: out of rotation." : "Sleeping: at its limit until the quota resets."
         case .error: "Needs attention: \(account.statusNote ?? "check login")."
+        }
+    }
+}
+
+/// The account's groups, each with a remove button, and a field that adds one: type a name and
+/// press Return, or pick one already in use. An account can be in several groups.
+private struct GroupField: View {
+    @Environment(AppStore.self) private var store
+    let account: Account
+    @Binding var group: String
+    var focus: FocusState<InspectorField?>.Binding
+    let onCommit: () -> Void
+
+    var body: some View {
+        LabeledContent("Groups") {
+            VStack(alignment: .trailing, spacing: 6) {
+                ForEach(account.groupNames, id: \.self) { name in
+                    HStack(spacing: 6) {
+                        Text(name)
+                        Button { Task { await store.removeFromGroup(account, name) } } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(store.busy != nil)
+                        .help("Take \(account.displayName) out of \(name)")
+                        .accessibilityLabel("Remove from \(name)")
+                    }
+                }
+                HStack(spacing: 4) {
+                    TextField("Add to group", text: $group, prompt: Text(account.groupNames.isEmpty ? "none" : "add another"))
+                        .labelsHidden()
+                        .multilineTextAlignment(.trailing)
+                        .focused(focus, equals: .group)
+                        .onSubmit(onCommit)
+                        .onChange(of: group) { _, new in
+                            if new.count > AccountGroups.maxNameLength { group = String(new.prefix(AccountGroups.maxNameLength)) }
+                        }
+                    let others = AccountGroups.names(store.accounts).filter { !account.isInGroup($0) }
+                    if !others.isEmpty {
+                        Menu {
+                            ForEach(others, id: \.self) { name in Button(name) { group = name; onCommit() } }
+                        } label: { Image(systemName: "chevron.down") }
+                        .menuIndicator(.hidden)
+                        .fixedSize()
+                        .help("Add to an existing group")
+                        .accessibilityLabel("Existing groups")
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Species and colour for the account's mascot; the mascot itself shows in the header.
+private struct MascotControls: View {
+    @Environment(AppStore.self) private var store
+    let account: Account
+
+    var body: some View {
+        let style = store.style(for: account)
+        Picker("Mascot", selection: Binding(get: { style.species }, set: { store.styles.set(MascotStyle(species: $0, hue: style.hue), for: account.identityKey) })) {
+            ForEach(Species.allCases) { Text($0.title).tag($0) }
+        }
+        LabeledContent("Mascot colour") {
+            HStack {
+                Slider(value: Binding(get: { style.hue ?? style.species.baseHSB.h },
+                                      set: { store.styles.set(MascotStyle(species: style.species, hue: $0), for: account.identityKey) }),
+                       in: 0...1)
+                    .tint(Color(hue: style.hue ?? style.species.baseHSB.h, saturation: 0.7, brightness: 0.9))
+                    .accessibilityValue(style.hue == nil ? "default" : "hue \(Int((style.hue ?? 0) * 360)) degrees")
+                Button("Reset") { store.styles.set(nil, for: account.identityKey) }.controlSize(.small)
+            }
         }
     }
 }
@@ -196,27 +311,34 @@ private struct MascotSection: View {
 private struct UsageSection: View {
     let account: Account
 
+    /// The cards' pace wording, with the same threshold, so the panel never contradicts the bar's colour.
+    static func paceText(_ delta: Int) -> String {
+        if delta >= UsageWindow.paceThreshold { return "\(delta) pts ahead" }
+        if delta <= -UsageWindow.paceThreshold { return "\(-delta) pts under" }
+        return "On pace"
+    }
+
     var body: some View {
         Section("Usage") {
+            if let err = account.usageError {
+                Label(err, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(Brand.warn)
+            }
             if let u = account.usage {
                 if u.fiveHour != nil { UsageBar(label: "5-hour", window: u.fiveHour?.withPace(windowSeconds: UsageWindow.fiveHourSeconds)) }
                 UsageBar(label: "Week", window: u.sevenDay)
                 ForEach(u.scoped ?? [], id: \.name) { s in
                     UsageBar(label: s.name, window: UsageWindow(pct: s.pct, resetsAt: s.resetsAt))
                 }
-                if let w = u.sevenDay, let expected = w.expectedPct {
+                if let w = u.sevenDay, let d = w.paceDelta, let expected = w.expectedPct {
                     LabeledContent("Weekly pace") {
-                        Text(w.aheadOfPace == true ? "Ahead (expected \(Int(expected))%)" : "On track (expected \(Int(expected))%)")
-                            .foregroundStyle(w.aheadOfPace == true ? Brand.warn : .secondary)
+                        Text("\(Self.paceText(d)) (expected \(Int(expected.rounded()))%)")
+                            .foregroundStyle(w.isAheadOfPace ? Brand.warn : .secondary)
                     }
                     if let end = w.projectedExhaustionAt, w.willLastToReset == false {
                         LabeledContent("Projected run-out", value: end.formatted(date: .abbreviated, time: .shortened))
                     }
                 }
             }
-            if let note = account.statusNote { Text(note).foregroundStyle(Brand.warn) }
-            if account.offersSignIn { SignInAgainButton(account: account, prominent: account.needsRelogin) }
-            if let err = account.usageError { Text(err).font(.caption).foregroundStyle(.secondary) }
             if let exp = account.loginExpiresAt {
                 LabeledContent("Login expires", value: exp.formatted(date: .abbreviated, time: .shortened))
             }

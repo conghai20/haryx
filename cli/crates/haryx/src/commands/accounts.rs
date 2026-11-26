@@ -14,7 +14,7 @@ use haryx_core::{AI_PROG, Error};
 use serde_json::Value;
 
 use super::{CommandError, guard};
-use crate::cli::{AccountSetting, ImportSource, RunOptions};
+use crate::cli::{AccountSetting, GroupCommand, ImportSource, RunOptions};
 
 /// Open the store after the root guard, as every upstream handler does.
 fn open(debug: bool) -> Result<Switcher, CommandError> {
@@ -92,10 +92,10 @@ pub fn alias(setting: &AccountSetting, debug: bool) -> Result<(), CommandError> 
     Ok(())
 }
 
-pub fn group(setting: &AccountSetting, debug: bool) -> Result<(), CommandError> {
+pub fn group(command: &GroupCommand, debug: bool) -> Result<(), CommandError> {
     let switcher = open(debug)?;
-    match setting {
-        AccountSetting::List => {
+    match command {
+        GroupCommand::List => {
             let groups = switcher.list_groups().map_err(fail)?;
             if groups.is_empty() {
                 println!("{}", dimmed("No groups set"));
@@ -106,13 +106,41 @@ pub fn group(setting: &AccountSetting, debug: bool) -> Result<(), CommandError> 
                 println!("  {name}: {}", nums.join(", "));
             }
         }
-        AccountSetting::Unset { account } => {
+        GroupCommand::Unset { account } => {
             let num = switcher.unset_group(account).map_err(fail)?;
-            println!("{} for Account {num}", accent("Removed group"));
+            println!("{} for Account {num}", accent("Removed all groups"));
         }
-        AccountSetting::Set { account, value } => {
-            let (num, stored) = switcher.set_group(account, value).map_err(fail)?;
-            println!("{} '{stored}' for Account {num}", accent("Set group"));
+        GroupCommand::Remove { account, group } => {
+            let (num, removed) = switcher.remove_group(account, group).map_err(fail)?;
+            println!("{} Account {num} from group '{removed}'", accent("Removed"));
+        }
+        GroupCommand::Rename { old, new } => {
+            let renamed = switcher.rename_group(old, new).map_err(fail)?;
+            let n = renamed.accounts;
+            println!(
+                "{} group '{}' to '{}' on {n} account{}",
+                accent("Renamed"),
+                renamed.from,
+                renamed.to,
+                if n == 1 { "" } else { "s" }
+            );
+        }
+        GroupCommand::Delete { group } => {
+            let (name, n) = switcher.delete_group(group).map_err(fail)?;
+            println!(
+                "{} group '{name}': {n} account{} left it",
+                accent("Deleted"),
+                if n == 1 { "" } else { "s" }
+            );
+        }
+        GroupCommand::Add { account, group } => {
+            let added = switcher.add_group(account, group).map_err(fail)?;
+            let (num, name) = (&added.num, &added.group);
+            if added.added {
+                println!("{} Account {num} to group '{name}'", accent("Added"));
+            } else {
+                println!("Account {num} is already in group '{name}'");
+            }
         }
     }
     Ok(())

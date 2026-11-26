@@ -17,8 +17,10 @@ public struct Account: Decodable, Sendable, Identifiable, Hashable {
     public let usageStatus: String
     public let usage: Usage?
     public let alias: String?
-    /// `haryx group`: nil when ungrouped.
+    /// `haryx group`: the first group, nil when ungrouped. Older CLIs send only this.
     public let group: String?
+    /// Every group the account is in, in the order added (`groups` in `list --json`).
+    let groups: [String]?
     public let disabled: Bool?
     public let threshold: Double?
     public let loginExpiresAt: Date?

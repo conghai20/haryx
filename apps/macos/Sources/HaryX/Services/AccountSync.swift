@@ -5,12 +5,15 @@ import Observation
 /// The HaryX account and encrypted sync. Everything goes through the `haryx` CLI (`whoami`,
 /// `login`, `sync …`); the app never holds a HaryX token or the sync key.
 ///
-/// Sync runs at launch, every 15 minutes, and 5 s after a synced preference changes, only while
-/// signed in, unlocked and the "Sync" toggle is on. Failures are quiet: `problem` is a status line.
+/// Sync runs at launch, every 15 minutes, 5 s after a synced preference changes, and 1 s after an
+/// account's groups change, only while signed in, unlocked and the "Sync" toggle is on. Failures are quiet: `problem` is a status line.
 @MainActor @Observable
 final class AccountSync {
     static let interval: Duration = .seconds(15 * 60)
     static let debounce: Duration = .seconds(5)
+    /// After a group change: short, so it reaches other machines at once, but long enough that a
+    /// change made of several CLI calls (New Group with many accounts) syncs once.
+    static let changeDebounce: Duration = .seconds(1)
 
     enum SignIn: Equatable {
         case idle
@@ -153,6 +156,18 @@ final class AccountSync {
         if rerun {
             rerun = false
             await syncNow()
+        }
+    }
+
+    /// A synced account setting changed here (a group added, removed, renamed or deleted): sync
+    /// shortly, rather than on the 15-minute loop. Several changes in a row sync once.
+    func syncSoon() {
+        guard canSync else { return }
+        debounceTask?.cancel()
+        debounceTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.changeDebounce)
+            guard !Task.isCancelled else { return }
+            await self?.syncNow()
         }
     }
 

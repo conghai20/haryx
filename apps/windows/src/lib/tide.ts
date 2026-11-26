@@ -49,6 +49,17 @@ export interface PaceLine {
   warn: boolean;
 }
 
+/** The details panel's weekly pace: "N pts ahead", "N pts under" or "On pace", by the cards' threshold. */
+export function weeklyPace(w: UsageWindow | null | undefined, now: number): PaceLine | null {
+  // Only the CLI's expected pace: it leaves it out for the first day after a reset, when any use reads as far ahead.
+  if (w?.expectedPct == null) return null;
+  const d = paceDelta(w, SEVEN_DAY_S, now);
+  const expected = expectedPct(w, SEVEN_DAY_S, now);
+  if (d == null || expected == null) return null;
+  const head = d >= PACE_THRESHOLD ? `${d} pts ahead` : d <= -PACE_THRESHOLD ? `${-d} pts under` : "On pace";
+  return { text: `${head} (expected ${Math.round(expected)}%)`, warn: d >= PACE_THRESHOLD };
+}
+
 /** The panel's pace line: "N pts ahead of pace", "N pts under pace", "on pace", or nothing. */
 export function paceLine(w: UsageWindow | null | undefined, now: number): PaceLine | null {
   const d = paceDelta(w, FIVE_HOUR_S, now);
@@ -80,6 +91,21 @@ export function canRelogin(a: Account): boolean {
   return a.usageStatus !== "api_key" && !a.email.endsWith("@token.local");
 }
 
+/** How long before a login expires that "Sign In Again" is offered (macOS `Account.loginDue`). */
+export const LOGIN_DUE_MS = 7 * 86_400_000;
+
+/** Whether the login expires within `LOGIN_DUE_MS` of `now`; false when the expiry is unknown. */
+export function loginDue(a: Account, now: number): boolean {
+  if (!a.loginExpiresAt) return false;
+  const exp = new Date(a.loginExpiresAt).getTime();
+  return !Number.isNaN(exp) && exp - now < LOGIN_DUE_MS;
+}
+
+/** Whether to offer "Sign In Again" now (macOS `Account.offersSignIn`). */
+export function offersSignIn(a: Account, now: number): boolean {
+  return canRelogin(a) && (needsRelogin(a) || loginDue(a, now));
+}
+
 export function statusNote(a: Account): string | null {
   switch (a.usageStatus) {
     case "ok":
@@ -103,3 +129,4 @@ export function statusNote(a: Account): string | null {
 export function ordered(accounts: Account[]): Account[] {
   return [...accounts].sort((a, b) => Number(b.active) - Number(a.active));
 }
+

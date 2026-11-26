@@ -91,10 +91,10 @@ struct AccountBadges: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            if account.active { PlanBadge(text: "ACTIVE", tint: Brand.cyanText) }
+            // The account in use has its own card, and Off leads the name with a pause mark, so
+            // neither needs a badge here.
             if let plan = account.plan?.label { PlanBadge(text: plan.uppercased(), tint: .secondary) }
-            if account.isDisabled { PlanBadge(text: "OFF", tint: .gray) }
-            else if account.isExhausted { PlanBadge(text: "LIMIT", tint: .gray) }
+            if !account.isDisabled, account.isExhausted { PlanBadge(text: "LIMIT", tint: .gray) }
             if let n = store.sessions[account.number]?.count, n > 0 { RunningBadge(count: n) }
         }
     }
@@ -185,6 +185,7 @@ struct AccountContextMenu: View {
                 .disabled(store.busy != nil)
         }
         Divider()
+        GroupMenu(account: account)
         Button(account.isDisabled ? "Enable in Rotation" : "Disable in Rotation") {
             Task { await store.setDisabled(account, !account.isDisabled) }
         }

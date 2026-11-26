@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FIVE_HOUR_S, canRelogin, expectedPct, ordered, paceLine, shortName, tier } from "./tide";
+import { FIVE_HOUR_S, canRelogin, expectedPct, offersSignIn, ordered, paceLine, shortName, tier, weeklyPace } from "./tide";
 import type { Account } from "./types";
 
 const NOW = Date.parse("2026-11-24T12:00:00Z");
@@ -57,4 +57,33 @@ describe("accounts", () => {
     expect(canRelogin({ ...acct(2, false), usageStatus: "api_key" })).toBe(false);
     expect(canRelogin({ ...acct(3, false), email: "abc@token.local" })).toBe(false);
   });
+
+  it("offers Sign In Again when a re-login is needed or the login expires within a week", () => {
+    expect(offersSignIn(acct(1, false), NOW)).toBe(false);
+    expect(offersSignIn({ ...acct(2, false), usageStatus: "relogin_required" }, NOW)).toBe(true);
+    expect(offersSignIn({ ...acct(3, false), loginExpiresAt: inHours(24 * 6) }, NOW)).toBe(true);
+    expect(offersSignIn({ ...acct(4, false), loginExpiresAt: inHours(24 * 8) }, NOW)).toBe(false);
+    expect(offersSignIn({ ...acct(5, false), loginExpiresAt: "not a date" }, NOW)).toBe(false);
+    expect(offersSignIn({ ...acct(6, false), usageStatus: "api_key", loginExpiresAt: inHours(1) }, NOW)).toBe(false);
+  });
 });
+
+describe("weekly pace", () => {
+  it("reads ahead by the cards' 5-point threshold, not the CLI's 15-point flag", () => {
+    expect(weeklyPace({ pct: 32, expectedPct: 17.6, aheadOfPace: false }, NOW)).toEqual({
+      text: "14 pts ahead (expected 18%)",
+      warn: true,
+    });
+  });
+
+  it("reads under pace and on pace", () => {
+    expect(weeklyPace({ pct: 69, expectedPct: 82.6 }, NOW)).toEqual({ text: "14 pts under (expected 83%)", warn: false });
+    expect(weeklyPace({ pct: 20, expectedPct: 18 }, NOW)).toEqual({ text: "On pace (expected 18%)", warn: false });
+  });
+
+  it("says nothing without the CLI's expected pace", () => {
+    expect(weeklyPace({ pct: 20, resetsAt: inHours(100) }, NOW)).toBeNull();
+    expect(weeklyPace(null, NOW)).toBeNull();
+  });
+});
+

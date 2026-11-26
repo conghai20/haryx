@@ -24,7 +24,7 @@ nothing changes.
 |---|---|
 | Purpose | Dashboard sections, plus group-scoped switching, plus grouping in the tray and menu bar. |
 | Storage | A `group` field on the account record, next to `alias`: synced, exported, CLI-settable. |
-| Membership | One group per account. |
+| Membership | Several groups per account (changed 2026-11-26 from one: a second group replaced the first, which read as a bug). Stored as `groups`, with `group` = the first for older readers. Accounts sharing any group count as the same group. |
 | Assigning | A Group field in the inspector; collapsible sections whose collapsed state is kept per machine. |
 | Group exhausted | Fall back to the other accounts. |
 | Active account ungrouped | Prefer other ungrouped accounts ("Ungrouped" acts as a group). |

@@ -8,8 +8,8 @@ use haryx_core::PROG;
 
 use super::help::{self, p, sub_bin};
 use super::{
-    AccountSetting, AutoOptions, AutoStrategy, Command, ConfigAction, Error, Invocation,
-    LoginOptions, RunOptions,
+    AccountSetting, AutoOptions, AutoStrategy, Command, ConfigAction, Error, GroupCommand,
+    Invocation, LoginOptions, RunOptions,
 };
 
 /// Parse `rest` with the pre-dispatched parser named by `first`, or `None` when `first` is not one.
@@ -626,9 +626,10 @@ impl AliasArgs {
 #[command(
     name = "group",
     bin_name = sub_bin("group"),
-    about = "Put an account in a group, take it out, or list groups. Automatic switching \
-             (rotation, best, next-available, auto) prefers accounts in the active account's \
-             group, and leaves it only when none of them can take over.",
+    about = "Add an account to a group, take it out of one or all, rename or delete a group, or list groups. An account can \
+             be in several groups. Automatic switching (rotation, best, next-available, auto) \
+             prefers accounts sharing a group with the active account, and leaves those only \
+             when none of them can take over.",
     after_help = help::group_epilog(),
     help_template = help::HELP_TEMPLATE,
     args_override_self = true,
@@ -639,13 +640,26 @@ struct GroupArgs {
     #[arg(value_name = "NUM|EMAIL|ALIAS")]
     account: Option<String>,
 
-    /// Group name (up to 32 characters; case-insensitive, so 'work' joins 'Work').
+    /// Group to add the account to, keeping its other groups (up to 32 characters;
+    /// case-insensitive, so 'work' joins 'Work'; at most 16 groups per account).
     #[arg(value_name = "NAME")]
     group_name: Option<String>,
 
-    /// Take the account out of its group
+    /// Take the account out of this one group, keeping its others
+    #[arg(long, value_name = "NAME")]
+    remove: Option<String>,
+
+    /// Take the account out of all its groups
     #[arg(long)]
     unset: bool,
+
+    /// Rename a group on every account in it (a NEW that names another group merges the two)
+    #[arg(long, num_args = 2, value_names = ["OLD", "NEW"])]
+    rename: Option<Vec<String>>,
+
+    /// Delete a group: every account in it leaves it (the accounts stay)
+    #[arg(long, value_name = "NAME")]
+    delete: Option<String>,
 
     /// Enable debug logging
     #[arg(long)]
@@ -653,23 +667,95 @@ struct GroupArgs {
 }
 
 impl GroupArgs {
+    /// `--rename OLD NEW` and `--delete NAME`: they act on a group, not on one account.
+    fn whole_group_invocation(self) -> Result<Invocation, Error> {
+        if self.rename.is_some() && self.delete.is_some() {
+            return Err(usage_error::<Self>(
+                "--rename and --delete cannot be used together",
+            ));
+        }
+        if self.account.is_some()
+            || self.group_name.is_some()
+            || self.remove.is_some()
+            || self.unset
+        {
+            return Err(usage_error::<Self>(
+                "--rename and --delete act on a whole group: pass no account, NAME, --remove or --unset",
+            ));
+        }
+        let command = match (self.rename, self.delete) {
+            (Some(names), _) => match names.as_slice() {
+                [old, new] if !old.trim().is_empty() && !new.trim().is_empty() => {
+                    GroupCommand::Rename {
+                        old: old.clone(),
+                        new: new.clone(),
+                    }
+                }
+                _ => {
+                    return Err(usage_error::<Self>(
+                        "--rename needs OLD and NEW group names",
+                    ));
+                }
+            },
+            (None, Some(name)) if !name.trim().is_empty() => GroupCommand::Delete { group: name },
+            _ => return Err(usage_error::<Self>("--delete needs a group NAME")),
+        };
+        Ok(invocation(self.debug, Command::Group(command)))
+    }
+
     fn into_invocation(self) -> Result<Invocation, Error> {
-        let rules = SettingRules {
-            unset_takes_no_value: "--unset does not take a NAME argument",
-            unset_needs_account: "NUM|EMAIL|ALIAS is required with --unset",
-            set_needs_value: "NAME is required (or pass --unset to take the account out)",
+        let given = |v: &Option<String>| v.as_deref().is_some_and(|n| !n.trim().is_empty());
+        if self.rename.is_some() || self.delete.is_some() {
+            return self.whole_group_invocation();
+        }
+        let has_name = given(&self.group_name);
+        let has_remove = self.remove.is_some();
+        if self.unset && has_remove {
+            return Err(usage_error::<Self>(
+                "--unset and --remove cannot be used together",
+            ));
+        }
+        if self.unset && has_name {
+            return Err(usage_error::<Self>("--unset does not take a NAME argument"));
+        }
+        if has_remove && has_name {
+            return Err(usage_error::<Self>(
+                "--remove takes the group NAME itself; do not also pass NAME",
+            ));
+        }
+        let command = match self.account {
+            None if self.unset => {
+                return Err(usage_error::<Self>(
+                    "NUM|EMAIL|ALIAS is required with --unset",
+                ));
+            }
+            None if has_remove => {
+                return Err(usage_error::<Self>(
+                    "NUM|EMAIL|ALIAS is required with --remove",
+                ));
+            }
+            None => GroupCommand::List,
+            Some(account) if self.unset => GroupCommand::Unset { account },
+            Some(account) if has_remove => {
+                if !given(&self.remove) {
+                    return Err(usage_error::<Self>("--remove needs a group NAME"));
+                }
+                GroupCommand::Remove {
+                    account,
+                    group: self.remove.unwrap_or_default(),
+                }
+            }
+            Some(_) if !has_name => {
+                return Err(usage_error::<Self>(
+                    "NAME is required (or pass --remove NAME to leave one group, --unset to leave all)",
+                ));
+            }
+            Some(account) => GroupCommand::Add {
+                account,
+                group: self.group_name.unwrap_or_default(),
+            },
         };
-        let given_name = self
-            .group_name
-            .as_deref()
-            .is_some_and(|name| !name.trim().is_empty());
-        let given = ValueGiven {
-            blocks_unset: given_name,
-            satisfies_set: given_name,
-        };
-        let setting =
-            account_setting::<Self>(&rules, self.account, self.group_name, given, self.unset)?;
-        Ok(invocation(self.debug, Command::Group(setting)))
+        Ok(invocation(self.debug, Command::Group(command)))
     }
 }
 

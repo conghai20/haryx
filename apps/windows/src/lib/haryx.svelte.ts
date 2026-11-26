@@ -9,6 +9,9 @@ import { DELETE_CONFIRM, isFailure, parseCli, syncProblem, type SignInProvider, 
 import { store } from "./store.svelte";
 import type { AccountLoginEvent, CliFailure, OtherMachineAccount, SyncResult, SyncStatus, Whoami } from "./types";
 
+/** After a group change: short, but long enough that a change made of several CLI calls syncs once. */
+const SYNC_SOON_MS = 1000;
+
 type SignIn =
   | { phase: "idle" }
   | { phase: "waiting"; hasLink: boolean; browserOpened: boolean }
@@ -165,6 +168,26 @@ class HaryxAccount {
     if (isFailure(r)) return syncProblem(r).text;
     store.flash("Sync passphrase changed");
     return null;
+  }
+
+  #syncSoonTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * A synced account setting changed here (a group added, removed, renamed or deleted): sync
+   * shortly, rather than on the 15-minute loop. Several changes in a row (New Group with many
+   * accounts) sync once. Skipped quietly when sync is off, signed out or locked.
+   */
+  syncSoon() {
+    if (this.#syncSoonTimer) clearTimeout(this.#syncSoonTimer);
+    this.#syncSoonTimer = setTimeout(() => {
+      this.#syncSoonTimer = null;
+      api
+        .syncAfterChange()
+        .then((r) => r && this.#onSync({ running: false, last: r }))
+        .catch(() => {
+          // An automatic sync fails quietly; the 15-minute loop retries.
+        });
+    }, SYNC_SOON_MS);
   }
 
   async syncNow() {

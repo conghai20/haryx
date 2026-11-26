@@ -51,3 +51,56 @@ private func reading(_ number: Int, _ group: String?, five: Double, disabled: Bo
     #expect(AccountGroups.handoffTarget([from, mate, roomy], from: nil)?.number == 3, "no source: most room")
     #expect(AccountGroups.handoffTarget([from, fullMate], from: from) == nil)
 }
+
+@Test func typedGroupNamesAreTrimmedBoundedAndJoinAnExistingSpelling() throws {
+    let accounts = [try member(1, "Work"), try member(2, nil)]
+    #expect(AccountGroups.normalizedName("  work ", among: accounts) == "Work", "joins the stored spelling")
+    #expect(AccountGroups.normalizedName(" Home ", among: accounts) == "Home")
+    #expect(AccountGroups.normalizedName("   ", among: accounts) == nil)
+    #expect(AccountGroups.normalizedName(String(repeating: "x", count: 32), among: accounts) != nil)
+    #expect(AccountGroups.normalizedName(String(repeating: "x", count: 33), among: accounts) == nil)
+}
+
+@Test func sectionsCanLeaveTheActiveAccountOutAndDropEmptiedSections() throws {
+    let ordered = [try member(1, "Solo", active: true), try member(2, "Work"), try member(3, "work")]
+    let sections = AccountGroups.sections(ordered, excludingActive: true)
+    #expect(sections.map(\.name) == ["Work"], "Solo held only the active account")
+    #expect(sections[0].accounts.map(\.number) == [2, 3])
+    let withMate = AccountGroups.sections([try member(1, "Work", active: true), try member(2, "Work")], excludingActive: true)
+    #expect(withMate.map(\.name) == ["Work"])
+    #expect(withMate[0].accounts.map(\.number) == [2])
+}
+
+private func multi(_ number: Int, _ groups: [String], active: Bool = false) throws -> Account {
+    var json: [String: Any] = ["number": number, "email": "a\(number)@x.com", "active": active, "usageStatus": "ok"]
+    if let first = groups.first { json["group"] = first; json["groups"] = groups }
+    return try CSwapJSON.decoder.decode(Account.self, from: JSONSerialization.data(withJSONObject: json))
+}
+
+@Test func anAccountInSeveralGroupsSharesAnyOfThemAndShowsInEachSection() throws {
+    let a = try multi(1, ["Work", "Home"], active: true)
+    let b = try multi(2, ["home"]), c = try multi(3, ["Client"]), d = try multi(4, [])
+    #expect(a.sharesGroup(with: b))
+    #expect(!a.sharesGroup(with: c))
+    #expect(!a.sharesGroup(with: d))
+    #expect(a.groupLabel == "Work, Home")
+    #expect(d.groupLabel == "Ungrouped")
+    let sections = AccountGroups.sections([a, b, c, d])
+    #expect(sections.map(\.name) == ["Home", "Work", "Client", nil], "the active account's groups first")
+    #expect(sections[0].accounts.map(\.number) == [1, 2])
+    #expect(sections[1].accounts.map(\.number) == [1])
+    #expect(AccountGroups.names([a, b, c]) == ["Client", "Home", "Work"])
+}
+
+@Test func anOlderCLIsSingleGroupStillReads() throws {
+    let old = try member(1, "Work")
+    #expect(old.groupNames == ["Work"])
+    #expect(old.isInGroup("work"))
+}
+
+@Test func filterByGroupMatchesAnyOfAnAccountsGroups() throws {
+    let accounts = [try multi(1, ["Work", "Home"]), try multi(2, ["Home"]), try multi(3, [])]
+    #expect(AccountFilter(group: .named("work")).apply(accounts).map(\.number) == [1])
+    #expect(AccountFilter(group: .named("home")).apply(accounts).map(\.number) == [1, 2])
+    #expect(AccountFilter(group: .ungrouped).apply(accounts).map(\.number) == [3])
+}

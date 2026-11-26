@@ -6,7 +6,7 @@
   import { api } from "../lib/api";
   import { store } from "../lib/store.svelte";
   import ClaudeSetupBanner from "../components/ClaudeSetupBanner.svelte";
-  import { groupSections, groupsInUse, sharesGroup } from "../lib/groups";
+  import { accountGroups, groupLabel, groupNames, groupSections, groupsInUse, isInGroup } from "../lib/groups";
   import { bestTarget, exhausted, resting } from "../lib/handoff";
   import {
     FIVE_HOUR_S,
@@ -121,9 +121,9 @@
       {#each store.others as a, i (a.number)}
         {@const f = a.usage?.fiveHour}
         {@const prev = store.others[i - 1]}
-        <!-- The list keeps switch order, so a group is named wherever the run changes. -->
-        {#if groupsInUse(store.accounts) && (!prev || !sharesGroup(a, prev))}
-          <p class="caption secondary group-row" role="heading" aria-level="3">{a.group ?? "Ungrouped"}</p>
+        <!-- The list keeps switch order, so the groups are named wherever the run changes. -->
+        {#if groupsInUse(store.accounts) && (!prev || groupLabel(a) !== groupLabel(prev))}
+          <p class="caption secondary group-row" role="heading" aria-level="3">{groupLabel(a)}</p>
         {/if}
         {@const w = a.usage?.sevenDay}
         <div class="grid row-item" class:off={resting(a)}>
@@ -152,7 +152,7 @@
           >
         </div>
         {#if rowMenu === a.number}
-          <!-- macOS AccountActionMenu: Info, Sign In Again, Switch, Force Switch, Remove. -->
+          <!-- macOS AccountActionMenu: Info, Sign In Again, Switch, Force Switch, Group, Remove. -->
           <div class="menu row-menu" role="menu" aria-label="{displayName(a)} actions">
             <button role="menuitem" onclick={() => rowAction(() => api.openDashboard("accounts", a.number))}>Info</button>
             {#if canRelogin(a)}
@@ -162,6 +162,24 @@
             <div class="sep" role="separator"></div>
             <button role="menuitem" disabled={a.active || !!store.busy} onclick={() => rowAction(() => actions.use(a))}>Switch</button>
             <button role="menuitem" disabled={!!store.busy} onclick={() => rowAction(() => actions.use(a, true))}>Force Switch</button>
+            <div class="sep" role="separator"></div>
+            <p class="caption tertiary menu-head" aria-hidden="true">Groups</p>
+            {#each groupNames(store.accounts) as name (name)}
+              {@const member = isInGroup(a, name)}
+              <button
+                role="menuitemcheckbox"
+                aria-checked={member}
+                disabled={!!store.busy}
+                onclick={() => rowAction(() => (member ? actions.removeFromGroup(a, name) : actions.addToGroup(a, name)))}
+                >{member ? "✓ " : ""}{name}</button
+              >
+            {/each}
+            <!-- The flyout has no room for the New Group dialog: it opens the dashboard on this account,
+                 whose details panel has its Groups field. -->
+            <button role="menuitem" onclick={() => rowAction(() => api.openDashboard("accounts", a.number))}>New Group…</button>
+            {#if accountGroups(a).length > 1}
+              <button role="menuitem" disabled={!!store.busy} onclick={() => rowAction(() => actions.clearGroups(a))}>Remove from All Groups</button>
+            {/if}
             <div class="sep" role="separator"></div>
             <button role="menuitem" disabled={!!store.busy} onclick={() => rowAction(() => actions.remove(a))}>Remove…</button>
           </div>

@@ -1,9 +1,18 @@
 <script lang="ts">
   // Account cards (active first, then switch order) and an inspector for the selected one.
-  import { onMount } from "svelte";
+  import { flushSync, onMount } from "svelte";
   import { actions } from "../lib/actions";
   import { haryxAccount } from "../lib/haryx.svelte";
-  import { COLLAPSED_GROUPS_KEY, groupSections, groupsInUse } from "../lib/groups";
+  import {
+    NO_FILTER,
+    STATUS_TITLES,
+    applyFilter,
+    filterActive,
+    groupFilterFor,
+    type AccountFilter,
+    type StatusFilter,
+  } from "../lib/filter";
+  import { COLLAPSED_GROUPS_KEY, groupNames, groupSections, groupsInUse } from "../lib/groups";
   import { exhausted, resting } from "../lib/handoff";
   import { store } from "../lib/store.svelte";
   import {
@@ -17,16 +26,62 @@
     statusNote,
     tier,
   } from "../lib/tide";
+  import type { Account } from "../lib/types";
+  import AccountMenu from "../components/AccountMenu.svelte";
+  import AccountCard from "../components/AccountCard.svelte";
   import ClaudeSetupBanner from "../components/ClaudeSetupBanner.svelte";
+  import NewGroupDialog from "../components/NewGroupDialog.svelte";
+  import RenameGroupDialog from "../components/RenameGroupDialog.svelte";
   import Mascot from "../components/Mascot.svelte";
   import TideStaff from "../components/TideStaff.svelte";
   import Inspector from "./AccountInspector.svelte";
 
   let selectedNumber = $state<number | null>(null);
 
+  /**
+   * Opens the details panel on `n`, or closes it with null. Through a view transition, so the
+   * cards move and resize with the panel instead of jumping to their new places; instant under
+   * Reduce Motion or where view transitions are missing.
+   */
+  function showDetails(n: number | null) {
+    if (n === selectedNumber) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || typeof document.startViewTransition !== "function") {
+      selectedNumber = n;
+      return;
+    }
+    document.startViewTransition(() => flushSync(() => (selectedNumber = n)));
+  }
+  /** The right-click menu: which card, and where the pointer was. */
+  let menu = $state<{ account: Account; x: number; y: number } | null>(null);
+  /** The group whose … menu is open, and the one being renamed. */
+  let groupMenu = $state<string | null>(null);
+  let renaming = $state<string | null>(null);
+  /** The New Group dialog, with these accounts ticked; null while it is closed. */
+  let newGroup = $state<number[] | null>(null);
+
+  /** Elements a click may land on without closing the details panel. */
+  const KEEPS_SELECTION = ".card, aside, button, select, input, label, a, [role='menu'], dialog";
+
+  function closeOnEmptyClick(e: MouseEvent) {
+    // A group's … menu closes on any click outside its header.
+    if (!(e.target instanceof Element && e.target.closest(".group-head"))) groupMenu = null;
+    if (e.target instanceof Element && e.target.closest(KEEPS_SELECTION)) return;
+    showDetails(null);
+  }
+
+  function openMenu(e: MouseEvent, a: Account) {
+    e.preventDefault();
+    menu = { account: a, x: e.clientX, y: e.clientY };
+  }
+
   // Sections only once some account has a group; otherwise the pane is one plain grid.
   let grouped = $derived(groupsInUse(store.accounts));
-  let sections = $derived(groupSections(store.accounts));
+  let filter = $state<AccountFilter>(NO_FILTER);
+  let shown = $derived(applyFilter(store.accounts, filter));
+  let live = $derived(shown.find((a) => a.active) ?? null);
+  let sections = $derived(groupSections(shown, true));
+  let names = $derived(groupNames(store.accounts));
   let collapsed = $state<string[]>(readCollapsed());
 
   /** Collapsed sections live in this PC's storage only; unreadable storage just means none. */
@@ -56,14 +111,53 @@
   // The flyout's Info: select the account it named.
   $effect(() => {
     if (store.revealSlot == null) return;
-    selectedNumber = store.revealSlot;
+    showDetails(store.revealSlot);
     store.revealSlot = null;
   });
 </script>
 
-<div class="layout" class:with-inspector={selected}>
+<!-- A click on empty space (not on a card, a control or the details panel) closes the details
+     panel; keyboard users have its close button. -->
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+<div class="layout" class:with-inspector={selected} onclick={closeOnEmptyClick}>
   <div class="cards">
     <ClaudeSetupBanner />
+    {#if store.accounts.length > 0}
+      <div class="filters" role="group" aria-label="Filter accounts">
+        {#if grouped}
+          <label>
+            <span class="caption secondary">Group</span>
+            <select bind:value={filter.group}>
+              <option value="all">All groups</option>
+              {#each names as name (name)}<option value={groupFilterFor(name)}>{name}</option>{/each}
+              <option value="ungrouped">Ungrouped</option>
+            </select>
+          </label>
+        {/if}
+        <label>
+          <span class="caption secondary">Status</span>
+          <select bind:value={filter.status}>
+            {#each Object.entries(STATUS_TITLES) as [value, title] (value)}
+              <option value={value as StatusFilter}>{title}</option>
+            {/each}
+          </select>
+        </label>
+        {#if filterActive(filter)}
+          <span class="caption secondary" role="status">{shown.length} of {store.accounts.length} accounts</span>
+          <button class="mini" onclick={() => (filter = NO_FILTER)}>Clear</button>
+        {/if}
+      </div>
+    {/if}
+    {#if live}
+      <AccountCard
+        account={live}
+        live
+        selected={live.number === selectedNumber}
+        transitionName="account-live"
+        onselect={() => showDetails(live?.number ?? null)}
+        oncontextmenu={(e) => live && openMenu(e, live)}
+      />
+    {/if}
     {#each sections as section, i (section.key)}
       {@const isCollapsed = grouped && collapsed.includes(section.key)}
       {#if grouped}
@@ -78,65 +172,49 @@
             {section.name ?? "Ungrouped"}
             <span class="caption tertiary count">{section.accounts.length}</span>
           </button>
+          {#if section.name}
+            {@const name = section.name}
+            <button
+              class="plain group-more"
+              aria-label="{name} actions"
+              aria-haspopup="menu"
+              aria-expanded={groupMenu === name}
+              title="Rename or delete {name}"
+              onclick={() => (groupMenu = groupMenu === name ? null : name)}>⋯</button
+            >
+            {#if groupMenu === name}
+              <div class="group-menu" role="menu" aria-label="{name} actions">
+                <button role="menuitem" onclick={() => ((groupMenu = null), (renaming = name))}>Rename Group…</button>
+                <button role="menuitem" class="danger" onclick={() => ((groupMenu = null), void actions.deleteGroup(name))}
+                  >Delete Group…</button
+                >
+              </div>
+            {/if}
+          {/if}
         </h2>
       {/if}
       <div class="group-cards" id="group-{i}" hidden={isCollapsed}>
         {#each section.accounts as a (a.number)}
-          {@const five = a.usage?.fiveHour}
-          {@const week = a.usage?.sevenDay}
-          {@const pace = paceLine(five, store.now)}
-          {@const running = store.runningFor(a)}
-          <article
-            class="card"
-            class:selected={a.number === selectedNumber}
-            class:off={resting(a)}
-            aria-label={displayName(a)}
-          >
-            <button class="hit" aria-label="Inspect {displayName(a)}" onclick={() => (selectedNumber = a.number)}></button>
-            <div class="head">
-              <Mascot account={a} size={72} />
-              <div class="who">
-                <strong class="truncate">{displayName(a)}</strong>
-                <span class="caption tertiary truncate">#{a.number} · {a.email}</span>
-                <div class="badges">
-                  {#if a.active}<span class="badge live">Active</span>{/if}
-                  {#if a.plan?.label}<span class="badge">{a.plan.label}</span>{/if}
-                  {#if a.disabled}<span class="badge">Off</span>{:else if exhausted(a)}<span class="badge">Limit</span>{/if}
-                </div>
-              </div>
-            </div>
-            <div class="reading">
-              <span
-                class="display figure"
-                class:warn={tier(five, FIVE_HOUR_S, store.now) === "warn"}
-                class:limit={tier(five, FIVE_HOUR_S, store.now) === "limit"}>{pctLabel(five?.pct)}</span
-              >
-              {#if running > 0}
-                <span class="caption running"><span class="dot"></span> {running === 1 ? "running" : `${running} running`}</span>
-              {/if}
-            </div>
-            <TideStaff window={five} windowS={FIVE_HOUR_S} now={store.now} height={5} label="5-hour usage" />
-            <div class="caption line">
-              {#if pace && pace.text !== "on pace"}<span class:warn-text={pace.warn}>{pace.text}</span>{:else}&nbsp;{/if}
-            </div>
-            <div class="caption line">
-              <span class:warn-text={(week?.pct ?? 0) >= HIGH_PCT}>Week {pctLabel(week?.pct)}</span>
-              {#if week?.countdown}<span class="tertiary"> · resets in {week.countdown}</span>{/if}
-            </div>
-            <TideStaff window={week} windowS={SEVEN_DAY_S} now={store.now} height={3} label="Weekly usage" />
-            <div class="caption note">{statusNote(a) ?? ""}&nbsp;</div>
-            <div class="actions">
-              {#if needsRelogin(a)}
-                <button class="mini sign-in" onclick={() => actions.signIn(a)}>Sign In Again</button>
-              {:else if !a.active}
-                <button class="mini primary" disabled={!!store.busy} onclick={() => actions.use(a)}>Switch</button>
-              {/if}
-              <button class="mini" onclick={() => actions.runAs(a)}>Claude as this account</button>
-            </div>
-          </article>
+          <AccountCard
+            account={a}
+            selected={a.number === selectedNumber}
+            transitionName="account-{i}-{a.number}"
+            onselect={() => showDetails(a.number)}
+            oncontextmenu={(e) => openMenu(e, a)}
+          />
         {/each}
       </div>
     {:else}
+      {#if live}
+        <!-- Only the account in use matches: it is shown above. -->
+      {:else if store.accounts.length > 0}
+        <div class="empty">
+          <p>No accounts match.</p>
+          <div class="actions">
+            <button onclick={() => (filter = NO_FILTER)}>Clear filters</button>
+          </div>
+        </div>
+      {:else}
       <div class="empty">
         <p>No accounts yet.</p>
         <p class="secondary">Sign in to Claude Code, then add that login. Or sign in a new account here.</p>
@@ -145,11 +223,12 @@
           <button onclick={() => actions.signIn(null)}>Sign in an account</button>
         </div>
       </div>
+      {/if}
     {/each}
   </div>
 
   {#if selected}
-    <Inspector account={selected} onclose={() => (selectedNumber = null)} />
+    <Inspector account={selected} onclose={() => showDetails(null)} />
   {/if}
 </div>
 
@@ -176,10 +255,38 @@
   <div class="footer">
     <button onclick={() => actions.addCurrent()}>Add current login</button>
     <button onclick={() => actions.signIn(null)}>Sign in another account</button>
+    <button title="Make a group and choose its accounts" onclick={() => (newGroup = [])}>New group…</button>
   </div>
 {/if}
 
+{#if menu}
+  <AccountMenu
+    account={menu.account}
+    x={menu.x}
+    y={menu.y}
+    onclose={() => (menu = null)}
+    onnewgroup={(a) => (newGroup = [a.number])}
+  />
+{/if}
+
+{#if renaming}
+  <RenameGroupDialog name={renaming} onclose={() => (renaming = null)} />
+{/if}
+
+{#if newGroup}
+  <NewGroupDialog initial={newGroup} onclose={() => (newGroup = null)} />
+{/if}
+
 <style>
+  /* Same length and ease-out as macOS's details animation (smooth, 0.32 s). */
+  :global(::view-transition-group(*)) {
+    animation-duration: 320ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  /* The details panel slides with the cards (see showDetails). */
+  .layout > :global(aside) {
+    view-transition-name: account-details;
+  }
   .layout {
     display: grid;
     grid-template-columns: 1fr;
@@ -188,11 +295,26 @@
   .layout.with-inspector {
     grid-template-columns: 1fr minmax(300px, 380px);
   }
+  /* Fixed-width cards (as macOS CardFlow): the details panel changes how many fit in a row, never
+     how wide a card is, so opening it moves cards to the next row instead of stretching them. */
   .cards {
+    --card-width: 264px;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, min(var(--card-width), 100%));
     gap: 16px;
     align-content: start;
+  }
+  .filters {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+  .filters label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
   /* A section is a full-width row of the cards grid, and its cards share that grid's columns. */
   .group-head,
@@ -211,6 +333,41 @@
     margin: 4px 0 -4px;
     font-size: 13px;
     font-weight: 600;
+  }
+  .group-head {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .group-more {
+    padding: 2px 8px;
+    color: var(--label-2);
+  }
+  .group-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 5;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--separator);
+    border-radius: var(--radius-banner);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+    font-weight: 400;
+  }
+  .group-menu button {
+    text-align: left;
+    background: transparent;
+  }
+  .group-menu button:hover {
+    background: var(--fill);
+  }
+  .group-menu .danger {
+    color: var(--red);
   }
   .group-head button {
     display: inline-flex;
@@ -234,43 +391,6 @@
       transition: none;
     }
   }
-  .card {
-    position: relative;
-    padding: 14px;
-    border-radius: var(--radius-card);
-    background: var(--fill);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .card.selected {
-    background: var(--selected);
-  }
-  .card.off {
-    opacity: 0.6;
-  }
-  .hit {
-    position: absolute;
-    inset: 0;
-    background: transparent;
-    border-radius: var(--radius-card);
-    padding: 0;
-  }
-  .hit:hover {
-    background: transparent;
-  }
-  .head,
-  .reading,
-  .actions {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .head {
-    align-items: flex-start;
-    gap: 12px;
-  }
   .who {
     display: flex;
     flex-direction: column;
@@ -278,45 +398,12 @@
     min-width: 0;
     font-size: 13px;
   }
-  .badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 4px;
-  }
-  .reading {
-    justify-content: space-between;
-    margin: 6px 0 4px;
-  }
-  .figure {
-    font-size: 28px;
-  }
-  .figure.warn,
-  .warn-text {
-    color: var(--amber);
-  }
-  .figure.limit {
-    color: var(--red);
-  }
-  .running .dot {
-    margin-right: 3px;
-  }
-  .line {
-    margin-top: 4px;
-    min-height: 14px;
-  }
-  .note {
-    color: var(--amber);
-    margin-top: 6px;
-    min-height: 14px;
-  }
   .actions {
-    margin-top: 6px;
+    display: flex;
+    align-items: center;
     flex-wrap: wrap;
-  }
-  .sign-in {
-    background: var(--amber);
-    color: white;
+    gap: 8px;
+    margin-top: 6px;
   }
   .empty {
     grid-column: 1 / -1;

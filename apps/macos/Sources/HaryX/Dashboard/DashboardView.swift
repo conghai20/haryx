@@ -73,6 +73,20 @@ final class DashboardRouter {
     /// Accounts the next export starts with ticked, set by a card's "Export…".
     var exportSelection: Set<Int>?
 
+    /// How long the details panel takes to open or close, with the cards moving and resizing alongside.
+    static let detailsAnimation = Animation.smooth(duration: 0.32)
+
+    /// Opens the details panel on `slot`, or closes it with nil. Animated, so the cards move and
+    /// resize with the panel instead of jumping to their new places; instant under Reduce Motion.
+    func showDetails(_ slot: Int?) {
+        guard slot != selectedSlot else { return }
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            selectedSlot = slot
+        } else {
+            withAnimation(Self.detailsAnimation) { selectedSlot = slot }
+        }
+    }
+
     func select(_ slot: Int) {
         section = .accounts
         selectedSlot = slot
@@ -88,6 +102,20 @@ final class DashboardRouter {
     func export(_ slots: Set<Int>) {
         exportSelection = slots
         open(.maintenance)
+    }
+
+    /// The group being renamed (the Rename sheet is up) or about to be deleted (its confirmation is up).
+    var renamingGroup: String?
+    var deletingGroup: String?
+
+    /// Accounts the New Group sheet starts with ticked; non-nil while the sheet is up.
+    var newGroupSelection: Set<Int>?
+
+    /// Opens the Accounts pane with the New Group sheet, these accounts ticked.
+    func newGroup(_ slots: Set<Int> = []) {
+        section = .accounts
+        newGroupSelection = slots
+        DashboardWindow.shared.show()
     }
 
     /// Opens the dashboard on this account's detail inspector.
@@ -162,10 +190,10 @@ private struct AccountGrid: View {
     let accounts: [Account]
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 16)], spacing: 16) {
+        CardFlow {
             ForEach(accounts) { a in
                 AccountCard(account: a, selected: router.selectedSlot == a.number)
-                    .onTapGesture { router.selectedSlot = a.number }
+                    .onTapGesture { router.showDetails(a.number) }
             }
         }
     }
@@ -200,6 +228,16 @@ private struct GroupSection: View {
             .accessibilityLabel("\(title), \(section.accounts.count) accounts")
             .accessibilityValue(collapsed ? "Collapsed" : "Expanded")
             .accessibilityHint(collapsed ? "Shows this group's accounts" : "Hides this group's accounts")
+            .contextMenu { if let name = section.name { GroupActions(name: name) } }
+            .overlay(alignment: .trailing) {
+                if let name = section.name {
+                    Menu { GroupActions(name: name) } label: { Image(systemName: "ellipsis.circle") }
+                        .menuStyle(.button).buttonStyle(.borderless).menuIndicator(.hidden).fixedSize()
+                        .help("Rename or delete \(name)")
+                        .accessibilityLabel("\(name) actions")
+                        .offset(x: 28)
+                }
+            }
             if !collapsed { AccountGrid(accounts: section.accounts) }
         }
     }
@@ -209,6 +247,7 @@ struct AccountsPane: View {
     @Environment(AppStore.self) private var store
     @Bindable private var router = DashboardRouter.shared
     @State private var addSheet: AddAccountSheet.Mode?
+    @State private var filter = AccountFilter()
 
     var body: some View {
         ScrollView {
@@ -229,18 +268,39 @@ struct AccountsPane: View {
                 }
                 .padding(.top, 80)
             }
-            let ordered = store.active.map { [$0] + store.nextInLine } ?? store.nextInLine
-            if AccountGroups.inUse(ordered) {
-                VStack(alignment: .leading, spacing: 20) {
-                    ForEach(AccountGroups.sections(ordered)) { GroupSection(section: $0) }
+            let all = store.active.map { [$0] + store.nextInLine } ?? store.nextInLine
+            let shown = filter.pruned(for: all).apply(all)
+            if filter.isActive, !all.isEmpty {
+                FilterBar(filter: $filter, shown: shown.count, total: all.count).padding([.horizontal, .top], 20)
+            }
+            if !all.isEmpty, shown.isEmpty {
+                ContentUnavailableView {
+                    Label("No accounts match", systemImage: "line.3.horizontal.decrease.circle")
+                } actions: {
+                    Button("Clear Filters") { filter = AccountFilter() }
                 }
-                .padding(20)
+                .padding(.top, 40)
             } else {
-                AccountGrid(accounts: ordered).padding(20)
+                if let active = shown.first(where: \.active) {
+                    ActiveAccountCard(account: active, selected: router.selectedSlot == active.number)
+                        .onTapGesture { router.showDetails(active.number) }
+                        .padding([.horizontal, .top], 20)
+                }
+                if AccountGroups.inUse(all) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        ForEach(AccountGroups.sections(shown, excludingActive: true)) { GroupSection(section: $0) }
+                    }
+                    .padding(20)
+                } else {
+                    AccountGrid(accounts: shown.filter { !$0.active }).padding(20)
+                }
             }
             OtherMachineAccountsSection()
         }
-        .inspector(isPresented: Binding(get: { router.selectedSlot != nil }, set: { if !$0 { router.selectedSlot = nil } })) {
+        // A click on empty space (not on a card, whose own tap wins) closes the details panel.
+        .contentShape(.rect)
+        .onTapGesture { router.showDetails(nil) }
+        .inspector(isPresented: Binding(get: { router.selectedSlot != nil }, set: { if !$0 { router.showDetails(nil) } })) {
             if let slot = router.selectedSlot, let a = store.account(slot: slot) {
                 AccountInspector(account: a).inspectorColumnWidth(min: 300, ideal: 340, max: 420)
             } else {
@@ -257,6 +317,10 @@ struct AccountsPane: View {
                     }
                     SignInMenuSection(showsNewAccount: false)
                 } label: { Label("Add or Sign In", systemImage: "plus") }
+                FilterMenu(filter: $filter)
+                Button { router.newGroup() } label: { Label("New Group…", systemImage: "folder.badge.plus") }
+                    .help("Make a group and choose its accounts")
+                    .disabled(store.accounts.isEmpty)
                 Menu {
                     ForEach(AppStore.SwitchMode.allCases) { mode in
                         Button(mode.title) { Task { await store.switchNext(mode) } }
@@ -269,100 +333,24 @@ struct AccountsPane: View {
             }
         }
         .sheet(item: $addSheet) { AddAccountSheet(mode: $0) }
-    }
-}
-
-struct AccountCard: View {
-    @Environment(AppStore.self) private var store
-    let account: Account
-    let selected: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 12) {
-                MascotView(style: store.style(for: account), mood: store.mood(for: account), size: 72, phase: store.phase(for: account))
-                    .opacity(account.isResting ? 0.55 : 1)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(account.displayName).font(.headline).lineLimit(1)
-                    Text(([account.alias != nil ? account.email : nil, "Slot \(account.number)", account.organizationName]
-                        .compactMap { $0 }).joined(separator: " · "))
-                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                    AccountBadges(account: account)
-                }
-                Spacer(minLength: 0)
-            }
-            // Same layout for every card (usage unknown shows "—"), so cards needing a re-login are
-            // as tall as the others.
-            CardTide(account: account)
-            Text(account.statusNote ?? store.wake?.account(account.number)?.summary() ?? " ")
-                .font(.caption).foregroundStyle(account.statusNote != nil ? Brand.warn : .secondary)
-                .lineLimit(1).truncationMode(.tail)
-                .help(account.statusNote ?? "")
-            HStack {
-                if account.offersSignIn {
-                    SignInAgainButton(account: account, prominent: account.needsRelogin)
-                } else if account.active {
-                    Label("In use", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(.tint)
-                } else {
-                    Button("Switch") { Task { await store.switchTo(account) } }.buttonStyle(.glassProminent)
-                }
-                Spacer()
-                if let desktop = store.desktopAction(for: account) {
-                    Button(desktop.title, systemImage: "macwindow") { Task { await store.openDesktop(as: account) } }
-                        .buttonStyle(.glass)
-                        .disabled(store.busy != nil)
-                        .help(desktop == .setUp
-                            ? "Open Claude Desktop on \(account.email)'s own folder, to sign in once"
-                            : "Open Claude Desktop as \(account.email)")
-                }
-                Menu {
-                    TerminalMenuItems { store.runClaude(as: account, app: $0) }
-                } label: { Image(systemName: "terminal") } primaryAction: {
-                    store.runClaude(as: account)
-                }
-                .menuStyle(.button).buttonStyle(.glass).fixedSize()
-                .help("Run Claude as this account in a new terminal")
-            }
-            .controlSize(.small)
+        .sheet(isPresented: Binding(get: { router.renamingGroup != nil },
+                                    set: { if !$0 { router.renamingGroup = nil } })) {
+            if let name = router.renamingGroup { RenameGroupSheet(name: name) }
         }
-        .padding(14)
-        .frame(maxHeight: .infinity, alignment: .top)
-        .background(selected ? AnyShapeStyle(Color.accentColor.opacity(0.18)) : AnyShapeStyle(.fill.quaternary),
-                    in: .rect(cornerRadius: 16))
-        // The whole rounded card is clickable, padding and empty space included (not only its views).
-        .contentShape(.rect(cornerRadius: 16))
-        .contextMenu { AccountContextMenu(account: account) }
-    }
-}
-
-/// The card's tide reading: the 5-hour % large, its reset, the staff, and the week.
-private struct CardTide: View {
-    let account: Account
-
-    var body: some View {
-        let five = account.usage?.fiveHour?.withPace(windowSeconds: UsageWindow.fiveHourSeconds)
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .lastTextBaseline) {
-                Text(five?.pct.map { "\(Int($0))%" } ?? "—")
-                    .font(Brand.display(28, relativeTo: .title).monospacedDigit())
-                    .foregroundStyle(five?.pct == nil ? .tertiary : .primary)
-                Text("5-hour").font(.caption).foregroundStyle(.secondary)
-                Spacer()
-                if let clock = five?.clock {
-                    Text("resets \(clock)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                }
+        .confirmationDialog("Delete group \(router.deletingGroup ?? "")?",
+                            isPresented: Binding(get: { router.deletingGroup != nil },
+                                                 set: { if !$0 { router.deletingGroup = nil } })) {
+            Button("Delete Group", role: .destructive) {
+                if let name = router.deletingGroup { Task { await store.deleteGroup(name) } }
             }
-            TideStaff(window: five, height: 5)
-            HStack {
-                if let d = five?.paceDelta, abs(d) >= UsageWindow.paceThreshold {
-                    Text(d > 0 ? "\(d) pts ahead of pace" : "\(-d) pts under pace")
-                        .foregroundStyle(d > 0 ? Brand.warn : .secondary)
-                }
-                Spacer()
-            }
-            .font(.caption)
-            WeekStaff(window: account.usage?.sevenDay)
+        } message: {
+            let n = store.accounts.filter { $0.isInGroup(router.deletingGroup ?? "") }.count
+            Text("Removes the group from \(n) account\(n == 1 ? "" : "s"). The accounts stay, in their other groups or Ungrouped.")
         }
-        .accessibilityElement(children: .combine)
+        .sheet(isPresented: Binding(get: { router.newGroupSelection != nil },
+                                    set: { if !$0 { router.newGroupSelection = nil } })) {
+            NewGroupSheet(initial: router.newGroupSelection ?? [])
+        }
     }
 }
+

@@ -457,7 +457,7 @@ impl Switcher {
                     last_error: entry.last_error.as_deref(),
                     backoff_until: entry.backoff_until.filter(|_| entry.in_backoff(now)),
                     alias: &info.alias,
-                    group: groups::group_of(&seq, &n),
+                    groups: &groups::groups_of_slot(&seq, &n),
                     disabled: Self::disabled_from_data(&seq, &n),
                     policy: Self::policy_from_data(&seq, &n),
                     login_expires_at: login.as_deref(),
@@ -544,9 +544,10 @@ impl Switcher {
                 format!("{} ({})", accent(&info.alias), info.email)
             };
             let mut markers = String::new();
-            let group = groups::group_of(&seq, &n);
-            if !group.is_empty() {
-                markers.push_str(&format!(" {}", muted(&format!("[{group}]"))));
+            let account_groups = groups::groups_of_slot(&seq, &n);
+            if !account_groups.is_empty() {
+                let shown = account_groups.join(", ");
+                markers.push_str(&format!(" {}", muted(&format!("[{shown}]"))));
             }
             if info.is_active {
                 markers.push_str(&format!(" {}", bold_accent("(active)")));

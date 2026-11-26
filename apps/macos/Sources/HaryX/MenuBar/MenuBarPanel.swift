@@ -208,10 +208,10 @@ private struct NextInLine: View {
                 .accessibilityHidden(true)
                 let grouped = AccountGroups.inUse(accounts)
                 ForEach(Array(accounts.enumerated()), id: \.element.number) { i, a in
-                    // The list keeps switch order, so a group is named wherever the run changes.
-                    if grouped, i == 0 || !a.sharesGroup(with: accounts[i - 1]) {
+                    // The list keeps switch order, so the groups are named wherever the run changes.
+                    if grouped, i == 0 || a.groupLabel != accounts[i - 1].groupLabel {
                         GridRow {
-                            Text(a.group ?? "Ungrouped")
+                            Text(a.groupLabel)
                                 .font(.caption2.weight(.medium)).foregroundStyle(.secondary)
                                 .gridCellColumns(5)
                                 .padding(.top, i == 0 ? 0 : 4)

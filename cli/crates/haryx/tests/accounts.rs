@@ -100,23 +100,107 @@ fn alias_set_list_and_unset() {
 }
 
 #[test]
-fn group_set_list_join_and_unset() {
+fn group_rename_and_delete_act_on_every_account_in_the_group() {
+    let s = Sandbox::new();
+    assert_eq!(s.run(&["group", "1", "Work"]).code, 0);
+    assert_eq!(s.run(&["group", "2", "Work"]).code, 0);
+    assert_eq!(s.run(&["group", "2", "Home"]).code, 0);
+
+    let renamed = s.run(&["group", "--rename", "work", "Office"]);
+    assert_eq!(renamed.code, 0, "{}", renamed.err);
+    assert_eq!(
+        renamed.out,
+        "Renamed group 'Work' to 'Office' on 2 accounts\n"
+    );
+    assert_eq!(
+        s.roster()["accounts"]["2"]["groups"],
+        json!(["Office", "Home"])
+    );
+
+    let deleted = s.run(&["group", "--delete", "Office"]);
+    assert_eq!(deleted.code, 0, "{}", deleted.err);
+    assert_eq!(deleted.out, "Deleted group 'Office': 2 accounts left it\n");
+    assert_eq!(s.run(&["group"]).out, "Groups:\n  Home: 2\n");
+
+    assert_eq!(s.run(&["group", "--delete", "Office"]).code, 1);
+    assert_eq!(
+        s.run(&["group", "1", "--delete", "Home"]).code,
+        2,
+        "no account with --delete"
+    );
+    assert_eq!(
+        s.run(&["group", "--rename", "Home"]).code,
+        2,
+        "--rename needs two names"
+    );
+    assert_eq!(
+        s.run(&["group", "--rename", "A", "B", "--delete", "C"])
+            .code,
+        2
+    );
+}
+
+#[test]
+fn group_add_list_join_remove_and_unset() {
     let s = Sandbox::new();
     let set = s.run(&["group", "1", " Client A "]);
     assert_eq!(set.code, 0, "{}", set.err);
-    assert_eq!(set.out, "Set group 'Client A' for Account 1\n");
+    assert_eq!(set.out, "Added Account 1 to group 'Client A'\n");
     let join = s.run(&["group", "account2@example.com", "client a"]);
-    assert_eq!(join.out, "Set group 'Client A' for Account 2\n");
+    assert_eq!(join.out, "Added Account 2 to group 'Client A'\n");
     assert_eq!(s.roster()["accounts"]["2"]["group"], "Client A");
-    assert_eq!(s.run(&["group"]).out, "Groups:\n  Client A: 1, 2\n");
+
+    // A second group adds; it does not replace the first.
+    let second = s.run(&["group", "1", "Work"]);
+    assert_eq!(second.out, "Added Account 1 to group 'Work'\n");
+    assert_eq!(
+        s.roster()["accounts"]["1"]["groups"],
+        json!(["Client A", "Work"])
+    );
+    assert_eq!(s.roster()["accounts"]["1"]["group"], "Client A");
+    let again = s.run(&["group", "1", "WORK"]);
+    assert_eq!(again.code, 0, "{}", again.err);
+    assert_eq!(again.out, "Account 1 is already in group 'Work'\n");
+    assert_eq!(
+        s.run(&["group"]).out,
+        "Groups:\n  Client A: 1, 2\n  Work: 1\n"
+    );
 
     let listed = s.run(&["list", "--json"]);
     let payload: Value = serde_json::from_str(&listed.out).unwrap();
     assert_eq!(payload["accounts"][0]["group"], "Client A");
+    assert_eq!(
+        payload["accounts"][0]["groups"],
+        json!(["Client A", "Work"])
+    );
+    assert_eq!(payload["accounts"][1]["groups"], json!(["Client A"]));
+    let plain = s.run(&["list"]).out;
+    assert!(plain.contains("[Client A, Work]"), "{plain}");
+
+    let removed = s.run(&["group", "1", "--remove", "client a"]);
+    assert_eq!(removed.code, 0, "{}", removed.err);
+    assert_eq!(removed.out, "Removed Account 1 from group 'Client A'\n");
+    assert_eq!(s.roster()["accounts"]["1"]["groups"], json!(["Work"]));
+    assert_eq!(s.roster()["accounts"]["1"]["group"], "Work");
+    let not_member = s.run(&["group", "1", "--remove", "Client A"]);
+    assert_eq!(not_member.code, 1);
+    assert!(
+        not_member.err.contains("not in group 'Client A'"),
+        "{}",
+        not_member.err
+    );
 
     let unset = s.run(&["group", "2", "--unset"]);
-    assert_eq!(unset.out, "Removed group for Account 2\n");
-    assert!(s.roster()["accounts"]["2"].get("group").is_none());
+    assert_eq!(unset.out, "Removed all groups for Account 2\n");
+    let rec = &s.roster()["accounts"]["2"];
+    assert!(
+        rec.get("group").is_none() && rec.get("groups").is_none(),
+        "{rec}"
+    );
+    let listed = s.run(&["list", "--json"]);
+    let payload: Value = serde_json::from_str(&listed.out).unwrap();
+    assert!(payload["accounts"][1].get("group").is_none());
+    assert!(payload["accounts"][1].get("groups").is_none());
 
     let long = s.run(&["group", "1", &"x".repeat(33)]);
     assert_eq!(long.code, 1);
@@ -124,8 +208,10 @@ fn group_set_list_join_and_unset() {
     assert_eq!(
         s.run(&["group", "1"]).code,
         2,
-        "a name or --unset is required"
+        "a name, --remove or --unset is required"
     );
+    assert_eq!(s.run(&["group", "1", "A", "--remove", "B"]).code, 2);
+    assert_eq!(s.run(&["group", "1", "--unset", "--remove", "B"]).code, 2);
 }
 
 #[test]
@@ -588,15 +674,21 @@ fn import_from_cswap_copies_accounts_and_settings() {
 
     // Round trip through an export file: everything already present is skipped.
     assert_eq!(s.run(&["group", "1", "Work"]).code, 0);
+    assert_eq!(s.run(&["group", "1", "Home"]).code, 0);
     let file = s.dir.path().join("backup.json");
     assert_eq!(s.run(&["export", file.to_str().unwrap()]).code, 0);
     let exported: Value = serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
     assert_eq!(exported["accounts"][0]["group"], "Work");
+    assert_eq!(exported["accounts"][0]["groups"], json!(["Work", "Home"]));
     let fresh = Sandbox::new();
     std::fs::remove_file(fresh.store().join("sequence.json")).unwrap();
     let imported = fresh.run(&["import", file.to_str().unwrap()]);
     assert_eq!(imported.code, 0, "{}", imported.err);
     assert_eq!(fresh.roster()["accounts"]["1"]["group"], "Work");
+    assert_eq!(
+        fresh.roster()["accounts"]["1"]["groups"],
+        json!(["Work", "Home"])
+    );
     let again = s.run(&["import", file.to_str().unwrap()]);
     assert!(
         again

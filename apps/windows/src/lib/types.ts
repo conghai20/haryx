@@ -21,8 +21,10 @@ export interface Account {
   usageStatus: string;
   usage?: { fiveHour?: UsageWindow | null; sevenDay?: UsageWindow | null } | null;
   alias?: string | null;
-  /** `haryx group`: absent when ungrouped. */
+  /** `haryx group`: the first group, absent when ungrouped. Older CLIs send only this. */
   group?: string | null;
+  /** Every group the account is in, in the order added; absent when ungrouped. */
+  groups?: string[] | null;
   disabled?: boolean | null;
   threshold?: number | null;
   loginExpiresAt?: string | null;

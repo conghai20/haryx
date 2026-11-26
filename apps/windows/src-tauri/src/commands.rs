@@ -434,6 +434,18 @@ pub async fn sync_now(app: AppHandle) -> Result<Value, String> {
     .map_err(|e| e.to_string())
 }
 
+/// Sync after a synced account setting changed here (a group added, removed, renamed or deleted),
+/// as the automatic sync does: only when sync is on and this PC is signed in and unlocked, and
+/// quietly skipped otherwise or while another sync runs (the 15-minute loop picks the change up).
+#[tauri::command]
+pub async fn sync_after_change(app: AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::sync::run(&app, true).unwrap_or(Value::Null)
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// Whether a sync is running, and the last one's outcome.
 #[tauri::command]
 pub fn sync_info(syncer: State<'_, crate::sync::Syncer>) -> Value {

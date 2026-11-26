@@ -91,6 +91,7 @@ pub fn run() {
             commands::account_login_cancel,
             commands::account_login_open,
             commands::sync_now,
+            commands::sync_after_change,
             commands::sync_info,
         ])
         .build(tauri::generate_context!())

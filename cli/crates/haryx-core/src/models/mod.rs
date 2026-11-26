@@ -73,6 +73,28 @@ pub fn normalize_group(name: &str) -> Result<String> {
     Ok(trimmed.to_owned())
 }
 
+/// Most groups one account can be in.
+pub const GROUPS_MAX: usize = 16;
+
+/// Normalize a list of group names: each through [`normalize_group`], duplicates (ignoring case)
+/// dropped keeping the first, order kept. More than [`GROUPS_MAX`] distinct names is an error.
+pub fn normalize_groups<'a>(names: impl IntoIterator<Item = &'a str>) -> Result<Vec<String>> {
+    let mut out: Vec<String> = Vec::new();
+    for name in names {
+        let group = normalize_group(name)?;
+        if !out.iter().any(|g| g.to_lowercase() == group.to_lowercase()) {
+            out.push(group);
+        }
+    }
+    if out.len() > GROUPS_MAX {
+        return Err(invalid(format!(
+            "an account can be in at most {GROUPS_MAX} groups, got {}",
+            out.len()
+        )));
+    }
+    Ok(out)
+}
+
 fn invalid(message: String) -> Error {
     Error::Validation(message)
 }

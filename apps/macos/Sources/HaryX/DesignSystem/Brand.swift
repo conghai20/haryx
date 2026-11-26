@@ -213,7 +213,6 @@ extension UsageWindow {
     static let fiveHourSeconds: TimeInterval = 5 * 3600
     static let sevenDaySeconds: TimeInterval = 7 * 24 * 3600
 
-    /// Points ahead (+) or behind (−) the expected pace, when both are known.
     /// Ahead by at least ``UsageWindow/paceThreshold`` points, else the CLI's own verdict.
     var isAheadOfPace: Bool {
         if let d = paceDelta { return d >= Self.paceThreshold }
@@ -223,6 +222,7 @@ extension UsageWindow {
     /// Points from the pace that count as off it: smaller drifts read "on pace".
     static let paceThreshold = 5
 
+    /// Points ahead (+) or behind (−) the expected pace, when both are known.
     var paceDelta: Int? {
         guard let pct, let expectedPct else { return nil }
         return Int((pct - expectedPct).rounded())

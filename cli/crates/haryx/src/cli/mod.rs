@@ -133,8 +133,8 @@ pub enum Command {
     Unclaimed { purge: Option<String> },
     /// `alias [NUM|EMAIL] [NAME] [--unset]`.
     Alias(AccountSetting),
-    /// `group [NUM|EMAIL|ALIAS] [NAME] [--unset]`.
-    Group(AccountSetting),
+    /// `group [NUM|EMAIL|ALIAS] [NAME] [--remove NAME] [--unset]`.
+    Group(GroupCommand),
     /// `threshold [NUM|EMAIL] [PCT] [--unset]`. The value is validated in core.
     Threshold(AccountSetting),
     /// `priority [NUM|EMAIL|ALIAS] [TIER] [--unset]`. The value is validated in core.
@@ -248,6 +248,23 @@ pub enum AccountSetting {
     List,
     Set { account: String, value: String },
     Unset { account: String },
+}
+
+/// `group`: an account can be in several groups, so a name is added or removed, not set.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GroupCommand {
+    /// No account: list groups and their accounts.
+    List,
+    /// `group ACCOUNT NAME`: add the account to NAME (already in it is fine).
+    Add { account: String, group: String },
+    /// `group ACCOUNT --remove NAME`: take it out of NAME only.
+    Remove { account: String, group: String },
+    /// `group ACCOUNT --unset`: take it out of every group.
+    Unset { account: String },
+    /// `group --rename OLD NEW`: rename a group on every account in it.
+    Rename { old: String, new: String },
+    /// `group --delete NAME`: every account in NAME leaves it.
+    Delete { group: String },
 }
 
 impl Command {

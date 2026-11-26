@@ -44,3 +44,7 @@ The Rust CLI targets macOS, Linux and Windows, but these parts are macOS/Linux-s
 
 All five are built (2026-11-24), together with the Windows tray app on top; see
 [windows-app-plan.md](windows-app-plan.md) for what changed from the plan and what is still open.
+
+Open Windows app gap: the account details panel has no per-account Wake toggle (macOS shows one
+under Usage). Wake is set per account in the Windows Wake pane until the panel reads the wake
+state too.

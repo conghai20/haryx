@@ -93,7 +93,8 @@ Commands:
   {ai} threshold                  list the global default and overrides
   {ai} priority <num|email> <tier>  set priority (higher first; default 0)
   {ai} priority                   list account priorities
-  {ai} group <num|email> <name>   put an account in a group
+  {ai} group <num|email> <name>   add an account to a group (it can be in several)
+  {ai} group <num|email> --remove <name>  take it out of that group
   {ai} group                      list groups
   {ai} run <num|email> [-- ...]   run as an account, this terminal only
   {ai} run                        run the current dir's mapped account
@@ -195,9 +196,13 @@ pub fn alias_epilog() -> String {
 
 pub fn group_epilog() -> String {
     p("Examples:
-  {ai} group 2 \"Client A\"
+  {ai} group 2 \"Client A\"         # add Account 2 to 'Client A'
+  {ai} group 2 Work                # ...and to 'Work': an account can be in several
   {ai} group dev work              # 'work' joins an existing 'Work'
-  {ai} group 2 --unset
+  {ai} group 2 --remove \"Client A\" # leave one group, keep the others
+  {ai} group 2 --unset             # leave every group
+  {ai} group --rename Work Office  # rename a group on every account in it
+  {ai} group --delete \"Client A\"  # every account leaves it; the accounts stay
   {ai} group                       # list groups and their accounts")
 }
 

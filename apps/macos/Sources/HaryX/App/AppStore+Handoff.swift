@@ -15,7 +15,7 @@ struct StuckSession: Identifiable, Hashable {
 extension AppStore {
     /// Whether an account has no headroom left.
     func isExhausted(_ number: Int) -> Bool {
-        (account(slot: number)?.peakPct ?? 0) >= 100
+        account(slot: number)?.isExhausted ?? false
     }
 
     /// Sessions to offer a handoff for: session-mode runs on an exhausted account, default-profile

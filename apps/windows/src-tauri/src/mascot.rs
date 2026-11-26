@@ -135,8 +135,8 @@ pub enum Mood {
     Error,
 }
 
-/// macOS `AppStore.mood(for:)`: held out of rotation → sleeping, signed out → error, a Claude
-/// session on it → running, 90% or more of a quota → tired.
+/// macOS `Mood.of`: held out of rotation → sleeping, signed out → error, at its limit → sleeping, a
+/// Claude session on it → running, 90% or more of a quota → tired.
 pub fn mood(account: &Account, running: bool) -> Mood {
     let peak = account
         .usage
@@ -151,6 +151,8 @@ pub fn mood(account: &Account, running: bool) -> Mood {
         "relogin_required" | "no_credentials" | "foreign_credential"
     ) {
         Mood::Error
+    } else if peak >= 100.0 {
+        Mood::Sleeping
     } else if running {
         Mood::Running
     } else if peak >= 90.0 {
@@ -443,6 +445,15 @@ mod tests {
                 true
             ),
             Mood::Sleeping
+        );
+        let full = r#","usage":{"fiveHour":{"pct":100},"sevenDay":{"pct":40}}"#;
+        assert_eq!(mood(&a(full), true), Mood::Sleeping);
+        assert_eq!(
+            mood(
+                &a(&format!(r#"{full},"usageStatus":"relogin_required""#)),
+                false
+            ),
+            Mood::Error
         );
     }
 

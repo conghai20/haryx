@@ -231,7 +231,7 @@ struct AccountCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 12) {
                 MascotView(style: store.style(for: account), mood: store.mood(for: account), size: 72, phase: store.phase(for: account))
-                    .opacity(account.isDisabled ? 0.55 : 1)
+                    .opacity(account.isResting ? 0.55 : 1)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(account.displayName).font(.headline).lineLimit(1)
                     Text(([account.alias != nil ? account.email : nil, "Slot \(account.number)", account.organizationName]

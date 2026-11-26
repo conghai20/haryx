@@ -38,6 +38,19 @@ func account(_ base: Account, five: Double?, seven: Double? = nil, active: Bool 
     #expect(list.accounts[1].peakPct == 88)
 }
 
+@Test func anAccountAtItsLimitRestsAndItsMascotSleeps() throws {
+    let list = try decodeFixture()
+    let full = try account(list.accounts[0], five: 100, seven: 40)
+    #expect(full.isExhausted && full.isResting && !full.isDisabled)
+    #expect(Mood.of(full, running: true) == .sleeping)
+    let tired = try account(list.accounts[0], five: 92)
+    #expect(!tired.isResting)
+    #expect(Mood.of(tired, running: false) == .tired)
+    #expect(Mood.of(tired, running: true) == .running)
+    #expect(list.accounts[2].isResting)
+    #expect(Mood.of(list.accounts[2], running: true) == .sleeping)
+}
+
 @Test(arguments: ["2026-11-25T11:00:00.497815+00:00", "2026-12-14T03:30:48Z", "2026-11-20T15:29:59.9+00:00"])
 func parsesCswapDates(_ raw: String) {
     #expect(CSwapJSON.parseDate(raw) != nil)

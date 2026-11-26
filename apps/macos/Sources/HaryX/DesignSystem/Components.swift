@@ -94,6 +94,7 @@ struct AccountBadges: View {
             if account.active { PlanBadge(text: "ACTIVE", tint: Brand.cyanText) }
             if let plan = account.plan?.label { PlanBadge(text: plan.uppercased(), tint: .secondary) }
             if account.isDisabled { PlanBadge(text: "OFF", tint: .gray) }
+            else if account.isExhausted { PlanBadge(text: "LIMIT", tint: .gray) }
             if let n = store.sessions[account.number]?.count, n > 0 { RunningBadge(count: n) }
         }
     }

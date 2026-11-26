@@ -6,7 +6,7 @@
   import { api } from "../lib/api";
   import { store } from "../lib/store.svelte";
   import ClaudeSetupBanner from "../components/ClaudeSetupBanner.svelte";
-  import { bestTarget } from "../lib/handoff";
+  import { bestTarget, exhausted, resting } from "../lib/handoff";
   import {
     FIVE_HOUR_S,
     HIGH_PCT,
@@ -120,7 +120,7 @@
       {#each store.others as a (a.number)}
         {@const f = a.usage?.fiveHour}
         {@const w = a.usage?.sevenDay}
-        <div class="grid row-item" class:off={a.disabled}>
+        <div class="grid row-item" class:off={resting(a)}>
           <button
             class="identity plain"
             title={a.email}
@@ -137,7 +137,13 @@
           <span class="num" class:warn-text={(f?.pct ?? 0) >= HIGH_PCT}>{pctLabel(f?.pct)}</span>
           <span class="num" class:warn-text={(w?.pct ?? 0) >= HIGH_PCT}>{pctLabel(w?.pct)}</span>
           <span class="num tertiary">{f?.clock ?? f?.countdown ?? ""}</span>
-          <button class="mini" disabled={!!store.busy} onclick={() => actions.use(a)} aria-label="Use {displayName(a)}">Use</button>
+          <button
+            class="mini"
+            disabled={!!store.busy || resting(a)}
+            title={exhausted(a) ? `${displayName(a)} is at its limit` : undefined}
+            onclick={() => actions.use(a)}
+            aria-label="Use {displayName(a)}">Use</button
+          >
         </div>
         {#if rowMenu === a.number}
           <!-- macOS AccountActionMenu: Info, Sign In Again, Switch, Force Switch, Remove. -->

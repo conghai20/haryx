@@ -4,7 +4,7 @@
 // and the cards always show the same mascot.
 
 import sheet from "../../../../packages/mascots/sprites.json";
-import { peakPct } from "./handoff";
+import { exhausted, peakPct } from "./handoff";
 import { needsRelogin } from "./tide";
 import type { Account, MascotStyle } from "./types";
 
@@ -76,10 +76,14 @@ export function resolve(saved: Record<string, MascotStyle>, keys: string[]): Rec
   return result;
 }
 
-/** macOS `mood(for:)`: held out → sleeping, signed out → error, running a session → running, ≥ 90% → tired. */
+/**
+ * macOS `Mood.of`: held out → sleeping, signed out → error, at its limit → sleeping, running a
+ * session → running, ≥ 90% → tired.
+ */
 export function mood(a: Account, running: boolean): Mood {
   if (a.disabled) return "sleeping";
   if (needsRelogin(a)) return "error";
+  if (exhausted(a)) return "sleeping";
   if (running) return "running";
   if ((peakPct(a) ?? 0) >= 90) return "tired";
   return "idle";

@@ -24,7 +24,8 @@
   };
   let moodCaption = $derived.by(() => {
     const mood = store.moodFor(a);
-    return mood === "error" ? `Needs attention: ${statusNote(a) ?? "check login"}.` : moodCaptions[mood];
+    if (mood === "error") return `Needs attention: ${statusNote(a) ?? "check login"}.`;
+    return mood === "sleeping" && !a.disabled ? "Sleeping: at its limit until the quota resets." : moodCaptions[mood];
   });
 
   async function saveHue() {

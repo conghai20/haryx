@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fixture from "./mascot.fixture.json";
 import { CANVAS, SPECIES, identityKey, mood, phase, pixels, poseAt, resolve, stableHash, stillPose, type Mood } from "./mascot";
+import { resting } from "./handoff";
 import type { Account, MascotStyle } from "./types";
 
 const account = (extra: Partial<Account> = {}): Account => ({
@@ -65,6 +66,15 @@ describe("mood", () => {
     expect(mood(account(tired), true)).toBe("running");
     expect(mood(account({ usageStatus: "foreign_credential" }), true)).toBe("error");
     expect(mood(account({ usageStatus: "relogin_required", disabled: true }), true)).toBe("sleeping");
+  });
+
+  it("sleeps at the limit, unless a sign-in problem needs attention", () => {
+    const full = { usage: { fiveHour: { pct: 40 }, sevenDay: { pct: 100 } } };
+    expect(mood(account(full), true)).toBe("sleeping");
+    expect(mood(account({ ...full, usageStatus: "relogin_required" }), false)).toBe("error");
+    expect(resting(account(full))).toBe(true);
+    expect(resting(account({ disabled: true }))).toBe(true);
+    expect(resting(account(tired))).toBe(false);
   });
 });
 

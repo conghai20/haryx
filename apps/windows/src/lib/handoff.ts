@@ -14,6 +14,12 @@ export function exhausted(a: Account | undefined): boolean {
   return a != null && (peakPct(a) ?? 0) >= 100;
 }
 
+/**
+ * Out of use for now, held out of rotation or at its limit: dimmed, with a sleeping mascot (macOS
+ * `Account.isResting`). An account at its limit stays in rotation and wakes when its quota resets.
+ */
+export const resting = (a: Account) => !!a.disabled || exhausted(a);
+
 export interface Stuck {
   session: Session;
   /** The account it ran out on. */

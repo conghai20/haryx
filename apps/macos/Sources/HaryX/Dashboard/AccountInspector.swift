@@ -148,7 +148,7 @@ private struct MascotSection: View {
         case .running: "Working: a Claude session is using this account."
         case .idle: "Idle."
         case .tired: "Tired: 90% or more of a quota used."
-        case .sleeping: "Sleeping: disabled from rotation."
+        case .sleeping: account.isDisabled ? "Sleeping: disabled from rotation." : "Sleeping: at its limit until the quota resets."
         case .error: "Needs attention: \(account.statusNote ?? "check login")."
         }
     }

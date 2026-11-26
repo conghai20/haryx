@@ -3,6 +3,17 @@ import Foundation
 
 public enum Mood: String, Sendable, Hashable {
     case idle, running, tired, sleeping, error
+
+    /// Held out of rotation → sleeping, signed out → error, at its limit → sleeping, a Claude session
+    /// on it → running, 90% or more of a quota → tired.
+    public static func of(_ a: Account, running: Bool) -> Mood {
+        if a.isDisabled { return .sleeping }
+        if a.needsRelogin { return .error }
+        if a.isExhausted { return .sleeping }
+        if running { return .running }
+        if (a.peakPct ?? 0) >= 90 { return .tired }
+        return .idle
+    }
 }
 
 /// One animation frame. Derived purely from mood + clock so views need no timers of their own.

@@ -44,6 +44,13 @@ public struct Account: Decodable, Sendable, Identifiable, Hashable {
         [usage?.fiveHour?.pct, usage?.sevenDay?.pct].compactMap { $0 }.max()
     }
 
+    /// At 100% of a quota: nothing left until it resets.
+    public var isExhausted: Bool { (peakPct ?? 0) >= 100 }
+
+    /// Out of use for now, held out of rotation or at its limit: dimmed, with a sleeping mascot. An
+    /// account at its limit stays in rotation and wakes when its quota resets.
+    public var isResting: Bool { isDisabled || isExhausted }
+
     public var statusNote: String? {
         switch usageStatus {
         case "ok": nil

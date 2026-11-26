@@ -155,13 +155,7 @@ final class AppStore {
 
     func isRunning(_ a: Account) -> Bool { !(sessions[a.number] ?? []).isEmpty }
 
-    func mood(for a: Account) -> Mood {
-        if a.isDisabled { return .sleeping }
-        if a.needsRelogin { return .error }
-        if isRunning(a) { return .running }
-        if (a.peakPct ?? 0) >= 90 { return .tired }
-        return .idle
-    }
+    func mood(for a: Account) -> Mood { Mood.of(a, running: isRunning(a)) }
 
     func phase(for a: Account) -> Int { Int(stableHash(a.identityKey) % 13) }
 

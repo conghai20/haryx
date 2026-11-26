@@ -277,7 +277,7 @@ struct AccountRow: View {
             if account.showsSignInRow { signInRow } else { usageRow }
         }
         .font(.callout.monospacedDigit())
-        .opacity(account.isDisabled ? 0.5 : 1)
+        .opacity(account.isResting ? 0.5 : 1)
         .contextMenu { AccountContextMenu(account: account) }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
@@ -373,8 +373,8 @@ struct AccountRow: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.mini)
             .font(.caption.weight(.semibold))
-            .disabled(store.busy != nil || account.isDisabled)
-            .help("Switch to \(account.displayName)")
+            .disabled(store.busy != nil || account.isResting)
+            .help(account.isExhausted ? "\(account.displayName) is at its limit" : "Switch to \(account.displayName)")
     }
 }
 

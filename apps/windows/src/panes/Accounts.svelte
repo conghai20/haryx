@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import { actions } from "../lib/actions";
   import { haryxAccount } from "../lib/haryx.svelte";
+  import { exhausted, resting } from "../lib/handoff";
   import { store } from "../lib/store.svelte";
   import {
     FIVE_HOUR_S,
@@ -46,7 +47,7 @@
       <article
         class="card"
         class:selected={a.number === selectedNumber}
-        class:off={a.disabled}
+        class:off={resting(a)}
         aria-label={displayName(a)}
       >
         <button class="hit" aria-label="Inspect {displayName(a)}" onclick={() => (selectedNumber = a.number)}></button>
@@ -58,7 +59,7 @@
             <div class="badges">
               {#if a.active}<span class="badge live">Active</span>{/if}
               {#if a.plan?.label}<span class="badge">{a.plan.label}</span>{/if}
-              {#if a.disabled}<span class="badge">Off</span>{/if}
+              {#if a.disabled}<span class="badge">Off</span>{:else if exhausted(a)}<span class="badge">Limit</span>{/if}
             </div>
           </div>
         </div>

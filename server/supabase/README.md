@@ -34,5 +34,5 @@ npx supabase@3.1.0 functions deploy delete-account --remote=ygvcznwlugaxqqmlsssh
 ```
 
 Dashboard settings that are not in this repo: GitHub (and later Google) provider credentials under
-Authentication › Sign In / Providers; Site URL `https://conghai20.github.io/haryx/`. Loopback
+Authentication › Sign In / Providers; Site URL `https://haryx.wecoap.com/`. Loopback
 redirects need no allow-list entry. Email sign-up can stay off until custom SMTP exists.

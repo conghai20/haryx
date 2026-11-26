@@ -1,6 +1,6 @@
 ---
-// The HaryX mark ("Wing H"), drawn as its two halves. In the hero each half is
-// first traced as a single stroke, then filled: the X is drawn, not shown.
+// The HaryX mark ("Wing H"), drawn as its two halves. With `animate`, each half carries a
+// trace path so scripts/motion.ts can draw it as a single stroke, then fill it.
 interface Props {
   class?: string;
   animate?: boolean;
@@ -42,7 +42,8 @@ const HALF =
   .half--a {
     color: var(--mark-a);
   }
-  /* Routing drift (hero only): the halves part as the page scrolls and lean toward the pointer.
+  /* Routing drift: in the hero the halves part as the page scrolls and lean toward the pointer;
+     at the close they start apart and join.
      --split, --px and --py are set by scripts/motion.ts; units are SVG user units. */
   .drift {
     transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
@@ -74,47 +75,13 @@ const HALF =
     opacity: 0;
   }
 
+  /* The hero draws the mark (scripts/motion.ts: trace each half, then flood it). The trace stays
+     hidden until the script sets it up; the fill's starting state is held only while the motion
+     script is due; see Hero.astro. */
   @media (prefers-reduced-motion: no-preference) {
-    /* A mark inside an unrevealed [data-reveal] waits; it draws when revealed. */
-    :global([data-reveal]:not(.is-in)) .mark--draw .trace,
-    :global([data-reveal]:not(.is-in)) .mark--draw .fill {
-      animation-play-state: paused;
-    }
-    .mark--draw .trace {
-      opacity: 1;
-      stroke-dasharray: 1;
-      stroke-dashoffset: 1;
-      animation:
-        trace 1.7s cubic-bezier(0.65, 0, 0.35, 1) var(--d, 0.2s) forwards,
-        fade-out 0.8s ease-out calc(var(--d, 0.2s) + 1.9s) forwards;
-    }
-    .mark--draw .fill {
-      opacity: 0;
-      animation: flood 1.1s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--d, 0.2s) + 1.35s) forwards;
-    }
-    .mark--draw .half--b {
-      --d: 0.45s;
-    }
-  }
-
-  @keyframes trace {
-    to {
-      stroke-dashoffset: 0;
-    }
-  }
-  @keyframes flood {
-    from {
+    :global(html.js:not([data-still]):not(.no-motion)) .mark--draw .fill {
       opacity: 0;
       clip-path: inset(100% 0 0 0);
-    }
-    to {
-      opacity: 1;
-      clip-path: inset(0 0 0 0);
-    }
-  }
-  @keyframes fade-out {
-    to {
-      opacity: 0;
     }
   }
 </style>

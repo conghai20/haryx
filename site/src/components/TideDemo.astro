@@ -1,7 +1,7 @@
 ---
 // Illustration of auto-switch on sample accounts: the active account's 5-hour
 // tide rises past its threshold and the route crosses to the next account.
-// Sample data only; labelled as such on the page.
+// Sample data only; labelled as such on the page. Driven by scripts/tide-demo.ts.
 
 const THRESHOLD = 90;
 const ACCOUNTS = [
@@ -21,7 +21,7 @@ const ACCOUNTS = [
     </div>
 
     <svg class="route" viewBox="0 0 28 100" preserveAspectRatio="none" aria-hidden="true">
-      <path class="route-path" d="M14 0 C 27 32, 1 68, 14 100" pathLength="1" />
+      <path class="route-path" d="M14 0 C 27 32, 1 68, 14 100" />
     </svg>
 
     {
@@ -238,18 +238,19 @@ const ACCOUNTS = [
     height: var(--row);
     overflow: visible;
     pointer-events: none;
+    /* Drawn top to bottom by a wipe: under non-scaling-stroke, Chrome ignores pathLength,
+       so a dash-based draw breaks into fragments. */
+    clip-path: inset(-4px -4px 100% -4px);
+    transition: clip-path 0.9s cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  .tide[data-switched="true"] .route {
+    clip-path: inset(-4px);
   }
   .route-path {
     fill: none;
     stroke: var(--live);
     stroke-width: 1.5px;
     vector-effect: non-scaling-stroke;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    transition: stroke-dashoffset 0.9s cubic-bezier(0.65, 0, 0.35, 1);
-  }
-  .tide[data-switched="true"] .route-path {
-    stroke-dashoffset: 0;
   }
 
   .caption {
@@ -314,95 +315,3 @@ const ACCOUNTS = [
     }
   }
 </style>
-
-<script>
-  const STEP_MS = 1600;
-
-  function setup(fig: HTMLElement): void {
-    const threshold = Number(fig.dataset.threshold ?? 90);
-    const rows = Array.from(fig.querySelectorAll<HTMLElement>("[data-row]"));
-    const event = fig.querySelector<HTMLElement>("[data-event]");
-    const replay = fig.querySelector<HTMLButtonElement>("[data-replay]");
-    const first = rows[0];
-    const next = rows[1];
-    if (!first || !next || !event) return;
-
-    const pctEl = first.querySelector<HTMLElement>("[data-pct]");
-    const staff = first.querySelector<HTMLElement>(".staff");
-    const from = Number(first.dataset.from);
-    const to = Number(first.dataset.to);
-    const pace = Number(first.dataset.pace);
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let frame = 0;
-
-    // Three-Step Fill Rule: amber at 85% or once 5 points ahead of pace.
-    const level = (v: number): string => (v >= 85 || v > pace + 5 ? "amber" : "live");
-
-    function paint(v: number): void {
-      const rounded = Math.round(v);
-      if (pctEl) pctEl.textContent = String(rounded);
-      staff?.style.setProperty("--v", String(v / 100));
-      first.dataset.level = level(rounded);
-    }
-
-    function switched(): void {
-      fig.dataset.switched = "true";
-      first.dataset.active = "false";
-      next.dataset.active = "true";
-      event.innerHTML = "";
-      event.append(
-        "work reached ",
-        Object.assign(document.createElement("strong"), { textContent: `${to}%` }),
-        `, past its ${threshold}% threshold. Claude Code now runs as `,
-        Object.assign(document.createElement("strong"), { textContent: "personal" }),
-        ".",
-      );
-    }
-
-    function reset(): void {
-      cancelAnimationFrame(frame);
-      fig.dataset.switched = "false";
-      first.dataset.active = "true";
-      next.dataset.active = "false";
-      paint(from);
-      event.textContent = `Auto-switch is watching work. Threshold ${threshold}%.`;
-    }
-
-    function play(): void {
-      reset();
-      if (reduce) {
-        paint(to);
-        switched();
-        return;
-      }
-      const start = performance.now() + 300;
-      const tick = (now: number): void => {
-        const t = Math.min(1, Math.max(0, (now - start) / STEP_MS));
-        const eased = 1 - Math.pow(1 - t, 3);
-        paint(from + (to - from) * eased);
-        if (t < 1) {
-          frame = requestAnimationFrame(tick);
-        } else {
-          window.setTimeout(switched, 350);
-        }
-      };
-      frame = requestAnimationFrame(tick);
-    }
-
-    replay?.addEventListener("click", play);
-
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          io.disconnect();
-          play();
-        }
-      },
-      { threshold: 0.6 },
-    );
-    io.observe(fig);
-    paint(from);
-  }
-
-  document.querySelectorAll<HTMLElement>("[data-tide]").forEach(setup);
-</script>

@@ -6,6 +6,7 @@ import "../styles/global.css";
 
 import Wordmark from "../components/Wordmark.astro";
 import Mark from "../components/Mark.astro";
+import WecoapMark from "../components/WecoapMark.astro";
 import Hero from "../components/Hero.astro";
 import TideDemo from "../components/TideDemo.astro";
 import Features from "../components/Features.astro";
@@ -14,6 +15,7 @@ import Roadmap from "../components/Roadmap.astro";
 import Install from "../components/Install.astro";
 import { latestRelease, REPO_URL, RELEASES_URL } from "../lib/release";
 
+const COMPANY_URL = "https://www.wecoap.com/";
 const release = await latestRelease();
 const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
 const title = "HaryX — a control center for your AI coding accounts";
@@ -69,9 +71,20 @@ const TERMS = [
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={new URL(base, Astro.site)} />
+    <script is:inline define:vars={{ origin: Astro.site?.origin }}>
+      // The raw GitHub Pages address can't load the root-based assets; send visitors to the proxied one.
+      if (origin && location.hostname.endsWith(".github.io")) {
+        location.replace(origin + location.pathname.replace(/^\/haryx/, "") + location.search + location.hash);
+      }
+    </script>
     <script is:inline>
       // ?still renders the settled end state of every entrance (review captures, print).
       document.documentElement.classList.add("js");
+      // If the motion script never starts (blocked, failed), show every entrance's end state.
+      setTimeout(() => {
+        const root = document.documentElement;
+        if (!root.classList.contains("motion-ready")) root.classList.add("no-motion");
+      }, 2500);
       const q = new URLSearchParams(location.search);
       if (q.has("still")) document.documentElement.dataset.still = "";
       const t = q.get("theme");
@@ -103,7 +116,7 @@ const TERMS = [
             time until it resets. Cyan while on pace, amber when ahead of it.
           </p>
         </div>
-        <div class="tide-plate" data-reveal style="--i:2">
+        <div class="tide-plate">
           <TideDemo />
         </div>
       </section>
@@ -151,8 +164,8 @@ const TERMS = [
 
       <section class="close" id="install" aria-labelledby="close-title">
         <div class="frame close-inner">
-          <div class="close-art" data-reveal>
-            <Mark class="close-mark" animate />
+          <div class="close-art" data-join>
+            <Mark class="close-mark" />
           </div>
           <div class="close-copy">
             <h2 id="close-title" class="close-title" data-reveal="wipe">Install HaryX.</h2>
@@ -175,7 +188,8 @@ const TERMS = [
         <a href={`${REPO_URL}/blob/main/LICENSE`}>MIT License</a>
       </nav>
       <p class="fine">
-        © 2026 Huynh Hai. Claude is a trademark of Anthropic. HaryX is not affiliated with Anthropic.
+        <span class="maker">Made by <a href={COMPANY_URL} class="maker-link"><WecoapMark />WeCoAp</a> · © 2026.</span>
+        Claude is a trademark of Anthropic. HaryX is not affiliated with Anthropic.
       </p>
     </footer>
     <script>
@@ -319,6 +333,10 @@ const TERMS = [
     width: 100%;
     height: auto;
   }
+  /* The closing join is tweened directly; the drift's own easing would lag behind it. */
+  .close-art :global(.drift) {
+    transition: none;
+  }
   .close-copy {
     grid-column: 5 / -1;
     display: grid;
@@ -356,6 +374,21 @@ const TERMS = [
   .foot nav {
     justify-self: end;
     flex-wrap: wrap;
+  }
+  .foot .maker {
+    margin-right: 0.35em;
+  }
+  .foot .maker-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    margin-left: 0.15em;
+    color: var(--ink-2);
+    font-weight: 500;
+    text-decoration-color: transparent;
+  }
+  .foot .maker-link:hover {
+    text-decoration-color: var(--live);
   }
   .foot .fine {
     grid-column: 1 / -1;

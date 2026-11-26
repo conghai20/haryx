@@ -15,7 +15,7 @@ use crate::oauth::http::{self, FetchError};
 
 const TIMEOUT: Duration = Duration::from_secs(20);
 const TABLE: &str = "sync_rows";
-const KINDS: &str = "(keyring,settings,app-prefs,account,credential,profiles)";
+const KINDS: &str = "(keyring,settings,app-prefs,account,credential,profiles,usage)";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Row {
@@ -27,8 +27,28 @@ pub struct Row {
     pub updated_at: i64,
 }
 
+/// The rows of one kind, with the server's clock when it answered.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Listing {
+    pub rows: Vec<Row>,
+    /// Unix seconds from the response's `Date` header, when it had a readable one.
+    pub server_now: Option<i64>,
+}
+
 pub trait Remote {
     fn list(&self) -> Result<Vec<Row>, SyncError>;
+    /// Every row of one kind. The default filters [`Remote::list`] and knows no server clock.
+    fn list_kind(&self, kind: &str) -> Result<Listing, SyncError> {
+        let rows = self
+            .list()?
+            .into_iter()
+            .filter(|r| r.kind == kind)
+            .collect();
+        Ok(Listing {
+            rows,
+            server_now: None,
+        })
+    }
     /// `None`: a row with that kind and key already exists (another machine wrote it first).
     fn insert(&self, kind: &str, key: &str, body: &str) -> Result<Option<Row>, SyncError>;
     /// `None`: the row is no longer at `version` (or is gone).
@@ -122,6 +142,13 @@ fn rows(value: &Value) -> Result<Vec<Row>, SyncError> {
         .collect()
 }
 
+/// An HTTP `Date` header (`Thu, 26 Nov 2026 16:00:00 GMT`) as Unix seconds.
+fn parse_http_date(text: &str) -> Option<i64> {
+    jiff::fmt::rfc2822::parse(text.trim())
+        .ok()
+        .map(|zoned| zoned.timestamp().as_second())
+}
+
 /// PostgREST's `timestamptz` (`2026-11-25T10:00:00.123+00:00`) as Unix seconds.
 fn parse_time(text: &str) -> Option<i64> {
     text.parse::<jiff::Timestamp>()
@@ -137,6 +164,19 @@ impl Remote for Postgrest {
         );
         let resp = http::get(&url, &self.headers(&[]), TIMEOUT).map_err(fetch_error)?;
         rows(&resp.json().map_err(fetch_error)?)
+    }
+
+    fn list_kind(&self, kind: &str) -> Result<Listing, SyncError> {
+        let url = format!(
+            "{}?select=kind,key,body,version,updated_at&kind=eq.{}&order=key",
+            self.base,
+            encode(kind)
+        );
+        let resp = http::get(&url, &self.headers(&[]), TIMEOUT).map_err(fetch_error)?;
+        Ok(Listing {
+            rows: rows(&resp.json().map_err(fetch_error)?)?,
+            server_now: resp.headers.get("date").and_then(parse_http_date),
+        })
     }
 
     fn insert(&self, kind: &str, key: &str, body: &str) -> Result<Option<Row>, SyncError> {
@@ -179,6 +219,33 @@ impl Remote for Postgrest {
     }
 }
 
+impl<R: Remote + ?Sized> Remote for std::sync::Arc<R> {
+    fn list(&self) -> Result<Vec<Row>, SyncError> {
+        (**self).list()
+    }
+    fn list_kind(&self, kind: &str) -> Result<Listing, SyncError> {
+        (**self).list_kind(kind)
+    }
+    fn insert(&self, kind: &str, key: &str, body: &str) -> Result<Option<Row>, SyncError> {
+        (**self).insert(kind, key, body)
+    }
+    fn update(
+        &self,
+        kind: &str,
+        key: &str,
+        body: &str,
+        version: i64,
+    ) -> Result<Option<Row>, SyncError> {
+        (**self).update(kind, key, body, version)
+    }
+    fn delete(&self, kind: &str, key: &str) -> Result<(), SyncError> {
+        (**self).delete(kind, key)
+    }
+    fn delete_all(&self) -> Result<(), SyncError> {
+        (**self).delete_all()
+    }
+}
+
 /// An in-memory server with the same rules: versions start at 1 and step by one.
 #[derive(Default)]
 pub struct Memory {
@@ -199,6 +266,19 @@ impl Memory {
 impl Remote for Memory {
     fn list(&self) -> Result<Vec<Row>, SyncError> {
         Ok(self.snapshot())
+    }
+
+    fn list_kind(&self, kind: &str) -> Result<Listing, SyncError> {
+        let rows = self
+            .snapshot()
+            .into_iter()
+            .filter(|r| r.kind == kind)
+            .collect();
+        let now = 1_800_000_000 + self.clock.load(std::sync::atomic::Ordering::SeqCst);
+        Ok(Listing {
+            rows,
+            server_now: Some(now),
+        })
     }
 
     fn insert(&self, kind: &str, key: &str, body: &str) -> Result<Option<Row>, SyncError> {
@@ -264,6 +344,12 @@ mod tests {
             Some(1_795_600_800)
         );
         assert_eq!(parse_time("garbage"), None);
+    }
+
+    #[test]
+    fn http_dates_parse_to_unix_seconds() {
+        assert_eq!(parse_http_date("Thu, 01 Jan 1970 00:00:10 GMT"), Some(10));
+        assert_eq!(parse_http_date("yesterday"), None);
     }
 
     #[test]

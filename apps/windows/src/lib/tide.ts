@@ -130,3 +130,12 @@ export function ordered(accounts: Account[]): Account[] {
   return [...accounts].sort((a, b) => Number(b.active) - Number(a.active));
 }
 
+/** "Usage fetched 3 min ago", and where, when another of your machines read it. */
+export function usageFetchedLabel(a: Account): string | null {
+  const age = a.usageAgeSeconds;
+  if (age == null || !Number.isFinite(age) || age < 0) return null;
+  const minutes = Math.round(age / 60);
+  const ago =
+    age < 60 ? "just now" : minutes < 60 ? `${minutes} min ago` : `${Math.round(minutes / 60)} h ago`;
+  return a.usageFromOtherMachine ? `Usage fetched ${ago}, on another machine` : `Usage fetched ${ago}`;
+}

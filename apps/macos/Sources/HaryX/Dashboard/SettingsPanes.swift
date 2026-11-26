@@ -27,6 +27,7 @@ struct ConfigRow: View {
         "run.shareHistory": "Session-mode runs share chat history with your default profile.",
         "usage.headerProbe": "Read setup-token usage via a 1-token Haiku request (spends quota).",
         "usage.fableProbe": "Also probe Fable limits (spends quota).",
+        "usage.shareBetweenMachines": "Share usage readings with your other machines, so they spend one usage budget per account (needs HaryX sync).",
         "updates.check": "Check for new releases of the command-line backend.",
     ]
 

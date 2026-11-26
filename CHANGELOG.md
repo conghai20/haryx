@@ -24,6 +24,17 @@ cannot be released without one. Sections, in this order, only when they have ent
   preferences (`sync prefs get|set`), each Claude account's alias, group, priority, threshold and enabled state,
   and API-key and setup-token accounts. Claude browser logins never leave the machine: accounts that
   exist only elsewhere are listed by `sync status` to sign in here. `sync forget EMAIL`, `sync reset`.
+- Usage share between machines (`usage.shareBetweenMachines`, on by default; acts while signed in
+  to HaryX with sync unlocked): your machines spend one usage-endpoint budget per Claude account
+  instead of one each. Each account gets an encrypted `usage` sync row with the newest reading, the
+  shared poll plan, the failure state and a request ledger; a machine about to fetch first reads
+  it, adopts a fresher reading, takes a lease so only one machine fetches, and writes its result
+  back. A 429 on one machine parks the others for the same deadline, an account active on any
+  machine keeps the active cadence everywhere, and every account is capped at 24 fetches an hour
+  across machines. Without the share (signed out, offline), a machine that saw others poll an
+  account in the last hour polls it that much less often. `list --json` marks such readings with
+  `usageFromOtherMachine`; the macOS and Windows apps say "on another machine" next to the reading's
+  age. Needs the server migration `20261127000000_sync_rows_usage.sql`.
 - `haryx sync profile push|pull|list|remove`: setup profiles on the server, encrypted (secrets
   redacted, no history; three at most).
 - `haryx account delete`: deletes the HaryX account and everything synced.

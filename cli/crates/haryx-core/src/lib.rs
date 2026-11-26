@@ -48,6 +48,7 @@ pub mod sync;
 pub mod transfer;
 pub mod update_check;
 pub mod usage_history;
+pub mod usage_share;
 pub mod usage_store;
 pub mod wake;
 

@@ -321,3 +321,14 @@ fn plan_fields() {
     assert_eq!(out["expired"], false);
     assert_eq!(out["fetchedAt"], "2027-01-15T08:00:00Z");
 }
+
+#[test]
+fn a_reading_from_another_machine_is_marked() {
+    let peer = row(|r| {
+        r.usage_from_other_machine = true;
+        r.usage_fetched_at = Some(1_000.0);
+    });
+    assert_eq!(peer["usageFromOtherMachine"], json!(true));
+    let own = row(|r| r.usage_fetched_at = Some(1_000.0));
+    assert!(own.get("usageFromOtherMachine").is_none());
+}

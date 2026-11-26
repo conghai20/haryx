@@ -199,6 +199,10 @@ pub(crate) fn row_eligible(
     if num(row.get("heldUntil")).is_some_and(|until| now < until) {
         return false;
     }
+    // The hourly cap binds whatever the plan says: every machine's fetches are in the ledger.
+    if super::peer::ledger_full(row, now) {
+        return false;
+    }
     if live_claim(
         num(row.get("claimUntil")),
         num(row.get("lastAttemptAt")),

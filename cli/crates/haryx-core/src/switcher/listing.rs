@@ -453,6 +453,7 @@ impl Switcher {
                     usage_entry: entry.decision_value(),
                     usage_fetched_at: entry.fetched_at,
                     usage_age_s: entry.age_s,
+                    usage_from_other_machine: entry.fetched_by_peer,
                     last_good_usage: entry.last_good.as_ref(),
                     last_error: entry.last_error.as_deref(),
                     backoff_until: entry.backoff_until.filter(|_| entry.in_backoff(now)),

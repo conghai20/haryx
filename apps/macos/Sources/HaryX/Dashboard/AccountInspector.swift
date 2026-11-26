@@ -343,7 +343,8 @@ private struct UsageSection: View {
                 LabeledContent("Login expires", value: exp.formatted(date: .abbreviated, time: .shortened))
             }
             if let age = account.usageAgeSeconds {
-                LabeledContent("Usage fetched", value: Date(timeIntervalSinceNow: -age).formatted(.relative(presentation: .named)))
+                let ago = Date(timeIntervalSinceNow: -age).formatted(.relative(presentation: .named))
+                LabeledContent("Usage fetched", value: account.usageFromOtherMachine == true ? "\(ago), on another machine" : ago)
             }
         }
     }

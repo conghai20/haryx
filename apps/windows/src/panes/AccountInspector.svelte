@@ -15,6 +15,7 @@
     offersSignIn,
     pctLabel,
     statusNote,
+    usageFetchedLabel,
     weeklyPace,
   } from "../lib/tide";
   import { SPECIES, baseHue, speciesTitle, type Mood } from "../lib/mascot";
@@ -217,6 +218,7 @@
       <p class="row"><span>Projected run-out</span><span class="secondary">{when(a.usage.sevenDay.projectedExhaustionAt)}</span></p>
     {/if}
     {#if when(a.loginExpiresAt)}<p class="caption secondary">Login expires {when(a.loginExpiresAt)}</p>{/if}
+    {#if usageFetchedLabel(a)}<p class="caption secondary">{usageFetchedLabel(a)}</p>{/if}
   </section>
 
   {#if sessions.length > 0}

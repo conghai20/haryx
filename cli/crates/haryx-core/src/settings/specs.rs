@@ -140,7 +140,7 @@ use SettingKind::{Bool, Choice, Float, Int, String as Text};
 /// about this machine's own past transcripts. Every other setting syncs.
 pub const LOCAL_ONLY_SETTINGS: &[&str] = &["history.import"];
 
-pub static SETTING_SPECS: [SettingSpec; 18] = [
+pub static SETTING_SPECS: [SettingSpec; 19] = [
     SettingSpec::new(
         "autoswitch",
         "threshold",
@@ -256,6 +256,13 @@ pub static SETTING_SPECS: [SettingSpec; 18] = [
         "With usage.headerProbe, also read Fable's weekly limit from a 1-token Fable request (opt-in: uses Fable quota)",
     ),
     SettingSpec::new(
+        "usage",
+        "shareBetweenMachines",
+        "share_between_machines",
+        Bool,
+        "Share usage readings with your other machines through HaryX sync, so they spend one usage budget per account",
+    ),
+    SettingSpec::new(
         "history",
         "enabled",
         "enabled",
@@ -318,6 +325,9 @@ pub(super) fn field_value(loaded: &LoadedSettings, spec: &SettingSpec) -> Settin
         ("updates", "check") => SettingValue::Bool(loaded.updates.check),
         ("usage", "header_probe") => SettingValue::Bool(loaded.usage.header_probe),
         ("usage", "fable_probe") => SettingValue::Bool(loaded.usage.fable_probe),
+        ("usage", "share_between_machines") => {
+            SettingValue::Bool(loaded.usage.share_between_machines)
+        }
         ("history", "enabled") => SettingValue::Bool(loaded.history.enabled),
         ("history", "import") => SettingValue::Str(loaded.history.import.clone()),
         ("history", "keep_days") => SettingValue::Int(loaded.history.keep_days),

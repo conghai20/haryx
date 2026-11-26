@@ -26,6 +26,8 @@ public struct Account: Decodable, Sendable, Identifiable, Hashable {
     public let loginExpiresAt: Date?
     public let plan: Plan?
     public let usageAgeSeconds: Double?
+    /// The reading was taken by another of your machines (usage share through HaryX sync).
+    public let usageFromOtherMachine: Bool?
     public let usageError: String?
 
     public var id: Int { number }

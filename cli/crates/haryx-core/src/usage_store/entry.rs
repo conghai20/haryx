@@ -121,6 +121,14 @@ pub struct UsageEntry {
     pub claim_until: Option<f64>,
     /// Until when a reading adopted from another machine keeps every collector off this slot.
     pub held_until: Option<f64>,
+    /// The reading was taken by another machine sharing usage (`crate::usage_share`).
+    pub fetched_by_peer: bool,
+    /// Until when another machine reported this account as its active one.
+    pub active_elsewhere_until: Option<f64>,
+    /// Usage fetches of this account in the trailing ledger window, every machine counted.
+    pub requests_last_hour: usize,
+    /// Other machines that fetched this account in the trailing ledger window.
+    pub peers_seen: usize,
 }
 
 impl UsageEntry {
@@ -158,6 +166,11 @@ impl UsageEntry {
             _ => stamp,
         };
         now < anchor + RECENT_429_WINDOW_S
+    }
+
+    /// Whether another machine uses this account as its active one right now.
+    pub fn active_elsewhere(&self, now: f64) -> bool {
+        self.active_elsewhere_until.is_some_and(|until| now < until)
     }
 
     /// Whether another collector's bounded fetch lease is still live.

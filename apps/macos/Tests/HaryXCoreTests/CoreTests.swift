@@ -304,3 +304,11 @@ func profileFixture<T: Decodable>(_ type: T.Type, _ name: String) throws -> T {
     let off = WakeAccount(number: 4, on: false, lastWakeAt: now, nextDue: next, lastResult: "woke")
     #expect(off.windowReset(now: now) == nil)
 }
+
+/// A reading another machine took carries `usageFromOtherMachine`; older CLIs omit it.
+@Test func decodesUsageFromOtherMachine() throws {
+    let row = #"{"schemaVersion":1,"activeAccountNumber":1,"accounts":[{"number":1,"email":"a@x.com","active":true,"usageStatus":"ok","usageAgeSeconds":120,"usageFromOtherMachine":true},{"number":2,"email":"b@x.com","active":false,"usageStatus":"ok"}]}"#
+    let list = try CSwapJSON.decoder.decode(AccountList.self, from: Data(row.utf8))
+    #expect(list.accounts[0].usageFromOtherMachine == true)
+    #expect(list.accounts[1].usageFromOtherMachine == nil)
+}

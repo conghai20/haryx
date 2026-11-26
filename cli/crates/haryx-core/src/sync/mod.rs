@@ -42,6 +42,8 @@ pub const KIND_APP_PREFS: &str = "app-prefs";
 pub const KIND_ACCOUNT: &str = "account";
 pub const KIND_CREDENTIAL: &str = "credential";
 pub const KIND_PROFILES: &str = "profiles";
+/// Per-account usage readings and poll state, shared outside the sync pass (`crate::usage_share`).
+pub const KIND_USAGE: &str = "usage";
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum SyncError {
@@ -117,6 +119,15 @@ struct StoredKey {
     user: String,
     project: String,
     key: String,
+}
+
+/// This machine's sync key for `user`/`project`, when sync is unlocked here.
+pub(crate) fn unlocked_key(
+    vault: &Vault,
+    user: &str,
+    project: &str,
+) -> Result<Option<SyncKey>, SyncError> {
+    load_key(vault, user, project)
 }
 
 fn load_key(vault: &Vault, user: &str, project: &str) -> Result<Option<SyncKey>, SyncError> {
@@ -230,7 +241,7 @@ pub fn forget(ctx: &Context<'_>, email: &str) -> Result<usize, SyncError> {
     let wanted = email.trim().to_lowercase();
     let mut gone = 0;
     for row in ctx.remote.list()? {
-        if row.kind != KIND_ACCOUNT && row.kind != KIND_CREDENTIAL {
+        if row.kind != KIND_ACCOUNT && row.kind != KIND_CREDENTIAL && row.kind != KIND_USAGE {
             continue;
         }
         let Opened::Doc(doc) = open(&key, &row) else {
@@ -255,7 +266,7 @@ pub fn forget(ctx: &Context<'_>, email: &str) -> Result<usize, SyncError> {
 }
 
 /// A server row, decrypted.
-enum Opened {
+pub(crate) enum Opened {
     Doc(Document),
     /// Not sealed with this key, or sealed as another row: garbage or tampering. Replaced.
     Foreign,
@@ -263,7 +274,7 @@ enum Opened {
     Unreadable,
 }
 
-fn open(key: &SyncKey, row: &Row) -> Opened {
+pub(crate) fn open(key: &SyncKey, row: &Row) -> Opened {
     let Some(plain) = key.open(&row.body) else {
         return Opened::Foreign;
     };
@@ -401,7 +412,7 @@ fn pass(
     let mut remote = Server::default();
     for row in rows
         .iter()
-        .filter(|r| r.kind != KIND_KEYRING && r.kind != KIND_PROFILES)
+        .filter(|r| r.kind != KIND_KEYRING && r.kind != KIND_PROFILES && r.kind != KIND_USAGE)
     {
         let at = (row.kind.clone(), row.key.clone());
         match open(key, row) {

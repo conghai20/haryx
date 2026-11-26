@@ -97,6 +97,8 @@ pub struct Switcher {
     pub(crate) api: Api,
     /// Per-account usage table (`cache/usage.json`).
     pub(crate) usage_store: UsageStore,
+    /// The usage rows shared with this user's other machines; built on first use.
+    pub(crate) usage_share: std::sync::OnceLock<Option<crate::usage_share::UsageShare>>,
     /// Mutable per-process state of the collector (upstream's instance caches).
     pub(crate) state: Mutex<usage::CollectState>,
     debug: bool,
@@ -144,6 +146,7 @@ impl Switcher {
             session_retry_delay: session::STRICT_KEYCHAIN_RETRY_DELAY,
             api: Api::from_env(),
             usage_store,
+            usage_share: std::sync::OnceLock::new(),
             state: Mutex::new(usage::CollectState::default()),
             debug,
             #[cfg(test)]

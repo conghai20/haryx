@@ -30,6 +30,8 @@ export interface Account {
   loginExpiresAt?: string | null;
   plan?: { label?: string | null; expired?: boolean | null } | null;
   usageAgeSeconds?: number | null;
+  /** The reading was taken by another of your machines (usage share through HaryX sync). */
+  usageFromOtherMachine?: boolean | null;
   usageError?: string | null;
 }
 

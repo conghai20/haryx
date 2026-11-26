@@ -138,11 +138,24 @@ impl Default for UpdateSettings {
 /// from the rate-limit headers of a 1-output-token Haiku request instead. Each probe is a real, if tiny,
 /// request against that account's quota, so it is opt-in. `fable_probe`: those headers report Fable's
 /// weekly limit only on a Fable response, so also send a 1-token Fable request per poll. A second opt-in
-/// because it spends Fable quota; it acts only with `header_probe` on.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// because it spends Fable quota; it acts only with `header_probe` on. `share_between_machines`:
+/// read and write the shared per-account usage rows (`crate::usage_share`), so this user's machines
+/// spend one usage budget per account; it acts only while signed in with sync unlocked.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct UsageSettings {
     pub header_probe: bool,
     pub fable_probe: bool,
+    pub share_between_machines: bool,
+}
+
+impl Default for UsageSettings {
+    fn default() -> Self {
+        UsageSettings {
+            header_probe: false,
+            fable_probe: false,
+            share_between_machines: true,
+        }
+    }
 }
 
 /// Usage history preferences (`history`, `docs/usage-history-plan.md`).
@@ -408,6 +421,7 @@ pub fn load_usage_settings(root: &Path) -> UsageSettings {
     UsageSettings {
         header_probe: flag("headerProbe", default.header_probe),
         fable_probe: flag("fableProbe", default.fable_probe),
+        share_between_machines: flag("shareBetweenMachines", default.share_between_machines),
     }
 }
 

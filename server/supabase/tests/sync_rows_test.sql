@@ -1,7 +1,7 @@
 -- Row-level security and write rules of public.sync_rows. Run: supabase test db (from server/).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(17);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'a@example.test'),
@@ -29,6 +29,9 @@ select throws_ok(
 select throws_ok(
   $$ insert into public.sync_rows (kind, key, body) values ('secrets', '', 'eA==') $$,
   '23514', null, 'unknown kinds are refused');
+select lives_ok(
+  $$ insert into public.sync_rows (kind, key, body) values ('usage', 'ab12', 'eA==') $$,
+  'usage rows are accepted');
 select throws_ok(
   $$ insert into public.sync_rows (kind, key, body) values ('account', 'You@Example.com', 'eA==') $$,
   '23514', null, 'a key is a lowercase hex digest, never a readable name');
@@ -60,7 +63,7 @@ select isnt(public.ping(), null, 'the anonymous role can call ping()');
 
 -- Deleting the user removes their rows.
 reset role;
-select is((select count(*) from public.sync_rows), 1::bigint, 'one row before the account is deleted');
+select is((select count(*) from public.sync_rows), 2::bigint, 'two rows before the account is deleted');
 delete from auth.users where id = '00000000-0000-0000-0000-00000000000a';
 select is((select count(*) from public.sync_rows), 0::bigint, 'deleting the user deletes their rows');
 

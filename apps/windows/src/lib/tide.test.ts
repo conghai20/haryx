@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FIVE_HOUR_S, canRelogin, expectedPct, offersSignIn, ordered, paceLine, shortName, tier, weeklyPace } from "./tide";
+import { FIVE_HOUR_S, canRelogin, expectedPct, offersSignIn, ordered, paceLine, shortName, tier, usageFetchedLabel, weeklyPace } from "./tide";
 import type { Account } from "./types";
 
 const NOW = Date.parse("2026-11-24T12:00:00Z");
@@ -87,3 +87,26 @@ describe("weekly pace", () => {
   });
 });
 
+describe("usageFetchedLabel", () => {
+  const acct = (n: number, _active: boolean): Account => ({
+    number: n,
+    email: `u${n}@x.com`,
+    active: false,
+    usageStatus: "ok",
+  });
+
+  it("says how old the reading is", () => {
+    expect(usageFetchedLabel({ ...acct(1, false), usageAgeSeconds: 20 })).toBe("Usage fetched just now");
+    expect(usageFetchedLabel({ ...acct(1, false), usageAgeSeconds: 185 })).toBe("Usage fetched 3 min ago");
+    expect(usageFetchedLabel({ ...acct(1, false), usageAgeSeconds: 7300 })).toBe("Usage fetched 2 h ago");
+  });
+
+  it("names another machine's reading", () => {
+    const a = { ...acct(1, false), usageAgeSeconds: 120, usageFromOtherMachine: true };
+    expect(usageFetchedLabel(a)).toBe("Usage fetched 2 min ago, on another machine");
+  });
+
+  it("is absent without a reading", () => {
+    expect(usageFetchedLabel(acct(1, false))).toBeNull();
+  });
+});

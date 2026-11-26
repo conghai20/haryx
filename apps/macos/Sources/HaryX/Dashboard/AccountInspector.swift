@@ -147,6 +147,7 @@ private struct MascotSection: View {
         switch store.mood(for: account) {
         case .running: "Working: a Claude session is using this account."
         case .idle: "Idle."
+        case .angry: "Angry: 75% or more of a quota used."
         case .tired: "Tired: 90% or more of a quota used."
         case .sleeping: account.isDisabled ? "Sleeping: disabled from rotation." : "Sleeping: at its limit until the quota resets."
         case .error: "Needs attention: \(account.statusNote ?? "check login")."

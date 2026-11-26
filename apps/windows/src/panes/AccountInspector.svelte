@@ -18,6 +18,7 @@
   const moodCaptions: Record<Mood, string> = {
     running: "Working: a Claude session is using this account.",
     idle: "Idle.",
+    angry: "Angry: 75% or more of a quota used.",
     tired: "Tired: 90% or more of a quota used.",
     sleeping: "Sleeping: disabled from rotation.",
     error: "",

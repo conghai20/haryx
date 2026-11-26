@@ -2,16 +2,21 @@ import CoreGraphics
 import Foundation
 
 public enum Mood: String, Sendable, Hashable {
-    case idle, running, tired, sleeping, error
+    case idle, running, angry, tired, sleeping, error
+
+    static let angryPct = 75.0
+    static let tiredPct = 90.0
 
     /// Held out of rotation → sleeping, signed out → error, at its limit → sleeping, a Claude session
-    /// on it → running, 90% or more of a quota → tired.
+    /// on it → running, 90% or more of a quota → tired, 75% or more → angry.
     public static func of(_ a: Account, running: Bool) -> Mood {
         if a.isDisabled { return .sleeping }
         if a.needsRelogin { return .error }
         if a.isExhausted { return .sleeping }
         if running { return .running }
-        if (a.peakPct ?? 0) >= 90 { return .tired }
+        let peak = a.peakPct ?? 0
+        if peak >= tiredPct { return .tired }
+        if peak >= angryPct { return .angry }
         return .idle
     }
 }
@@ -42,6 +47,8 @@ public struct Pose: Sendable, Hashable {
             return Pose(altLegs: tick % 2 == 1, squat: tick % 2 == 0, overlayPhase: tick, mood: mood)
         case .sleeping:
             return Pose(squat: (tick / 4) % 2 == 1, blink: true, overlayPhase: tick / 3, mood: mood)
+        case .angry: // stomping, the mark throbbing in time
+            return Pose(squat: tick % 2 == 0, overlayPhase: tick, mood: mood)
         case .idle, .tired, .error:
             return Pose(squat: (tick / 2) % 2 == 1, blink: tick % blinkEvery == 0, overlayPhase: tick / 2, mood: mood)
         }
@@ -121,6 +128,12 @@ public enum PixelArt {
             let x = 13
             for dx in 0..<4 { put(x + dx, y, white); put(x + dx, y + 3, white) }
             put(x + 2, y + 1, white); put(x + 1, y + 2, white)
+        case .angry: // a throbbing anger mark
+            let y = max(0, top - 5)
+            let marks = pose.overlayPhase % 2 == 0
+                ? [(13, 0), (15, 0), (12, 1), (13, 1), (15, 1), (16, 1), (12, 3), (13, 3), (15, 3), (16, 3), (13, 4), (15, 4)]
+                : [(13, 1), (15, 1), (13, 3), (15, 3)]
+            for (x, dy) in marks { put(x, y + dy, alert) }
         case .error: // blinking "!"
             if pose.overlayPhase % 2 == 0 {
                 let y = max(0, top - 4)

@@ -130,13 +130,14 @@ pub enum Mood {
     #[default]
     Idle,
     Running,
+    Angry,
     Tired,
     Sleeping,
     Error,
 }
 
 /// macOS `Mood.of`: held out of rotation → sleeping, signed out → error, at its limit → sleeping, a
-/// Claude session on it → running, 90% or more of a quota → tired.
+/// Claude session on it → running, 90% or more of a quota → tired, 75% or more → angry.
 pub fn mood(account: &Account, running: bool) -> Mood {
     let peak = account
         .usage
@@ -155,8 +156,10 @@ pub fn mood(account: &Account, running: bool) -> Mood {
         Mood::Sleeping
     } else if running {
         Mood::Running
-    } else if peak >= 90.0 {
+    } else if peak >= TIRED_PCT {
         Mood::Tired
+    } else if peak >= ANGRY_PCT {
+        Mood::Angry
     } else {
         Mood::Idle
     }
@@ -201,6 +204,24 @@ const SWEAT: Rgb = [0.45, 0.78, 1.0];
 const ALERT: Rgb = [1.0, 0.27, 0.23];
 /// The running dust: white dimmed to 60%.
 const DUST: Rgb = [0.6, 0.6, 0.6];
+const ANGRY_PCT: f64 = 75.0;
+const TIRED_PCT: f64 = 90.0;
+/// The anger mark, big then small as it throbs: (x, dy) from its top row.
+const ANGER_BIG: [(usize, usize); 12] = [
+    (13, 0),
+    (15, 0),
+    (12, 1),
+    (13, 1),
+    (15, 1),
+    (16, 1),
+    (12, 3),
+    (13, 3),
+    (15, 3),
+    (16, 3),
+    (13, 4),
+    (15, 4),
+];
+const ANGER_SMALL: [(usize, usize); 4] = [(13, 1), (15, 1), (13, 3), (15, 3)];
 
 fn hsb(h: f64, s: f64, v: f64) -> Rgb {
     let h6 = (h - h.floor()) * 6.0;
@@ -297,6 +318,18 @@ fn overlay(grid: &mut [Vec<Option<Rgb>>], pose: Pose, top: usize, white: Rgb) {
             }
             put(15, y + 1, white);
             put(14, y + 2, white);
+        }
+        // A throbbing anger mark.
+        Mood::Angry => {
+            let y = top.saturating_sub(5);
+            let marks: &[(usize, usize)] = if phase.is_multiple_of(2) {
+                &ANGER_BIG
+            } else {
+                &ANGER_SMALL
+            };
+            for &(x, dy) in marks {
+                put(x, y + dy, ALERT);
+            }
         }
         // A blinking "!".
         Mood::Error => {
@@ -446,6 +479,11 @@ mod tests {
             ),
             Mood::Sleeping
         );
+        let angry = r#","usage":{"fiveHour":{"pct":10},"sevenDay":{"pct":75}}"#;
+        let calm = r#","usage":{"fiveHour":{"pct":74}}"#;
+        assert_eq!(mood(&a(angry), false), Mood::Angry);
+        assert_eq!(mood(&a(angry), true), Mood::Running);
+        assert_eq!(mood(&a(calm), false), Mood::Idle);
         let full = r#","usage":{"fiveHour":{"pct":100},"sevenDay":{"pct":40}}"#;
         assert_eq!(mood(&a(full), true), Mood::Sleeping);
         assert_eq!(
@@ -537,6 +575,7 @@ mod tests {
             let species = species().iter().position(|s| s.id == case.species).unwrap();
             let mood = match case.mood.as_str() {
                 "running" => Mood::Running,
+                "angry" => Mood::Angry,
                 "tired" => Mood::Tired,
                 "sleeping" => Mood::Sleeping,
                 "error" => Mood::Error,

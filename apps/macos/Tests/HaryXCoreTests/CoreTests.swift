@@ -51,6 +51,26 @@ func account(_ base: Account, five: Double?, seven: Double? = nil, active: Bool 
     #expect(Mood.of(list.accounts[2], running: true) == .sleeping)
 }
 
+@Test func aMascotGetsAngryFrom75PercentUntilItTires() throws {
+    let base = try decodeFixture().accounts[0]
+    #expect(Mood.of(try account(base, five: 74), running: false) == .idle)
+    #expect(Mood.of(try account(base, five: 10, seven: 75), running: false) == .angry)
+    #expect(Mood.of(try account(base, five: 89), running: false) == .angry)
+    #expect(Mood.of(try account(base, five: 89), running: true) == .running)
+    #expect(Mood.of(try account(base, five: 90), running: false) == .tired)
+}
+
+@Test func anAngryMascotThrobsAnAngerMark() {
+    let palette = Palette(species: .critter, hue: nil)
+    let calm = PixelArt.pixels(.critter, palette: palette, pose: Pose(mood: .idle))
+    let big = PixelArt.pixels(.critter, palette: palette, pose: Pose(overlayPhase: 0, mood: .angry))
+    let small = PixelArt.pixels(.critter, palette: palette, pose: Pose(overlayPhase: 1, mood: .angry))
+    let marks = { (g: [[RGB?]]) in g.joined().filter { $0 == PixelArt.alert }.count }
+    #expect(marks(calm) == 0)
+    #expect(marks(big) == 12)
+    #expect(marks(small) == 4)
+}
+
 @Test(arguments: ["2026-11-25T11:00:00.497815+00:00", "2026-12-14T03:30:48Z", "2026-11-20T15:29:59.9+00:00"])
 func parsesCswapDates(_ raw: String) {
     #expect(CSwapJSON.parseDate(raw) != nil)

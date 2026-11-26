@@ -15,19 +15,19 @@ const { release } = Astro.props;
   </div>
 
   <div class="frame copy">
-    <h1 id="hero-title" class="title">Route your AI&nbsp;accounts like&nbsp;water.</h1>
-    <div class="tide" aria-hidden="true">
+    <h1 id="hero-title" class="title" data-hero-title>Take control of your AI&nbsp;workflow.</h1>
+    <div class="tide" aria-hidden="true" data-hero-tide>
       <svg class="tideline" viewBox="0 0 1440 80" preserveAspectRatio="none">
         <path
           class="tideline-path"
-          d="M0 50 C 180 50, 300 18, 520 20 S 860 70, 1080 62 S 1340 30, 1440 34"
-          pathLength="1"></path>
+          d="M0 50 C 180 50, 300 18, 520 20 S 860 70, 1080 62 S 1340 30, 1440 34"></path>
       </svg>
     </div>
-    <p class="lede">
-      A unified control center for AI coding accounts, usage and sessions.<span class="more"> See every Claude account's tide and switch before one runs dry. AI is the first section; DevOps, Cloud and SRE are being explored.</span>
+    <p class="lede" data-hero-follow>
+      See every Claude account's tide and switch before one runs dry. One control center for your AI coding accounts,
+      usage and sessions.
     </p>
-    <div class="action" id="install-top">
+    <div class="action" id="install-top" data-hero-follow>
       <Install release={release} />
     </div>
   </div>
@@ -35,12 +35,20 @@ const { release } = Astro.props;
 
 <style>
   .hero {
+    /* One sizing rule for the mark, shared by everything that must clear it: the mark is sized by
+       height, but never wider than 45% of the frame, so it can't run over the copy on a tall,
+       narrow window. */
+    --frame-w: calc(min(100vw, var(--max)) - 2 * var(--gutter));
+    --mark-h: min(clamp(360px, 78vh, 860px), var(--frame-w) * 0.45 * 60 / 44);
+    --clear-w: calc(var(--frame-w) - var(--mark-h) * 44 / 60 - 48px);
     position: relative;
     min-height: max(640px, min(100svh, 1000px));
     display: grid;
     align-items: end;
     padding-bottom: clamp(40px, 6vw, 88px);
     isolation: isolate;
+    /* The full-bleed tide line is 100vw, which includes a classic scrollbar's width. */
+    overflow-x: clip;
   }
 
   .art {
@@ -48,7 +56,7 @@ const { release } = Astro.props;
     z-index: -1;
     top: clamp(16px, 4vh, 48px);
     right: max(var(--gutter), calc((100vw - var(--max)) / 2 + var(--gutter)));
-    height: clamp(360px, 78vh, 860px);
+    height: var(--mark-h);
     aspect-ratio: 44 / 60;
   }
   .art :global(.hero-mark) {
@@ -85,7 +93,7 @@ const { release } = Astro.props;
     padding-top: clamp(24px, 7vh, 64px);
   }
   .copy .lede {
-    max-width: 46ch;
+    max-width: min(46ch, var(--clear-w));
   }
 
   .title {
@@ -94,31 +102,38 @@ const { release } = Astro.props;
     font-size: clamp(3rem, min(7.4vw, 10.5vh), 6rem);
     line-height: 0.96;
     letter-spacing: -0.04em;
-    max-width: 11ch;
+    max-width: min(15ch, var(--clear-w));
+    text-wrap: balance;
   }
 
   .action {
     margin-top: 4px;
-    /* Clear the mark: frame width minus the mark's box (height × 44/60) and a 48px margin. */
-    max-width: min(52rem, calc(min(100vw, var(--max)) - 2 * var(--gutter) - clamp(360px, 78vh, 860px) * 44 / 60 - 48px));
+    max-width: min(52rem, var(--clear-w));
   }
 
+  /* Hero entrance (scripts/motion.ts). Hidden states hold only while the motion script is due:
+     html.js is set in <head>, and html.no-motion lands after 2.5 s if the script never starts. */
   @media (prefers-reduced-motion: no-preference) {
-    .tideline-path {
-      stroke-dasharray: 1;
-      stroke-dashoffset: 1;
-      animation: tide-draw 2.4s cubic-bezier(0.65, 0, 0.35, 1) 1.9s forwards;
+    :global(html.js:not([data-still]):not(.no-motion)) .title {
+      visibility: hidden;
     }
-    .tideline {
-      animation: swell 7s ease-in-out 4.3s infinite alternate;
+    /* The water is drawn by a wipe, not a dash: under non-scaling-stroke, Chrome ignores
+       pathLength, so a dash of "1" breaks into fragments. */
+    :global(html.js:not([data-still]):not(.no-motion)) .tideline {
+      clip-path: inset(-24px 100% -24px 0);
+    }
+    :global(html.js:not([data-still]):not(.no-motion)) [data-hero-follow] {
+      opacity: 0;
+    }
+    /* The swell starts once the line is drawn, and rests while the hero is off screen. */
+    :global(html.js .tide.is-swelling) .tideline {
+      animation: swell 7s ease-in-out infinite alternate;
+    }
+    :global(html.js .tide.is-resting) .tideline {
+      animation-play-state: paused;
     }
   }
 
-  @keyframes tide-draw {
-    to {
-      stroke-dashoffset: 0;
-    }
-  }
   @keyframes swell {
     from {
       transform: translateY(0) scaleY(1);
@@ -128,14 +143,10 @@ const { release } = Astro.props;
     }
   }
 
-  @media (max-height: 760px) {
-    .more {
-      display: none;
-    }
-  }
-
-  @media (max-width: 760px) {
+  /* Stack the poster on phones, and on any window taller than it is wide (portrait tablets). */
+  @media (max-width: 760px), (max-aspect-ratio: 4 / 5) {
     .hero {
+      --clear-w: 100%;
       min-height: 0;
       align-items: start;
       padding-top: 8px;
@@ -151,12 +162,6 @@ const { release } = Astro.props;
     .copy {
       padding-top: 28px;
       gap: 18px;
-    }
-    .more {
-      display: none;
-    }
-    .action {
-      max-width: none;
     }
   }
 </style>

@@ -1,9 +1,10 @@
 import { defineConfig } from "astro/config";
 
-// GitHub Pages project site: https://conghai20.github.io/haryx/
-// For a custom domain later: set SITE_URL and SITE_BASE="/" in the workflow.
+// Public address https://haryx.wecoap.com, served by a proxy in front of GitHub Pages:
+// haryx.wecoap.com/<path> → conghai20.github.io/haryx/<path>. Pages has no custom domain set (it would
+// redirect the proxy's fetches back to the proxy), so the site is built for the proxy's root.
 export default defineConfig({
-  site: process.env.SITE_URL ?? "https://conghai20.github.io",
-  base: process.env.SITE_BASE ?? "/haryx",
+  site: process.env.SITE_URL ?? "https://haryx.wecoap.com",
+  base: process.env.SITE_BASE ?? "/",
   trailingSlash: "ignore",
 });

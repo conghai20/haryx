@@ -42,6 +42,20 @@ public enum AccountGroups {
     }
 }
 
+extension AccountGroups {
+    /// Where a session that ran out on `from` should continue: an account that can take it (enabled,
+    /// signed in, below 100%), other than `from`, with the most headroom. One in `from`'s group wins
+    /// over any outside it; only when none there can take it does the pick leave the group, as the
+    /// CLI's automatic picks do. `from` nil leaves groups out of it.
+    public static func handoffTarget(_ accounts: [Account], from: Account?) -> Account? {
+        let usable = accounts.filter {
+            $0.number != from?.number && !$0.isDisabled && !$0.needsRelogin && ($0.peakPct ?? 100) < 100
+        }
+        let mates = from.map { f in usable.filter { $0.sharesGroup(with: f) } } ?? []
+        return (mates.isEmpty ? usable : mates).min { ($0.peakPct ?? 100) < ($1.peakPct ?? 100) }
+    }
+}
+
 extension Account {
     /// The group, lowercased; "" when ungrouped.
     public var groupKey: String { Account.groupKey(group) }

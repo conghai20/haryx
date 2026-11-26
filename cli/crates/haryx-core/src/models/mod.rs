@@ -48,6 +48,31 @@ pub fn normalize_alias(name: &str) -> Result<String> {
     Ok(normalized)
 }
 
+// ---------------------------------------------------------------------------------------------- group
+
+/// Longest group name, in characters.
+pub const GROUP_MAX_CHARS: usize = 32;
+
+/// Trim and validate a group name. Unlike an alias it keeps its case and may hold spaces: it is a
+/// label, never an identifier. Two names that differ only in case are the same group.
+pub fn normalize_group(name: &str) -> Result<String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err(invalid("group cannot be empty".to_owned()));
+    }
+    if trimmed.chars().count() > GROUP_MAX_CHARS {
+        return Err(invalid(format!(
+            "group '{trimmed}' is longer than {GROUP_MAX_CHARS} characters"
+        )));
+    }
+    if trimmed.chars().any(char::is_control) {
+        return Err(invalid(
+            "group cannot contain control characters".to_owned(),
+        ));
+    }
+    Ok(trimmed.to_owned())
+}
+
 fn invalid(message: String) -> Error {
     Error::Validation(message)
 }

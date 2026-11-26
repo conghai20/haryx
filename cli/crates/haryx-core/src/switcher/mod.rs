@@ -10,6 +10,7 @@
 mod accounts;
 mod add;
 mod grant;
+mod groups;
 mod listing;
 mod login;
 mod perform;

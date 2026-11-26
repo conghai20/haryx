@@ -11,7 +11,11 @@ use super::{JsonObject, Switcher};
 use crate::error::Result;
 use crate::models::{
     get_timestamp, normalize_account_priority, normalize_account_threshold, normalize_alias,
+    normalize_group,
 };
+
+/// The identity fields an `account` row carries beside the settings; not settings, never applied.
+const IDENTITY_FIELDS: [&str; 3] = ["email", "organizationUuid", "organizationName"];
 
 impl Switcher {
     /// Set account `num`'s user fields to `wanted` (absent keys are cleared). Returns the fields
@@ -58,6 +62,22 @@ impl Switcher {
                 changed = true;
             }
         }
+        // A setting from a newer HaryX: named as skipped so the sync base keeps it, rather than
+        // dropped silently and then read as removed here on the next pass.
+        skipped.extend(
+            wanted
+                .keys()
+                .filter(|k| {
+                    !USER_ACCOUNT_SETTINGS.contains(&k.as_str())
+                        && !IDENTITY_FIELDS.contains(&k.as_str())
+                })
+                .map(|k| {
+                    (
+                        k.clone(),
+                        "this HaryX does not know it; update to use it".into(),
+                    )
+                }),
+        );
         if changed {
             data.insert("lastUpdated".into(), Value::String(get_timestamp()));
             self.write_json(&self.sequence_file, &data)?;
@@ -74,6 +94,12 @@ fn valid(field: &str, value: &Value) -> std::result::Result<Option<Value>, Strin
             let text = value.as_str().ok_or_else(bad)?;
             normalize_alias(text)
                 .map(|a| Some(Value::String(a)))
+                .map_err(|e| e.to_string())
+        }
+        "group" => {
+            let text = value.as_str().ok_or_else(bad)?;
+            normalize_group(text)
+                .map(|g| Some(Value::String(g)))
                 .map_err(|e| e.to_string())
         }
         "disabled" => Ok(value
@@ -143,6 +169,23 @@ mod tests {
         for gone in ["threshold", "priority", "disabled"] {
             assert!(rec.get(gone).is_none(), "{gone} cleared");
         }
+    }
+
+    #[test]
+    fn a_group_syncs_and_an_unknown_setting_is_skipped_not_dropped() {
+        let sw = TestSwitcher::linux().with_roster(sample());
+        let skipped = sw
+            .apply_synced_settings(
+                "1",
+                &wanted(json!({"group": " Work ", "email": "account1@example.com",
+                    "colour": "red"})),
+            )
+            .unwrap();
+        assert_eq!(sw.roster()["accounts"]["1"]["group"], "Work");
+        assert_eq!(skipped.len(), 1, "{skipped:?}");
+        assert_eq!(skipped[0].0, "colour");
+        sw.apply_synced_settings("1", &wanted(json!({}))).unwrap();
+        assert!(sw.roster()["accounts"]["1"].get("group").is_none());
     }
 
     #[test]

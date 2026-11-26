@@ -93,6 +93,8 @@ Commands:
   {ai} threshold                  list the global default and overrides
   {ai} priority <num|email> <tier>  set priority (higher first; default 0)
   {ai} priority                   list account priorities
+  {ai} group <num|email> <name>   put an account in a group
+  {ai} group                      list groups
   {ai} run <num|email> [-- ...]   run as an account, this terminal only
   {ai} run                        run the current dir's mapped account
   {ai} map <num|email> [path]     map a directory to an account
@@ -189,6 +191,14 @@ pub fn alias_epilog() -> String {
   {ai} alias user@example.com dev
   {ai} alias 2 --unset
   {ai} alias                         # list all aliases")
+}
+
+pub fn group_epilog() -> String {
+    p("Examples:
+  {ai} group 2 \"Client A\"
+  {ai} group dev work              # 'work' joins an existing 'Work'
+  {ai} group 2 --unset
+  {ai} group                       # list groups and their accounts")
 }
 
 pub fn threshold_epilog() -> String {

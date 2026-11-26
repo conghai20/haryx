@@ -80,6 +80,7 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
             accounts::import_usage(&path, hold_seconds, debug)
         }
         Command::Alias(setting) => accounts::alias(&setting, debug),
+        Command::Group(setting) => accounts::group(&setting, debug),
         Command::Threshold(setting) => accounts::threshold(&setting, debug),
         Command::Priority(setting) => accounts::priority(&setting, debug),
         Command::Swap { first, second } => accounts::swap(&first, &second, debug),

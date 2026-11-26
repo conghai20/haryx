@@ -100,6 +100,35 @@ fn alias_set_list_and_unset() {
 }
 
 #[test]
+fn group_set_list_join_and_unset() {
+    let s = Sandbox::new();
+    let set = s.run(&["group", "1", " Client A "]);
+    assert_eq!(set.code, 0, "{}", set.err);
+    assert_eq!(set.out, "Set group 'Client A' for Account 1\n");
+    let join = s.run(&["group", "account2@example.com", "client a"]);
+    assert_eq!(join.out, "Set group 'Client A' for Account 2\n");
+    assert_eq!(s.roster()["accounts"]["2"]["group"], "Client A");
+    assert_eq!(s.run(&["group"]).out, "Groups:\n  Client A: 1, 2\n");
+
+    let listed = s.run(&["list", "--json"]);
+    let payload: Value = serde_json::from_str(&listed.out).unwrap();
+    assert_eq!(payload["accounts"][0]["group"], "Client A");
+
+    let unset = s.run(&["group", "2", "--unset"]);
+    assert_eq!(unset.out, "Removed group for Account 2\n");
+    assert!(s.roster()["accounts"]["2"].get("group").is_none());
+
+    let long = s.run(&["group", "1", &"x".repeat(33)]);
+    assert_eq!(long.code, 1);
+    assert!(long.err.contains("longer than 32"), "{}", long.err);
+    assert_eq!(
+        s.run(&["group", "1"]).code,
+        2,
+        "a name or --unset is required"
+    );
+}
+
+#[test]
 fn alias_rejects_numeric_name_without_touching_the_roster() {
     let s = Sandbox::new();
     let before = s.roster();
@@ -558,8 +587,16 @@ fn import_from_cswap_copies_accounts_and_settings() {
     );
 
     // Round trip through an export file: everything already present is skipped.
+    assert_eq!(s.run(&["group", "1", "Work"]).code, 0);
     let file = s.dir.path().join("backup.json");
     assert_eq!(s.run(&["export", file.to_str().unwrap()]).code, 0);
+    let exported: Value = serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+    assert_eq!(exported["accounts"][0]["group"], "Work");
+    let fresh = Sandbox::new();
+    std::fs::remove_file(fresh.store().join("sequence.json")).unwrap();
+    let imported = fresh.run(&["import", file.to_str().unwrap()]);
+    assert_eq!(imported.code, 0, "{}", imported.err);
+    assert_eq!(fresh.roster()["accounts"]["1"]["group"], "Work");
     let again = s.run(&["import", file.to_str().unwrap()]);
     assert!(
         again

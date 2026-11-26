@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use log::debug;
 use serde_json::{Map, Value, json};
 
-use super::{AccountInfo, Switcher};
+use super::{AccountInfo, Switcher, groups};
 use crate::json_output::{
     AccountRowInput, SCHEMA_VERSION, USAGE_API_KEY, USAGE_FOREIGN_CREDENTIAL,
     USAGE_KEYCHAIN_UNAVAILABLE, USAGE_RELOGIN_REQUIRED, USAGE_TOKEN_EXPIRED, account_row,
@@ -457,6 +457,7 @@ impl Switcher {
                     last_error: entry.last_error.as_deref(),
                     backoff_until: entry.backoff_until.filter(|_| entry.in_backoff(now)),
                     alias: &info.alias,
+                    group: groups::group_of(&seq, &n),
                     disabled: Self::disabled_from_data(&seq, &n),
                     policy: Self::policy_from_data(&seq, &n),
                     login_expires_at: login.as_deref(),
@@ -543,6 +544,10 @@ impl Switcher {
                 format!("{} ({})", accent(&info.alias), info.email)
             };
             let mut markers = String::new();
+            let group = groups::group_of(&seq, &n);
+            if !group.is_empty() {
+                markers.push_str(&format!(" {}", muted(&format!("[{group}]"))));
+            }
             if info.is_active {
                 markers.push_str(&format!(" {}", bold_accent("(active)")));
             }

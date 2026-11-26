@@ -92,6 +92,32 @@ pub fn alias(setting: &AccountSetting, debug: bool) -> Result<(), CommandError> 
     Ok(())
 }
 
+pub fn group(setting: &AccountSetting, debug: bool) -> Result<(), CommandError> {
+    let switcher = open(debug)?;
+    match setting {
+        AccountSetting::List => {
+            let groups = switcher.list_groups().map_err(fail)?;
+            if groups.is_empty() {
+                println!("{}", dimmed("No groups set"));
+                return Ok(());
+            }
+            println!("{}", bolded("Groups:"));
+            for (name, nums) in groups {
+                println!("  {name}: {}", nums.join(", "));
+            }
+        }
+        AccountSetting::Unset { account } => {
+            let num = switcher.unset_group(account).map_err(fail)?;
+            println!("{} for Account {num}", accent("Removed group"));
+        }
+        AccountSetting::Set { account, value } => {
+            let (num, stored) = switcher.set_group(account, value).map_err(fail)?;
+            println!("{} '{stored}' for Account {num}", accent("Set group"));
+        }
+    }
+    Ok(())
+}
+
 pub fn threshold(setting: &AccountSetting, debug: bool) -> Result<(), CommandError> {
     let switcher = open(debug)?;
     match setting {

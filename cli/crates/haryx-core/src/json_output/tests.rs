@@ -129,6 +129,7 @@ fn account_row_optional_fields() {
     let base = row(|_| {});
     for key in [
         "alias",
+        "group",
         "loginExpiresAt",
         "disabled",
         "threshold",
@@ -138,6 +139,7 @@ fn account_row_optional_fields() {
         assert!(base.get(key).is_none(), "{key}");
     }
     assert_eq!(row(|r| r.alias = "dev")["alias"], "dev");
+    assert_eq!(row(|r| r.group = "Client A")["group"], "Client A");
     assert_eq!(row(|r| r.disabled = true)["disabled"], true);
     assert_eq!(
         row(|r| r.login_expires_at = Some("2026-10-08T01:06:36Z"))["loginExpiresAt"],

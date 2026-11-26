@@ -14,7 +14,8 @@ use crate::printer::{self, accent, dimmed};
 
 /// The fields a user puts on a managed slot, as opposed to the identity fields a re-login rewrites.
 /// `add --slot` rebuilds a record wholesale and carries exactly these across.
-pub const USER_ACCOUNT_SETTINGS: [&str; 4] = ["alias", "disabled", "threshold", "priority"];
+pub const USER_ACCOUNT_SETTINGS: [&str; 5] =
+    ["alias", "disabled", "threshold", "priority", "group"];
 
 /// `data["sequence"]` as slot-number strings, in order (non-integers skipped).
 pub(crate) fn sequence_numbers(data: &JsonObject) -> Vec<String> {

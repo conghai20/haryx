@@ -15,6 +15,21 @@ fn valid_aliases_normalize() {
 }
 
 #[test]
+fn group_names_keep_case_and_spaces_but_not_padding() {
+    assert_eq!(normalize_group("  Client A ").unwrap(), "Client A");
+    assert_eq!(
+        normalize_group(&"x".repeat(GROUP_MAX_CHARS)).unwrap().len(),
+        32
+    );
+    for bad in ["", "   ", "tab\there", &"x".repeat(GROUP_MAX_CHARS + 1)] {
+        assert!(
+            matches!(normalize_group(bad), Err(Error::Validation(_))),
+            "{bad:?}"
+        );
+    }
+}
+
+#[test]
 fn invalid_aliases_are_rejected() {
     for alias in ["123", "dev@work", "dev work", "", "dev/work", "-dev", "   "] {
         let err = normalize_alias(alias).unwrap_err();

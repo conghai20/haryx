@@ -18,7 +18,7 @@ use crate::fsutil::{WriteOptions, atomic_write_text};
 use crate::json_output::{SCHEMA_VERSION, usage_from_json};
 use crate::keychain::Security;
 use crate::models::pyfmt::json_dumps_pretty;
-use crate::models::{Platform, get_timestamp, normalize_alias};
+use crate::models::{Platform, get_timestamp, normalize_alias, normalize_group};
 use crate::oauth::credential_fingerprint;
 use crate::switcher::{JsonObject, Switcher};
 use crate::usage_store::Identities;
@@ -197,6 +197,10 @@ pub fn build_export(switcher: &Switcher, account: Option<&str>, full: bool) -> R
         if !alias.is_empty() {
             entry.insert("alias".into(), json!(alias));
         }
+        let group = record_str(record, "group");
+        if !group.is_empty() {
+            entry.insert("group".into(), json!(group));
+        }
         payload.push(Value::Object(entry));
     }
     if payload.is_empty() {
@@ -301,6 +305,7 @@ struct Incoming {
     added: String,
     is_api_key: bool,
     alias: Option<String>,
+    group: Option<String>,
     creds_text: String,
     config_text: String,
 }
@@ -334,6 +339,7 @@ fn validate_account(raw: &Value) -> Result<(String, String)> {
         "uuid",
         "added",
         "alias",
+        "group",
     ] {
         if let Some(v) = obj.get(field).filter(|v| !v.is_null() && !v.is_string()) {
             return Err(transfer(format!(
@@ -344,6 +350,13 @@ fn validate_account(raw: &Value) -> Result<(String, String)> {
     }
     if let Some(alias) = obj.get("alias").and_then(Value::as_str) {
         normalize_alias(alias).map_err(|e| transfer(format!("invalid alias for {email}: {e}")))?;
+    }
+    if let Some(group) = obj
+        .get("group")
+        .and_then(Value::as_str)
+        .filter(|g| !g.is_empty())
+    {
+        normalize_group(group).map_err(|e| transfer(format!("invalid group for {email}: {e}")))?;
     }
     Ok((email.to_owned(), number.to_string()))
 }
@@ -456,6 +469,10 @@ fn normalize_accounts(switcher: &Switcher, accounts: &[Value]) -> Result<Vec<Inc
             org_uuid,
             is_api_key,
             alias,
+            group: raw
+                .get("group")
+                .and_then(Value::as_str)
+                .and_then(|g| normalize_group(g).ok()),
             creds_text,
         });
     }
@@ -621,6 +638,9 @@ fn import_one(
     }
     if let Some(alias) = &entry.alias {
         record.insert("alias".into(), json!(alias));
+    }
+    if let Some(group) = &entry.group {
+        record.insert("group".into(), json!(group));
     }
     data.entry("accounts")
         .or_insert_with(|| json!({}))

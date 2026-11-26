@@ -427,6 +427,8 @@ pub struct AccountRowInput<'a> {
     /// The live backoff only; a lapsed one is the caller's to withhold.
     pub backoff_until: Option<f64>,
     pub alias: &'a str,
+    /// The account's group as stored, "" when it has none.
+    pub group: &'a str,
     pub disabled: bool,
     pub policy: AccountPolicy,
     pub login_expires_at: Option<&'a str>,
@@ -449,6 +451,9 @@ pub fn account_row(input: &AccountRowInput<'_>) -> Value {
     row.insert("usage".into(), usage);
     if !input.alias.is_empty() {
         row.insert("alias".into(), input.alias.into());
+    }
+    if !input.group.is_empty() {
+        row.insert("group".into(), input.group.into());
     }
     if input.disabled {
         row.insert("disabled".into(), json!(true));

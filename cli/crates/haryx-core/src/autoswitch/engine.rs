@@ -498,7 +498,7 @@ impl<'a> AutoSwitchEngine<'a> {
             atomic_write_json(&self.state_path, &Value::Object(state))?;
             result
         };
-        let warnings = result
+        let mut warnings: Vec<String> = result
             .get("warnings")
             .and_then(Value::as_array)
             .map(|w| {
@@ -508,6 +508,15 @@ impl<'a> AutoSwitchEngine<'a> {
                     .collect()
             })
             .unwrap_or_default();
+        let from_num = result
+            .get("from")
+            .and_then(|f| f.get("number"))
+            .and_then(Value::as_i64);
+        if let Some(note) =
+            from_num.and_then(|f| self.switcher.left_group_note(&f.to_string(), number))
+        {
+            warnings.push(note);
+        }
         self.emit_body(EventBody::Switch {
             trigger: trigger.into(),
             from: result.get("from").cloned().filter(|v| !v.is_null()),

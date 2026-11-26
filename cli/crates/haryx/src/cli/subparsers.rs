@@ -1,5 +1,5 @@
 //! The commands upstream `main()` dispatches before building its main parser, each with its own
-//! argparse parser: `run`, `auto`, `config`, `map`, `unmap`, `unclaimed`, `alias`, `threshold`,
+//! argparse parser: `run`, `auto`, `config`, `map`, `unmap`, `unclaimed`, `alias`, `group`, `threshold`,
 //! `priority`, `swap`, `move`, `doctor`.
 
 use clap::error::ErrorKind;
@@ -27,6 +27,7 @@ pub(super) fn parse(first: &str, rest: &[String]) -> Option<Result<Invocation, E
             invocation(a.debug, Command::Unclaimed { purge })
         }),
         "alias" => run_parser::<AliasArgs>(rest).and_then(AliasArgs::into_invocation),
+        "group" => run_parser::<GroupArgs>(rest).and_then(GroupArgs::into_invocation),
         "threshold" => run_parser::<ThresholdArgs>(rest).and_then(ThresholdArgs::into_invocation),
         "priority" => run_parser::<PriorityArgs>(rest).and_then(PriorityArgs::into_invocation),
         "swap" => run_parser::<SwapArgs>(rest).map(|a| {
@@ -623,6 +624,57 @@ impl AliasArgs {
 
 #[derive(Parser, Debug)]
 #[command(
+    name = "group",
+    bin_name = sub_bin("group"),
+    about = "Put an account in a group, take it out, or list groups. Automatic switching \
+             (rotation, best, next-available, auto) prefers accounts in the active account's \
+             group, and leaves it only when none of them can take over.",
+    after_help = help::group_epilog(),
+    help_template = help::HELP_TEMPLATE,
+    args_override_self = true,
+    infer_long_args = true,
+)]
+struct GroupArgs {
+    /// Account to group (number, email, or alias). Omit to list groups.
+    #[arg(value_name = "NUM|EMAIL|ALIAS")]
+    account: Option<String>,
+
+    /// Group name (up to 32 characters; case-insensitive, so 'work' joins 'Work').
+    #[arg(value_name = "NAME")]
+    group_name: Option<String>,
+
+    /// Take the account out of its group
+    #[arg(long)]
+    unset: bool,
+
+    /// Enable debug logging
+    #[arg(long)]
+    debug: bool,
+}
+
+impl GroupArgs {
+    fn into_invocation(self) -> Result<Invocation, Error> {
+        let rules = SettingRules {
+            unset_takes_no_value: "--unset does not take a NAME argument",
+            unset_needs_account: "NUM|EMAIL|ALIAS is required with --unset",
+            set_needs_value: "NAME is required (or pass --unset to take the account out)",
+        };
+        let given_name = self
+            .group_name
+            .as_deref()
+            .is_some_and(|name| !name.trim().is_empty());
+        let given = ValueGiven {
+            blocks_unset: given_name,
+            satisfies_set: given_name,
+        };
+        let setting =
+            account_setting::<Self>(&rules, self.account, self.group_name, given, self.unset)?;
+        Ok(invocation(self.debug, Command::Group(setting)))
+    }
+}
+
+#[derive(Parser, Debug)]
+#[command(
     name = "threshold",
     bin_name = sub_bin("threshold"),
     about = "Set, remove, or list a per-account switch-away threshold. The per-account value \
@@ -728,6 +780,7 @@ mod tests {
         SwapArgs::command().debug_assert();
         MoveArgs::command().debug_assert();
         AliasArgs::command().debug_assert();
+        GroupArgs::command().debug_assert();
         ThresholdArgs::command().debug_assert();
         PriorityArgs::command().debug_assert();
     }

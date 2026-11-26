@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, HashSet};
 use serde_json::{Value, json};
 
 use super::perform::SwitchOp;
-use super::{JsonObject, Switcher};
+use super::{JsonObject, Switcher, groups};
 use crate::error::{Error, Result};
 use crate::json_output::{SCHEMA_VERSION, account_ref};
 use crate::oauth;
@@ -215,14 +215,24 @@ impl Switcher {
         };
         let scored: Vec<(Option<f64>, String)> =
             others.iter().map(|n| (headroom(n), n.clone())).collect();
-        let best = scored.iter().filter_map(|(h, n)| h.map(|h| (h, n))).fold(
-            None::<(f64, &String)>,
-            |acc, (h, n)| match acc {
-                Some((bh, _)) if bh >= h => acc,
-                _ => Some((h, n)),
-            },
-        );
-        let Some((best_h, best_num)) = best else {
+        let best_where = |keep: &dyn Fn(&str) -> bool| {
+            scored
+                .iter()
+                .filter(|(_, n)| keep(n))
+                .filter_map(|(h, n)| h.map(|h| (h, n)))
+                .fold(None::<(f64, &String)>, |acc, (h, n)| match acc {
+                    Some((bh, _)) if bh >= h => acc,
+                    _ => Some((h, n)),
+                })
+        };
+        // The active account's group first: its best is taken whenever it beats the current one.
+        let in_group = |n: &str| current_num.is_none_or(|c| groups::same_group(&data, c, n));
+        if let Some((h, n)) = best_where(&in_group)
+            && h > current
+        {
+            return (Some(n.clone()), "");
+        }
+        let Some((best_h, best_num)) = best_where(&|_| true) else {
             return (None, "no-comparison");
         };
         if best_h > current {
@@ -337,6 +347,7 @@ impl Switcher {
             Self::warn_inert_models(&usage, models, json_output, &mut warnings);
             let (target, note) = self.select_best_switchable(current.as_deref(), models, &usage);
             if let Some(target) = target {
+                ctx.note_left_group(&data, &target, &mut warnings);
                 let op = self.perform_switch(&target, !json_output, false, None)?;
                 return Ok(json_output.then(|| result_from_op(op, label, warnings)));
             }
@@ -364,8 +375,10 @@ impl Switcher {
         };
         let mut next: Option<String> = None;
         let mut skipped_exhausted = false;
-        for offset in 1..sequence.len() {
-            let candidate = sequence[(index + offset) % sequence.len()].clone();
+        let order: Vec<String> = (1..sequence.len())
+            .map(|offset| sequence[(index + offset) % sequence.len()].clone())
+            .collect();
+        for candidate in groups::same_group_first(&data, current.as_deref(), order) {
             if Self::disabled_from_data(&data, &candidate) {
                 ctx.skip(&mut warnings, &candidate, "(disabled)", "(disabled)".into());
                 continue;
@@ -453,6 +466,7 @@ impl Switcher {
             }
             provenance = prov;
         }
+        ctx.note_left_group(&data, &next, &mut warnings);
         let op = self.perform_switch(&next, !json_output, false, provenance)?;
         Ok(json_output.then(|| result_from_op(op, label, warnings)))
     }
@@ -613,6 +627,22 @@ struct Ctx<'a> {
 }
 
 impl Ctx<'_> {
+    /// Say so when an automatic pick left the active account's group.
+    fn note_left_group(&self, data: &JsonObject, target: &str, warnings: &mut Vec<String>) {
+        let Some(note) = self
+            .current
+            .as_deref()
+            .and_then(|from| groups::left_group_note(data, from, target))
+        else {
+            return;
+        };
+        if self.json_output {
+            warnings.push(note);
+        } else {
+            warning(&note);
+        }
+    }
+
     fn current_label(&self) -> String {
         self.current.clone().unwrap_or_else(|| "None".into())
     }

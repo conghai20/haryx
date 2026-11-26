@@ -133,6 +133,8 @@ pub enum Command {
     Unclaimed { purge: Option<String> },
     /// `alias [NUM|EMAIL] [NAME] [--unset]`.
     Alias(AccountSetting),
+    /// `group [NUM|EMAIL|ALIAS] [NAME] [--unset]`.
+    Group(AccountSetting),
     /// `threshold [NUM|EMAIL] [PCT] [--unset]`. The value is validated in core.
     Threshold(AccountSetting),
     /// `priority [NUM|EMAIL|ALIAS] [TIER] [--unset]`. The value is validated in core.
@@ -240,7 +242,7 @@ pub enum ConfigAction {
     Path,
 }
 
-/// The shape shared by `alias`, `threshold` and `priority`: list all, set one, or clear one.
+/// The shape shared by `alias`, `group`, `threshold` and `priority`: list all, set one, or clear one.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AccountSetting {
     List,
@@ -275,6 +277,7 @@ impl Command {
             Self::Unmap { .. } => "unmap",
             Self::Unclaimed { .. } => "unclaimed",
             Self::Alias(_) => "alias",
+            Self::Group(_) => "group",
             Self::Threshold(_) => "threshold",
             Self::Priority(_) => "priority",
             Self::Swap { .. } => "swap",

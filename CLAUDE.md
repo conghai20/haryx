@@ -35,7 +35,7 @@ not been built there yet. Each exception is written down where the next person w
 
 Known exceptions today:
 
-- **Claude Desktop follows Use** (and the cards' Set Up/Open Desktop button) is macOS-only. The
+- **Claude Desktop per account** (the cards' Set Up/Open Desktop button) is macOS-only. The
   Windows app has no Desktop launcher, and the `haryx ai desktop` folder handling has not been
   checked against Claude Desktop for Windows.
 - **Menu bar % reading** is macOS-only; the Windows tray icon has no text.

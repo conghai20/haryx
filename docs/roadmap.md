@@ -9,10 +9,6 @@ prompts and `--json` shapes, verified against `packages/contracts/`. Port from `
 `haryx ai profile`: list, save, export, import and apply a Claude Code setup (skills, hooks, MCPs, plugins)
 across machines through one file. Plan: [ai-profile-plan.md](ai-profile-plan.md).
 
-## Claude Desktop follows Use
-Pressing Use in the macOS app also moves Claude Desktop to that account, through a per-account Desktop data folder.
-Blocked on one sign-in test. Plan: [desktop-follow-plan.md](desktop-follow-plan.md).
-
 ## Continue a session on another account
 When an account runs out, end its stuck Claude Code session and resume the same conversation on
 another account in one click; offered after auto-switch. Plan: [session-handoff-plan.md](session-handoff-plan.md).

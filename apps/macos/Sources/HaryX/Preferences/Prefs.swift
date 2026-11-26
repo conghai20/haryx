@@ -20,7 +20,8 @@ enum Prefs {
     /// The Accounts pane's collapsed group sections (group keys, one per line). This machine only.
     static let collapsedGroups = "collapsedGroups"
     static let cliInstallOffered = "cliInstallOffered"
-    /// "Claude Desktop follows Use" (off by default) and its confirm's "Don't ask again".
+    /// "Claude Desktop per account" (off by default; the key keeps its old name, which sync uses)
+    /// and its confirm's "Don't ask again".
     static let desktopFollows = "desktopFollows"
     static let desktopSkipConfirm = "desktopSkipConfirm"
     /// In-app updates: `UpdateMode` raw value, the last lookup, and a release the user skipped.

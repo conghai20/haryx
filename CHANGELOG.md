@@ -44,6 +44,12 @@ cannot be released without one. Sections, in this order, only when they have ent
   (`haryx ai sessions continue --to best`, and the apps' Continue on…) prefers the session's
   group the same way.
 
+### Changed
+
+- macOS app: Use no longer quits and reopens a running Claude Desktop. Desktop opens on an account
+  only from its Open/Set Up Desktop button or the panel's Desktop line. The setting is renamed
+  "Claude Desktop per account", and the "Claude Desktop follows Use" roadmap item is dropped. macOS only: the Windows app has no Desktop launcher.
+
 ### Fixed
 
 - A running Claude session started with plain `claude` picks up a switched account by itself, so

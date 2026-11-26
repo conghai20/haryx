@@ -48,10 +48,9 @@ extension AppStore {
 
     // MARK: switching
 
-    /// A manual switch. The only path that moves Claude Desktop (when that setting is on).
+    /// A manual switch. Claude Desktop is left as it is; it opens only from its own buttons.
     func switchTo(_ a: Account, force: Bool = false) async {
-        guard await runSwitch("Switching", ["switch", ref(a), "--json"] + (force ? ["--force"] : [])) else { return }
-        await followDesktop(to: active ?? a)
+        await runSwitch("Switching", ["switch", ref(a), "--json"] + (force ? ["--force"] : []))
     }
 
     func switchNext(_ mode: SwitchMode) async {

@@ -61,13 +61,13 @@ struct DesktopSettingsSection: View {
 
     var body: some View {
         Section {
-            Toggle("Claude Desktop follows Use", isOn: $desktopFollows)
+            Toggle("Claude Desktop per account", isOn: $desktopFollows)
                 .onChange(of: desktopFollows) { Task { await store.reloadDesktop() } }
             Toggle("Ask before quitting Claude Desktop", isOn: Binding(
                 get: { !desktopSkipConfirm }, set: { desktopSkipConfirm = !$0 }))
                 .disabled(!desktopFollows)
         } header: { Text("Claude Desktop") } footer: {
-            Text("When you press Use, a running Claude Desktop quits and reopens on that account's own Desktop folder, so it signs in as the same account. Each account signs in to Desktop once, with Set Up Desktop on its card. Auto-switch and AI Wake never quit Desktop. Each folder takes about 750 MB.")
+            Text("Each account gets its own Claude Desktop folder: sign in once with Set Up Desktop on its card, then Open Desktop reopens Claude Desktop as that account. Use, auto-switch and AI Wake never quit or open Desktop. Each folder takes about 750 MB.")
         }
     }
 }

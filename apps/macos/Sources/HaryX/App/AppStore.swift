@@ -34,7 +34,7 @@ final class AppStore {
     private(set) var wake: WakeStatus?
     /// Why wake status could not be read (an older haryx without `ai wake`), when it could not.
     private(set) var wakeError: String?
-    /// `haryx ai desktop status`; nil while "Claude Desktop follows Use" is off.
+    /// `haryx ai desktop status`; nil while "Claude Desktop per account" is off.
     private(set) var desktop: DesktopStatus?
     /// `haryx ai doctor`: nil until read, or with a cswap backend.
     private(set) var claudeSetup: ClaudeSetup?

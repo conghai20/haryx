@@ -139,6 +139,37 @@ impl Switcher {
         left_group_note(&self.sequence_or_empty().ok()?, from, to)
     }
 
+    /// `ai sessions continue --to best`: where a session running as `from` should continue. An
+    /// account with headroom left, other than `from`, with the most of it; one in `from`'s group
+    /// wins over any outside it, as the automatic switches prefer. Returns the target and, when the
+    /// pick left `from`'s group, the note saying so; `None` when no account has headroom.
+    pub fn best_handoff_target(
+        &self,
+        from: Option<&str>,
+    ) -> Result<Option<(String, Option<String>)>> {
+        let usage = self.usage_by_account();
+        let headroom =
+            |n: &str| crate::oauth::account_headroom(usage.get(n).and_then(Option::as_ref), &[]);
+        let data = self.sequence_or_empty()?;
+        let usable: Vec<(f64, String)> = self
+            .switchable_account_numbers()?
+            .into_iter()
+            .filter(|n| Some(n.as_str()) != from)
+            .filter_map(|n| headroom(&n).filter(|h| *h > 0.0).map(|h| (h, n)))
+            .collect();
+        let in_group = |n: &str| from.is_some_and(|f| same_group(&data, f, n));
+        let has_mate = usable.iter().any(|(_, n)| in_group(n));
+        let best = usable
+            .into_iter()
+            .filter(|(_, n)| !has_mate || in_group(n))
+            .max_by(|a, b| a.0.total_cmp(&b.0))
+            .map(|(_, n)| n);
+        Ok(best.map(|target| {
+            let note = from.and_then(|f| left_group_note(&data, f, &target));
+            (target, note)
+        }))
+    }
+
     fn resolved_slot(&self, identifier: &str) -> Result<String> {
         self.get_sequence_data_migrated()?;
         let num = self
@@ -371,6 +402,28 @@ mod tests {
     fn rotation_from_an_ungrouped_account_prefers_other_ungrouped_ones() {
         let (s, _stub) = fleet([10.0, 10.0, 10.0], [None, Some("Work"), None]);
         assert_eq!(switch_json(&s, None)["to"]["number"], 3);
+    }
+
+    #[test]
+    fn a_handoff_prefers_the_sources_group_and_leaves_it_only_when_none_there_has_room() {
+        let (s, _stub) = fleet([100.0, 5.0, 40.0], WORK_13);
+        assert_eq!(
+            s.best_handoff_target(Some("1")).unwrap(),
+            Some(("3".into(), None))
+        );
+
+        let (s, _stub) = fleet([100.0, 5.0, 100.0], WORK_13);
+        let (target, note) = s.best_handoff_target(Some("1")).unwrap().unwrap();
+        assert_eq!(target, "2");
+        assert!(note.unwrap().contains("group 'Work'"));
+
+        let (s, _stub) = fleet([100.0, 5.0, 40.0], [None; 3]);
+        assert_eq!(
+            s.best_handoff_target(Some("1")).unwrap(),
+            Some(("2".into(), None))
+        );
+        let (s, _stub) = fleet([100.0, 100.0, 100.0], WORK_13);
+        assert_eq!(s.best_handoff_target(Some("1")).unwrap(), None);
     }
 
     #[test]

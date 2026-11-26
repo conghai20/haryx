@@ -2,14 +2,14 @@
 
 use std::path::{Path, PathBuf};
 
+use haryx_core::AI_PROG;
 use haryx_core::handoff;
 use haryx_core::paths;
-use haryx_core::printer::{accent, dimmed};
+use haryx_core::printer::{accent, dimmed, warning_stderr};
 use haryx_core::running::{self, RunningSession, Scan};
 use haryx_core::session::session_dir_for;
 use haryx_core::session_manager::{RunRequest, SessionManager};
 use haryx_core::switcher::Switcher;
-use haryx_core::{AI_PROG, oauth};
 use serde_json::{Value, json};
 
 use super::accounts::fail;
@@ -133,18 +133,14 @@ fn prepare(
 ) -> Result<Plan, String> {
     let live = handoff::find(scan, key)?.clone();
     let from = live.account.map(|n| n.to_string());
-    // `best` for a default-profile session may be the active account itself (after a switch).
-    let exclude = (live.profile == "session")
-        .then_some(from.as_deref())
-        .flatten();
-    let target = choose_target(switcher, exclude, to)?;
+    let target = choose_target(switcher, from.as_deref(), to)?;
     let (to_num, to_email, _) = switcher
         .resolve_account(&target)
         .map_err(|e| e.to_string())?;
-    // A default-profile session is listed under the active account, but one started before a switch
-    // still holds the old login: restarting it on the active account is the point. A session
-    // profile's account is exact.
-    if live.profile == "session" && Some(&to_num) == from.as_ref() {
+    // A default-profile session runs as the active account and picks up a switch while it runs, so
+    // continuing it there would only restart it. Moving it takes another account, as for a session
+    // profile, whose account is exact.
+    if Some(&to_num) == from.as_ref() {
         return Err(format!("the session already runs as account {to_num}"));
     }
     let source_profile = profile_of(switcher, default_profile, &live);
@@ -218,25 +214,20 @@ fn profile_of(switcher: &Switcher, default_profile: &Path, live: &RunningSession
     }
 }
 
-/// `best` picks the usable account with the most headroom other than `from`; anything else is an
-/// account number or email.
+/// `best` picks an account with headroom other than `from`, preferring `from`'s group
+/// ([`Switcher::best_handoff_target`]); anything else is an account number or email.
 fn choose_target(switcher: &Switcher, from: Option<&str>, to: &str) -> Result<String, String> {
     if !to.eq_ignore_ascii_case("best") {
         return Ok(to.to_owned());
     }
-    let usage = switcher.usage_by_account();
-    let headroom = |n: &str| oauth::account_headroom(usage.get(n).and_then(Option::as_ref), &[]);
-    let candidates = switcher
-        .switchable_account_numbers()
-        .map_err(|e| e.to_string())?;
-    candidates
-        .into_iter()
-        .filter(|n| Some(n.as_str()) != from)
-        .filter(|n| !switcher.is_account_disabled(n).unwrap_or(true))
-        .filter_map(|n| headroom(&n).filter(|h| *h > 0.0).map(|h| (h, n)))
-        .max_by(|a, b| a.0.total_cmp(&b.0))
-        .map(|(_, n)| n)
-        .ok_or_else(|| "no other account has headroom left; pick one with --to".to_owned())
+    let (target, note) = switcher
+        .best_handoff_target(from)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "no other account has headroom left; pick one with --to".to_owned())?;
+    if let Some(note) = note {
+        warning_stderr(&note);
+    }
+    Ok(target)
 }
 
 pub fn run(json: bool, debug: bool) -> Result<(), CommandError> {

@@ -17,6 +17,8 @@ public struct Account: Decodable, Sendable, Identifiable, Hashable {
     public let usageStatus: String
     public let usage: Usage?
     public let alias: String?
+    /// `haryx group`: nil when ungrouped.
+    public let group: String?
     public let disabled: Bool?
     public let threshold: Double?
     public let loginExpiresAt: Date?

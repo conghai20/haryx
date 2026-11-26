@@ -166,6 +166,11 @@ extension AppStore {
         await perform("Alias", args)
     }
 
+    func setGroup(_ a: Account, _ group: String?) async {
+        let args = group.map { ["group", ref(a), $0] } ?? ["group", ref(a), "--unset"]
+        await perform("Group", args)
+    }
+
     func setThreshold(_ a: Account, _ pct: Double?) async {
         let args = pct.map { ["threshold", ref(a), String(format: "%.1f", $0)] } ?? ["threshold", ref(a), "--unset"]
         await perform("Threshold", args)

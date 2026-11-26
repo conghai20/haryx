@@ -6,6 +6,7 @@ struct AccountInspector: View {
     let account: Account
 
     @State private var alias = ""
+    @State private var group = ""
     @State private var thresholdOn = false
     @State private var threshold = 90.0
     @State private var priority = 0
@@ -46,6 +47,7 @@ struct AccountInspector: View {
                         Button("Clear") { Task { await store.setAlias(account, nil) } }
                     }
                 }
+                GroupField(account: account, group: $group)
             }
 
             Section("Rotation") {
@@ -109,10 +111,46 @@ struct AccountInspector: View {
 
     private func load() {
         alias = account.alias ?? ""
+        group = account.group ?? ""
         thresholdOn = account.threshold != nil
         threshold = account.threshold ?? store.configValue("autoswitch.threshold").flatMap { if case .number(let n) = $0 { n } else { nil } } ?? 90
         priority = store.priorities[account.number] ?? 0
         moveSlot = account.number
+    }
+}
+
+/// The account's group: type a new name, or pick one already in use. Automatic switching prefers
+/// the active account's group.
+private struct GroupField: View {
+    @Environment(AppStore.self) private var store
+    let account: Account
+    @Binding var group: String
+    /// The CLI's limit (`GROUP_MAX_CHARS`).
+    private static let maxLength = 32
+
+    private var trimmed: String { group.trimmingCharacters(in: .whitespaces) }
+
+    var body: some View {
+        HStack {
+            TextField("Group", text: $group, prompt: Text("none"))
+                .onChange(of: group) { _, new in if new.count > Self.maxLength { group = String(new.prefix(Self.maxLength)) } }
+            let others = AccountGroups.names(store.accounts).filter { $0.lowercased() != trimmed.lowercased() }
+            if !others.isEmpty {
+                Menu {
+                    ForEach(others, id: \.self) { name in Button(name) { group = name } }
+                } label: { Image(systemName: "chevron.down") }
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("Use an existing group")
+                .accessibilityLabel("Existing groups")
+            }
+            Button("Save") { Task { await store.setGroup(account, trimmed) } }
+                .disabled(trimmed.isEmpty || trimmed == account.group)
+            if account.group != nil {
+                Button("Clear") { Task { await store.setGroup(account, nil) } }
+            }
+        }
+        .help("Automatic switching tries accounts in the active account's group first")
     }
 }
 

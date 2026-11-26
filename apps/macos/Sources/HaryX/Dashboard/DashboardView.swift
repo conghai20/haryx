@@ -157,6 +157,54 @@ struct DashboardView: View {
     }
 }
 
+private struct AccountGrid: View {
+    @Bindable private var router = DashboardRouter.shared
+    let accounts: [Account]
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 16)], spacing: 16) {
+            ForEach(accounts) { a in
+                AccountCard(account: a, selected: router.selectedSlot == a.number)
+                    .onTapGesture { router.selectedSlot = a.number }
+            }
+        }
+    }
+}
+
+/// One group's cards under a header that collapses them. Collapsed groups are remembered on this
+/// machine only.
+private struct GroupSection: View {
+    @AppStorage(Prefs.collapsedGroups) private var collapsedKeys = ""
+    let section: AccountGroups.Section
+
+    private var collapsed: Bool { collapsedKeys.split(separator: "\n").contains(Substring(section.id)) }
+    private var title: String { section.name ?? "Ungrouped" }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                var keys = Set(collapsedKeys.split(separator: "\n").map(String.init))
+                if collapsed { keys.remove(section.id) } else { keys.insert(section.id) }
+                withAnimation(.snappy) { collapsedKeys = keys.sorted().joined(separator: "\n") }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .rotationEffect(.degrees(collapsed ? 0 : 90))
+                    Text(title).font(.headline)
+                    Text("\(section.accounts.count)").font(.subheadline).foregroundStyle(.secondary).monospacedDigit()
+                }
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(title), \(section.accounts.count) accounts")
+            .accessibilityValue(collapsed ? "Collapsed" : "Expanded")
+            .accessibilityHint(collapsed ? "Shows this group's accounts" : "Hides this group's accounts")
+            if !collapsed { AccountGrid(accounts: section.accounts) }
+        }
+    }
+}
+
 struct AccountsPane: View {
     @Environment(AppStore.self) private var store
     @Bindable private var router = DashboardRouter.shared
@@ -181,13 +229,15 @@ struct AccountsPane: View {
                 }
                 .padding(.top, 80)
             }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 16)], spacing: 16) {
-                    ForEach(store.active.map { [$0] + store.nextInLine } ?? store.nextInLine) { a in
-                        AccountCard(account: a, selected: router.selectedSlot == a.number)
-                            .onTapGesture { router.selectedSlot = a.number }
-                    }
+            let ordered = store.active.map { [$0] + store.nextInLine } ?? store.nextInLine
+            if AccountGroups.inUse(ordered) {
+                VStack(alignment: .leading, spacing: 20) {
+                    ForEach(AccountGroups.sections(ordered)) { GroupSection(section: $0) }
                 }
                 .padding(20)
+            } else {
+                AccountGrid(accounts: ordered).padding(20)
+            }
             OtherMachineAccountsSection()
         }
         .inspector(isPresented: Binding(get: { router.selectedSlot != nil }, set: { if !$0 { router.selectedSlot = nil } })) {

@@ -206,7 +206,18 @@ private struct NextInLine: View {
                 .font(.caption2.weight(.medium)).foregroundStyle(.tertiary)
                 .padding(.bottom, 2)
                 .accessibilityHidden(true)
-                ForEach(accounts) { a in
+                let grouped = AccountGroups.inUse(accounts)
+                ForEach(Array(accounts.enumerated()), id: \.element.number) { i, a in
+                    // The list keeps switch order, so a group is named wherever the run changes.
+                    if grouped, i == 0 || !a.sharesGroup(with: accounts[i - 1]) {
+                        GridRow {
+                            Text(a.group ?? "Ungrouped")
+                                .font(.caption2.weight(.medium)).foregroundStyle(.secondary)
+                                .gridCellColumns(5)
+                                .padding(.top, i == 0 ? 0 : 4)
+                                .accessibilityAddTraits(.isHeader)
+                        }
+                    }
                     AccountRow(account: a) { band in rowBands[a.number] = band }
                 }
             }
@@ -459,8 +470,18 @@ private struct QuickActions: View {
                     TerminalMenuItems { store.runClaude(as: nil, app: $0) }
                 }
                 Menu("Claude as…") {
-                    ForEach(store.accounts) { a in
-                        Button("\(a.number): \(a.displayName)") { store.runClaude(as: a) }
+                    if AccountGroups.inUse(store.accounts) {
+                        ForEach(AccountGroups.sections(store.accounts)) { section in
+                            Section(section.name ?? "Ungrouped") {
+                                ForEach(section.accounts) { a in
+                                    Button("\(a.number): \(a.displayName)") { store.runClaude(as: a) }
+                                }
+                            }
+                        }
+                    } else {
+                        ForEach(store.accounts) { a in
+                            Button("\(a.number): \(a.displayName)") { store.runClaude(as: a) }
+                        }
                     }
                 }
                 Button("Claude in Folder…") {

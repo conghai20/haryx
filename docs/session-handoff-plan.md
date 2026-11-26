@@ -3,6 +3,20 @@
 Status: built (2026-11-24) without the phase 0 spike, which needs an account at its limit. Tested
 with unit and CLI tests; not yet run against a real limit.
 
+**Phase 0, question 1, answered by the owner on 2026-11-26: yes.** A running default-profile
+session picks up a switched account while it runs, by hand or by auto-switch; no stop and resume
+is needed. Changed to match:
+- Only a `haryx run` session (its own profile, tied to one account) is offered a handoff when its
+  account is exhausted. Neither app tracks "left behind" default-profile sessions any more, and
+  macOS no longer posts "N sessions stopped on account A" after an auto-switch.
+- The CLI treats both kinds alike: `--to best` leaves out the account the session runs as, and
+  continuing a session on that same account is refused (for a default-profile session it would
+  only restart it).
+- `best` prefers the source account's group (`haryx group`), as the automatic switches do, and
+  leaves it only when no account there has headroom.
+
+The bullets below record the build as it first was; the "left behind" ones no longer hold.
+
 Built as planned, with these differences:
 - No `stuck` flag in `ai sessions --json`: computing headroom on every 4-second scan would read the
   usage store each time. The apps decide "stuck" from the account readings they already have.
@@ -19,6 +33,8 @@ Decisions taken with the owner on 2026-11-24:
   hard kill), waits for it, then resumes the same conversation on the new account.
 - When auto-switch leaves an exhausted account, HaryX **offers** to continue that account's
   running sessions (notification + menu bar/flyout row, one click). Nothing moves on its own.
+  *Superseded 2026-11-26: default-profile sessions follow the switch by themselves; only
+  `haryx run` sessions are offered a handoff.*
 
 ## The problem
 

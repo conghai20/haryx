@@ -40,7 +40,17 @@ cannot be released without one. Sections, in this order, only when they have ent
   saying so in its warnings; `switch <num>` is unaffected. The group shows in `list` and
   `list --json`, and travels with export/import and sync. In both apps the Accounts pane shows a
   collapsible section per group, the inspector has a Group field, and Next in line and "Claude
-  as…" are grouped.
+  as…" are grouped. Continuing a stuck session on the best account
+  (`haryx ai sessions continue --to best`, and the apps' Continue on…) prefers the session's
+  group the same way.
+
+### Fixed
+
+- A running Claude session started with plain `claude` picks up a switched account by itself, so
+  the apps no longer call it stuck after a switch, and macOS no longer notifies "N sessions stopped
+  on account A" after an auto-switch. Only a session started with `haryx run` (tied to its account)
+  is offered Continue on…. `haryx ai sessions continue` no longer restarts a session on the account
+  it already runs as.
 
 ## [0.1.6] - 2026-11-25
 

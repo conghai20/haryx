@@ -1,6 +1,7 @@
 # Account groups
 
-Status: planned (2026-11-26); awaiting approval before any build work.
+Status: built on branch `feat/haryx-account` (2026-11-26): CLI `3097467`, macOS `c169ee1`, Windows
+`80a97a6`. Awaiting a hands-on check in both apps.
 
 ## Goal
 

@@ -21,7 +21,7 @@ cannot be released without one. Sections, in this order, only when they have ent
   still signed in with `haryx ai login`, and `haryx login 3` now says so.
 - `haryx sync`: sync between your machines, end-to-end encrypted with a sync passphrase (`sync unlock`;
   `sync passphrase` changes it). Carries `haryx config` settings (except `history.import`), the apps'
-  preferences (`sync prefs get|set`), each Claude account's alias, priority, threshold and enabled state,
+  preferences (`sync prefs get|set`), each Claude account's alias, group, priority, threshold and enabled state,
   and API-key and setup-token accounts. Claude browser logins never leave the machine: accounts that
   exist only elsewhere are listed by `sync status` to sign in here. `sync forget EMAIL`, `sync reset`.
 - `haryx sync profile push|pull|list|remove`: setup profiles on the server, encrypted (secrets
@@ -33,6 +33,14 @@ cannot be released without one. Sections, in this order, only when they have ent
 - macOS and Windows apps: HaryX sign-in lives in the dashboard sidebar's footer, a dropdown of the
   ways to sign in (GitHub or Google). Signed in, the footer shows the account and
   sync state, with Account & Sync and Sign Out in its menu.
+- Account groups: `haryx group <num|email|alias> <name>` (`--unset` to remove, no account to list).
+  Names are up to 32 characters and match ignoring case. Automatic switching (rotation, `best`,
+  `next-available` and `haryx auto`) prefers accounts in the active account's group, ungrouped
+  accounts counting as a group of their own, and leaves it only when none there can take over,
+  saying so in its warnings; `switch <num>` is unaffected. The group shows in `list` and
+  `list --json`, and travels with export/import and sync. In both apps the Accounts pane shows a
+  collapsible section per group, the inspector has a Group field, and Next in line and "Claude
+  as…" are grouped.
 
 ## [0.1.6] - 2026-11-25
 

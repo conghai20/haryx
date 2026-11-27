@@ -10,3 +10,7 @@ packaging/pypi/dist/
 
 # Impeccable scratch files
 .impeccable/tmp/
+
+# deploy/: secrets and local backups never go in git
+deploy/.env
+deploy/backups/

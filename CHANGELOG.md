@@ -11,6 +11,31 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+### Breaking changes
+
+- HaryX accounts moved from Supabase to WeCoAp SSO (`sso.wecoap.com`) and the HaryX API
+  (`haryx.wecoap.com`), both in Vietnam. Sign-in was never released, so there is nothing to
+  migrate; a Supabase-era session is signed out and asks you to sign in again. `HARYX_SUPABASE_URL`
+  and `HARYX_SUPABASE_KEY` are gone; `HARYX_SSO_ISSUER` and `HARYX_API_URL` point a build at a
+  local stack. `haryx account delete` no longer deletes: it shows where to delete your WeCoAp ID.
+
+### Added
+
+- Sign in with a WeCoAp ID: GitHub, Google, Apple or email and password (`haryx login
+  --provider …`, `--no-browser` for the device grant). Both apps offer the same four.
+- Consents, per Law 91/2025: Sync, and showing your machines on HaryX web, each asked before
+  first use and withdrawable; withdrawing erases that purpose's data on the server. `haryx account
+  consents`, `haryx account consent grant|withdraw sync|machines`, `haryx account export`,
+  `haryx account machines`, `haryx account machine rename`. Both apps: consent sheets, a Privacy
+  section (machine toggle, Withdraw, Export, policy link), and "Open HaryX on the web".
+- Usage syncs end-to-end encrypted: one monthly summary per machine (tokens by day, account and
+  model, plus 5h/7d readings; never a project path, session id or conversation text). The Usage
+  pane says "It stays on this machine" only when it does not sync.
+- HaryX web (`https://haryx.wecoap.com/platform/`): Machines (rename, sign out) and the Privacy
+  center; Accounts, Usage and Profiles once you enter your sync passphrase in the browser, which
+  the server never sees.
+- "Signed out of HaryX from the web" in both apps when a machine is signed out remotely.
+
 ### Changed
 
 - Set up panes, both apps. AI settings runs by task: usage (the CLI's usage readings now sit with

@@ -231,7 +231,14 @@ pub fn open_terminal(
         let dir = PathBuf::from(app_data).join(r"warp\Warp\data\launch_configurations");
         return terminals::open_warp(&job, &haryx, &folder, &dir);
     }
-    let argv = terminals::launch_argv(terminal, &job, &haryx, &folder, &state.terminals)?;
+    let argv = terminals::launch_argv(
+        terminal,
+        &job,
+        &haryx,
+        &folder,
+        &state.terminals,
+        prefs.shell,
+    )?;
     terminals::launch(&argv, &folder)
 }
 
@@ -251,6 +258,16 @@ pub fn mappings() -> Vec<crate::models::Mapping> {
         .and_then(|root| std::fs::read_to_string(root.join("mappings.json")).ok())
         .map(|text| crate::models::parse_mappings(&text))
         .unwrap_or_default()
+}
+
+/// Post a test toast, so a person can see notifications reach them (and fix Windows' settings if not).
+#[tauri::command]
+pub fn notify_test(app: AppHandle) {
+    crate::notify::show(
+        &app,
+        "HaryX notifications work",
+        "You'll hear from your mascots here.",
+    );
 }
 
 /// The CLI's log in the data folder (rotated copies sit next to it).

@@ -4,7 +4,11 @@
   import { onMount } from "svelte";
   import { ask, open, save } from "@tauri-apps/plugin-dialog";
   import { api } from "../lib/api";
+  import { describeError } from "../lib/errors";
   import { store } from "../lib/store.svelte";
+  import { hookSummary, tildePath } from "../lib/text";
+  import Icon from "../components/Icon.svelte";
+  import MenuButton, { type MenuSection } from "../components/MenuButton.svelte";
 
   interface Summary { name: string; created_at: string; total_bytes: number; secrets: string; plugins: string; has_credentials: boolean; source_os: string; last_applied: boolean }
   interface Item { category: string; id: string; kind: string; size: number; files: number; status: string; detail: string[] }
@@ -77,7 +81,7 @@
       items = (await api.json<{ items: Item[] }>(["ai", "profile", "show", selected, "--json"])).items;
       loadError = null;
     } catch (e) {
-      loadError = String(e);
+      loadError = describeError(e, "Couldn't read the profile").text;
     } finally {
       loading = false;
     }
@@ -103,7 +107,7 @@
     try {
       plan = await api.json<Plan>(["ai", "profile", "apply", selected, "--dry-run", "--json", ...(prune ? ["--prune"] : []), ...(history ? [] : ["--no-history"])]);
       sideError = null;
-    } catch (e) { sideError = String(e); }
+    } catch (e) { sideError = describeError(e, "Couldn't plan the apply").text; }
   }
 
   async function loadDiff() {
@@ -111,14 +115,14 @@
     try {
       diff = (await api.json<{ items: DiffItem[] }>(["ai", "profile", "diff", selected, "--json"])).items;
       sideError = null;
-    } catch (e) { sideError = String(e); }
+    } catch (e) { sideError = describeError(e, "Couldn't compare the profile").text; }
   }
 
   async function addDir() {
     try {
       const d = await open({ directory: true, multiple: false });
       if (typeof d === "string" && !dirs.includes(d)) dirs = [...dirs, d];
-    } catch (e) { store.flash(String(e), true); }
+    } catch (e) { store.fail(e, "Couldn't add the folder"); }
   }
 
   async function saveProfile() {
@@ -131,7 +135,7 @@
       const path = await save({ defaultPath: `${selected}-${new Date().toISOString().slice(0, 10)}.haryx-profile`, filters: FILTER });
       if (!path) return;
       if (await store.run("Exporting profile", ["ai", "profile", "export", selected, path, ...partArgs(false), "--secrets", "redact"], { success: `Exported to ${fileName(path)}` })) mode = "view";
-    } catch (e) { store.flash(String(e), true); }
+    } catch (e) { store.fail(e, "Couldn't export the profile"); }
   }
 
   async function pickImport() {
@@ -142,7 +146,7 @@
       const base = fileName(path).replace(/\.haryx-profile$/, "").replace(/[^A-Za-z0-9._-]/g, "-");
       name = base && base !== DEFAULT && !base.startsWith(".") ? base.slice(0, 64) : "imported";
       start("import");
-    } catch (e) { store.flash(String(e), true); }
+    } catch (e) { store.fail(e, "Couldn't open the profile file"); }
   }
 
   async function importProfile() {
@@ -173,6 +177,28 @@
     if (ok && (await store.run("Restoring backup", ["ai", "profile", "rollback"]))) await reload();
   }
 
+  /** Less-used profile actions, in one menu so the bar keeps to the everyday ones. */
+  let moreMenu = $derived<MenuSection[]>([
+    {
+      heading: null,
+      items: [
+        ...(selected !== DEFAULT
+          ? [
+              { label: "Compare with live .claude", onpick: () => start("diff") },
+              { label: "Delete profile…", onpick: deleteProfile, danger: true },
+            ]
+          : []),
+        { label: "Undo last apply…", onpick: rollback },
+      ],
+    },
+  ]);
+
+  /** A detail line for display: hook commands shortened, the home folder as ~ (the full line is the tooltip). */
+  function detailText(line: string): string {
+    const hook = /^hook:\s*(.*)$/.exec(line);
+    return hook ? `hook: ${hookSummary(hook[1] ?? "")}` : tildePath(line);
+  }
+
   onMount(reload);
 </script>
 
@@ -184,16 +210,14 @@
   </select>
   {#if summary}<span class="caption truncate">{bytes(summary.total_bytes)} · from {summary.source_os} · secrets {summary.secrets}{summary.has_credentials ? " · credentials" : ""}</span>{/if}
   <span class="spacer"></span>
-  <button class="plain" aria-label="Refresh profiles" title="Refresh" disabled={loading} onclick={reload}>⟳</button>
+  <button class="plain icon-btn" aria-label="Refresh profiles" title="Refresh" disabled={loading} onclick={reload}>
+    <Icon name="refresh" />
+  </button>
   <button onclick={() => start("save")}>Save snapshot…</button>
   <button onclick={() => start("export")}>Export…</button>
   <button onclick={pickImport}>Import…</button>
-  {#if selected !== DEFAULT}
-    <button onclick={() => start("diff")}>Diff</button>
-    <button class="primary" onclick={() => start("apply")}>Apply…</button>
-    <button title="Delete this saved profile" onclick={deleteProfile}>Delete…</button>
-  {/if}
-  <button class="plain" aria-label="Undo the last apply" title="Undo the last apply" onclick={rollback}>↶</button>
+  {#if selected !== DEFAULT}<button class="primary" onclick={() => start("apply")}>Apply…</button>{/if}
+  <MenuButton sections={moreMenu} plain ariaLabel="More profile actions" title="More"><Icon name="more" /></MenuButton>
 </div>
 
 {#if mode !== "view"}
@@ -213,7 +237,7 @@
         <label class="line"><input type="checkbox" bind:checked={signed} /> Anthropic-signed files (policy limits, remote settings)</label>
         <label class="line"><input type="checkbox" bind:checked={cache} /> Caches</label>
         {#each dirs as d (d)}
-          <div class="line"><code class="truncate">{d}</code><button class="plain" aria-label="Remove folder {d}" onclick={() => (dirs = dirs.filter((x) => x !== d))}>✕</button></div>
+          <div class="line"><code class="truncate">{d}</code><button class="plain icon-btn" aria-label="Remove folder {d}" onclick={() => (dirs = dirs.filter((x) => x !== d))}><Icon name="close" size={12} /></button></div>
         {/each}
         <div><button onclick={addDir}>Add folder…</button></div>
       </fieldset>
@@ -280,7 +304,7 @@
           {#if it.status !== "ok"}<span class="badge" class:broken={it.status === "broken"} class:amber={it.status !== "broken"}>{it.status}</span>{/if}
           {#if it.files > 0}<span class="caption">{bytes(it.size)} · {it.files} file{it.files === 1 ? "" : "s"}</span>{/if}
         </div>
-        {#each it.detail as line, i (i)}<div class="caption detail"><code>{line}</code></div>{/each}
+        {#each it.detail as line, i (i)}<div class="caption detail truncate" title={line}><code>{detailText(line)}</code></div>{/each}
       </div>
     {/each}
   {/each}
@@ -298,7 +322,8 @@
   code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
   table { width: 100%; border-collapse: collapse; table-layout: fixed; }
   td { padding: 4px 6px 4px 0; border-top: 1px solid var(--separator); }
-  .act { width: 110px; font-weight: 600; color: var(--cyan-text); }
+  .act { width: 110px; font-weight: 600; }
+  .icon-btn { display: inline-flex; }
   .act.remove { color: var(--red); }
   .warn { color: var(--amber); }
   h2 { margin: 14px 0 4px; font-weight: 600; }

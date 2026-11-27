@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import reportJson from "../../../../packages/contracts/haryx/usage-report.json?raw";
 import quotaJson from "../../../../packages/contracts/haryx/usage-quota.json?raw";
-import { money, quotaLine, shortTokens, stackedBars, type QuotaReport, type UsageReport } from "./usage";
+import { ACCOUNT_PALETTE, ACCOUNT_PALETTE_LIGHT, accountColor, accountFill, gapSeconds, money, shortTokens, stackedBars, type QuotaReport, type UsageReport } from "./usage";
 
 
 const day = (rows: [string, number, number | null][]): UsageReport => ({
@@ -26,7 +26,11 @@ describe("usage", () => {
 
   it("formats tokens and money", () => {
     expect(shortTokens(812)).toBe("812");
-    expect(shortTokens(340_000)).toBe("340.0k");
+    expect(shortTokens(340_000)).toBe("340K");
+    expect(shortTokens(35_000)).toBe("35K");
+    expect(shortTokens(400_000_000)).toBe("400M");
+    expect(shortTokens(841_300_000)).toBe("841.3M");
+    expect(shortTokens(1_200_000_000)).toBe("1.2B");
     expect(shortTokens(2_500_000_000)).toBe("2.5B");
     expect(money(null)).toBe("—");
     expect(money(3.456)).toBe("$3.46");
@@ -47,13 +51,22 @@ describe("usage", () => {
     expect(cost.max).toBe(2);
   });
 
-  it("draws one window of one account", () => {
-    const readings = [
-      { at: 0, account: 1, fiveHour: 0, sevenDay: 50 },
-      { at: 100, account: 1, fiveHour: 105, sevenDay: null },
-      { at: 50, account: 2, fiveHour: 10, sevenDay: 10 },
-    ];
-    expect(quotaLine(readings, 1, "fiveHour", 0, 100, 100, 105)).toBe("0.0,105.0 100.0,0.0");
-    expect(quotaLine(readings, 1, "sevenDay", 0, 100, 100, 105)).toBe("0.0,55.0");
+  it("joins readings 3x the median spacing apart, held between 15 minutes and 2 hours", () => {
+    const hour = 3600;
+    expect(gapSeconds([0, 60, 120])).toBe(15 * 60);
+    expect(gapSeconds([0, 600, 1200, 1800])).toBe(30 * 60);
+    expect(gapSeconds([0, 3600, 7200])).toBe(2 * hour);
+  });
+
+  it("colours accounts by number from the shared palette, never a reading colour", () => {
+    expect(accountColor(1)).toBe("#A78BFA");
+    expect(accountColor(2, true)).toBe("#059669");
+    expect(accountColor(9)).toBe("#A78BFA");
+    expect(accountFill(1)).toBe("light-dark(#7C3AED, #A78BFA)");
+    const reserved = ["#22D3EE", "#0891B2", "#FF9F0A", "#FACC15", "#A3E635", "#D64545"];
+    for (const list of [ACCOUNT_PALETTE, ACCOUNT_PALETTE_LIGHT]) {
+      expect(list.filter((c) => reserved.includes(c.toUpperCase()))).toEqual([]);
+      expect(new Set(list).size).toBe(list.length);
+    }
   });
 });

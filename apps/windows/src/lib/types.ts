@@ -35,10 +35,23 @@ export interface Account {
   usageError?: string | null;
 }
 
+/** `rotation` in `list --json`: will the week last, over the accounts auto-switch may use (macOS `Rotation`). */
+export interface Rotation {
+  accounts: number[];
+  unknown: number[];
+  headroomPct: number;
+  burnPctPerHour: number;
+  nextResetAt: string | null;
+  runsDryAt: string | null;
+  lasts: boolean;
+}
+
 export interface AccountList {
   schemaVersion: number;
   activeAccountNumber?: number | null;
   accounts: Account[];
+  /** Absent from older CLIs and while no account auto-switch may use has a weekly reading. */
+  rotation?: Rotation | null;
 }
 
 export interface Session {
@@ -73,6 +86,8 @@ export type TerminalId = "windows-terminal" | "pwsh" | "powershell" | "cmd" | "g
 export interface Prefs {
   refreshSeconds: number;
   terminal: TerminalId | null;
+  /** The shell a Windows Terminal tab runs; null picks the first installed, PowerShell 7 first. */
+  shell: TerminalId | null;
   claudeFolder: string | null;
   haryxPath: string | null;
   autoSwitchOnLaunch: boolean;

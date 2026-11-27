@@ -34,6 +34,7 @@ pub mod models;
 pub mod oauth;
 pub mod profile;
 pub mod release;
+pub mod rotation;
 pub mod running;
 pub mod self_update;
 pub mod service;

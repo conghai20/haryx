@@ -130,7 +130,7 @@
           {/if}
           {#if formError}<p class="caption error-text" role="alert">{formError}</p>{/if}
           <div class="row">
-            <button class="primary" type="submit" disabled={working}>{creating ? "Set Passphrase" : "Unlock"}</button>
+            <button class="primary" type="submit" disabled={working}>{creating ? "Set passphrase" : "Unlock"}</button>
             {#if working}<span class="caption secondary">This takes a second…</span>{/if}
           </div>
         </form>
@@ -151,7 +151,7 @@
           <span class="secondary">{syncedAgo(acct.status?.lastSyncAt ?? null, store.now)}</span>
           {#if acct.problem}<span class="caption amber">· {acct.problem.text}</span>{/if}
         {/if}
-        <button disabled={acct.syncing || !prefs.syncEnabled} onclick={() => acct.syncNow()}>Sync Now</button>
+        <button disabled={acct.syncing || !prefs.syncEnabled} onclick={() => acct.syncNow()}>Sync now</button>
       </div>
       <p class="caption tertiary">
         Syncs at launch, every 15 minutes and shortly after a change. This switch stays on this PC.
@@ -191,12 +191,12 @@
           <p class="caption secondary">At least {MIN_PASSPHRASE} characters. {PASSPHRASE_WARNING}</p>
           {#if formError}<p class="caption error-text" role="alert">{formError}</p>{/if}
           <div class="row">
-            <button class="primary" type="submit" disabled={working}>Change Passphrase</button>
+            <button class="primary" type="submit" disabled={working}>Change passphrase</button>
             <button type="button" onclick={() => { changing = false; resetForm(); }}>Cancel</button>
           </div>
         </form>
       {:else}
-        <div class="row"><button onclick={() => (changing = true)}>Change Passphrase…</button></div>
+        <div class="row"><button onclick={() => (changing = true)}>Change passphrase…</button></div>
       {/if}
     </section>
   {/if}
@@ -205,9 +205,9 @@
 
   <section aria-label="Account actions">
     <div class="row">
-      <button onclick={() => acct.signOut()}>Sign Out</button>
+      <button onclick={() => acct.signOut()}>Sign out</button>
       {#if acct.unlocked}
-        <button class="plain danger" onclick={() => acct.deleteAccount()}>Delete Account…</button>
+        <button class="plain danger" onclick={() => acct.deleteAccount()}>Delete account…</button>
       {/if}
     </div>
   </section>

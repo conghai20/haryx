@@ -8,6 +8,12 @@ struct WakePane: View {
     @State private var quietStart = WakePane.time(1, 0)
     @State private var quietEnd = WakePane.time(6, 0)
     @State private var cap = 90.0
+    /// False until the stored settings are loaded, so loading them doesn't count as an edit.
+    @State private var loaded = false
+    /// The pending save; a newer edit replaces it, so a run of edits saves once.
+    @State private var saveTask: Task<Void, Never>?
+    /// The "All accounts" choice waiting to be sent once (the mixed toggle sets every row).
+    @State private var allTask: Task<Void, Never>?
 
     var body: some View {
         Form {
@@ -28,6 +34,7 @@ struct WakePane: View {
             }
         }
         .formStyle(.grouped)
+        .paneFrame()
         .onAppear(perform: load)
         .onChange(of: store.wake) { load() }
     }
@@ -56,32 +63,34 @@ struct WakePane: View {
             }
             LabeledContent("Skip at weekly use") {
                 HStack {
-                    Slider(value: $cap, in: 50...100, step: 5)
+                    Slider(value: $cap, in: 50...100, step: 5) { editing in if !editing { scheduleSave() } }
                     Text("\(Int(cap))%").monospacedDigit().frame(width: 40, alignment: .trailing)
                 }
             }
-            Button("Save") {
-                Task { await store.setWakeConfig(quietHours: quietOn ? quietText : nil, weeklyCapPct: cap) }
-            }
-            .disabled(store.busy != nil)
         }
+        // Saves on change, like every other setting; no Save button.
+        .onChange(of: quietOn) { scheduleSave() }
+        .onChange(of: quietStart) { scheduleSave() }
+        .onChange(of: quietEnd) { scheduleSave() }
     }
 
     private func accountsSection(_ wake: WakeStatus) -> some View {
         Section {
             let onCount = store.accounts.filter { wake.account($0.number)?.on == true }.count
-            Toggle(isOn: Binding(get: { !store.accounts.isEmpty && onCount == store.accounts.count },
-                                 set: { on in Task { await store.setWakeAll(on) } })) {
+            // A checkbox over the rows: on, off, or mixed when only some accounts are on.
+            Toggle(sources: allSources(wake), isOn: \.self) {
                 Text("All accounts").fontWeight(.medium)
                 Text("\(onCount) of \(store.accounts.count) on")
             }
+            .toggleStyle(.checkbox)
             .disabled(store.accounts.isEmpty || store.busy != nil)
             ForEach(store.accounts) { a in
                 let row = wake.account(a.number)
                 Toggle(isOn: Binding(get: { row?.on ?? false }, set: { on in Task { await store.setWake(a, on) } })) {
-                    Text(a.displayName)
+                    Text(a.displayName).lineLimit(1).truncationMode(.middle)
                     if let row { statusLine(row) }
                 }
+                .help(row.map(absoluteLine) ?? "")
             }
         } header: {
             Text("Accounts")
@@ -92,11 +101,49 @@ struct WakePane: View {
         }
     }
 
-    /// "Last wake … · Next due … · Not due", the result in red when the wake failed.
+    /// "Woke 2 hr ago · next in 34 min · Not due", the result in red when the wake failed. Times are
+    /// relative; the hover help has them in full.
     private func statusLine(_ row: WakeAccount) -> Text {
         let failed = row.lastResult?.hasPrefix("failed") == true
-        let result = Text(WakeStatus.resultText(row.lastResult)).foregroundStyle(failed ? Color.red : Color.secondary)
-        return Text("Last wake \(Self.when(row.lastWakeAt)) · Next due \(Self.when(row.nextDue)) · \(result)")
+        let result = Text(WakeStatus.resultText(row.lastResult)).foregroundStyle(failed ? Brand.limit : Color.secondary)
+        let last = row.lastWakeAt.map { "Woke \(Self.relative($0))" } ?? "No wake yet"
+        let next = row.nextDue.map { " · next \(Self.relative($0))" } ?? ""
+        return row.lastResult == nil ? Text(last + next) : Text("\(last)\(next) · \(result)")
+    }
+
+    private func absoluteLine(_ row: WakeAccount) -> String {
+        "Last wake \(Self.when(row.lastWakeAt)) · Next due \(Self.when(row.nextDue))"
+    }
+
+    static func relative(_ date: Date) -> String {
+        date.formatted(.relative(presentation: .named, unitsStyle: .abbreviated))
+    }
+
+    /// One binding per account for the "All accounts" checkbox. Setting them all (a click on the
+    /// checkbox) sends a single `wake on|off all`.
+    private func allSources(_ wake: WakeStatus) -> [Binding<Bool>] {
+        store.accounts.map { a in
+            Binding(get: { wake.account(a.number)?.on ?? false }, set: { on in
+                allTask?.cancel()
+                allTask = Task {
+                    await Task.yield()
+                    guard !Task.isCancelled else { return }
+                    await store.setWakeAll(on)
+                }
+            })
+        }
+    }
+
+    private func scheduleSave() {
+        // Skip while loading, and when nothing differs from what is stored (a reload's echo).
+        guard loaded, let wake = store.wake,
+              wake.weeklyCapPct != cap || wake.quietHours != (quietOn ? quietText : nil) else { return }
+        saveTask?.cancel()
+        saveTask = Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            await store.setWakeConfig(quietHours: quietOn ? quietText : nil, weeklyCapPct: cap)
+        }
     }
 
     private func eventsSection(_ wake: WakeStatus) -> some View {
@@ -106,9 +153,9 @@ struct WakePane: View {
             ForEach(Array(events.enumerated()), id: \.offset) { _, ev in
                 HStack {
                     Text(Self.when(ev.date)).monospacedDigit().foregroundStyle(.tertiary).frame(width: 130, alignment: .leading)
-                    Text(eventName(ev.account)).lineLimit(1)
+                    Text(eventName(ev.account)).lineLimit(1).truncationMode(.middle)
                     Spacer()
-                    Text(WakeStatus.resultText(ev.result)).foregroundStyle(ev.failed ? Color.red : Color.secondary)
+                    Text(WakeStatus.resultText(ev.result)).foregroundStyle(ev.failed ? Brand.limit : Color.secondary)
                 }
                 .font(.callout)
             }
@@ -134,9 +181,12 @@ struct WakePane: View {
 
     private func load() {
         guard let wake = store.wake else { return }
+        loaded = false
         cap = wake.weeklyCapPct
         quietOn = wake.quietHours != nil
         if let q = wake.quietHours, let (s, e) = Self.parse(q) { quietStart = s; quietEnd = e }
+        // The onChange handlers for these run after this frame; let them pass before saves count.
+        Task { @MainActor in loaded = true }
     }
 
     static func time(_ h: Int, _ m: Int) -> Date {

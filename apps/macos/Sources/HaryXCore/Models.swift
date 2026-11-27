@@ -6,6 +6,9 @@ public struct AccountList: Decodable, Sendable {
     public let schemaVersion: Int
     public let activeAccountNumber: Int?
     public let accounts: [Account]
+    /// Will the week last (`crate::rotation` in the CLI); absent from older CLIs and when no account
+    /// auto-switch may use has a weekly reading.
+    public let rotation: Rotation?
 }
 
 public struct Account: Decodable, Sendable, Identifiable, Hashable {

@@ -56,7 +56,7 @@
       await navigator.clipboard.writeText(a.email);
       store.flash("Email copied");
     } catch (e) {
-      store.flash(`Couldn't copy: ${String(e)}`, true);
+      store.fail(e, "Couldn't copy the email");
     }
   }
 </script>
@@ -67,11 +67,11 @@
 <div class="backdrop" role="presentation" onclick={onclose} oncontextmenu={(e) => { e.preventDefault(); onclose(); }}></div>
 <div bind:this={menu} class="menu" role="menu" aria-label="{displayName(a)} actions" style:left="{left}px" style:top="{top}px">
   {#if needsRelogin(a)}
-    <button role="menuitem" onclick={() => pick(() => actions.signIn(a))}>Sign In Again…</button>
+    <button role="menuitem" onclick={() => pick(() => actions.signIn(a))}>Sign in again…</button>
   {:else if !a.active}
     <button role="menuitem" disabled={!!store.busy} onclick={() => pick(() => actions.use(a))}>Switch to {displayName(a)}</button>
   {/if}
-  <button role="menuitem" onclick={() => pick(() => actions.runAs(a))}>Claude as this account</button>
+  <button role="menuitem" onclick={() => pick(() => actions.runAs(a))}>Run Claude</button>
   <button role="menuitem" onclick={() => pick(() => actions.runInFolder(a))}>Run Claude in folder…</button>
 
   <div class="sep" role="separator"></div>
@@ -88,7 +88,7 @@
       <span class="check" aria-hidden="true">{member ? "✓" : ""}</span>{name}
     </button>
   {/each}
-  <button role="menuitem" onclick={() => pick(() => onnewgroup(a))}><span class="check" aria-hidden="true"></span>New Group…</button>
+  <button role="menuitem" onclick={() => pick(() => onnewgroup(a))}><span class="check" aria-hidden="true"></span>New group…</button>
   {#if accountGroups(a).length > 1}
     <button role="menuitem" disabled={!!store.busy} onclick={() => pick(() => actions.clearGroups(a))}>
       <span class="check" aria-hidden="true"></span>Remove from All Groups
@@ -99,7 +99,7 @@
   <button role="menuitem" disabled={!!store.busy} onclick={() => pick(() => actions.setDisabled(a, !a.disabled))}>
     {a.disabled ? "Return to rotation" : "Hold out of rotation"}
   </button>
-  <button role="menuitem" onclick={() => pick(copyEmail)}>Copy Email</button>
+  <button role="menuitem" onclick={() => pick(copyEmail)}>Copy email</button>
 </div>
 
 <style>

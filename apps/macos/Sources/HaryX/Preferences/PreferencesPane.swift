@@ -30,6 +30,7 @@ struct PreferencesPane: View {
             }
         }
         .formStyle(.grouped)
+        .paneFrame()
     }
 
     private func setLaunchAtLogin(_ on: Bool) {

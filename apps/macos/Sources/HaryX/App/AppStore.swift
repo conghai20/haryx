@@ -20,6 +20,11 @@ final class AppStore {
 
     // cswap state
     private(set) var accounts: [Account] = []
+    /// Will the week last: the CLI's verdict over the accounts auto-switch may use.
+    private(set) var rotation: Rotation?
+    /// Each account's weekly readings over the last 7 days, for its Week Tide (kept only while
+    /// usage history is on; empty otherwise, and the tide draws its average instead).
+    private(set) var weekReadings: [Int: [(at: Date, pct: Double)]] = [:]
     private(set) var lastRefresh: Date?
     private(set) var refreshError: String?
     /// True while an accounts fetch runs; drives the spinning refresh icons.
@@ -233,6 +238,8 @@ final class AppStore {
             let list = try await cli.json(AccountList.self, ["list", "--json"])
             let previous = accounts
             accounts = list.accounts
+            rotation = list.rotation
+            if let readings = await Self.loadWeekReadings(cli) { weekReadings = readings }
             lastRefresh = Date()
             refreshError = nil
             seenSequenceMTime = Self.sequenceMTime()
@@ -240,6 +247,17 @@ final class AppStore {
         } catch {
             refreshError = error.localizedDescription
         }
+    }
+
+    /// `haryx ai usage quota --since 7d`: a file read, cheap enough for every refresh. nil on a
+    /// cswap backend or a failed read, which keeps the last readings.
+    private static func loadWeekReadings(_ cli: CSwapCLI) async -> [Int: [(at: Date, pct: Double)]]? {
+        guard cli.flavor == .haryx,
+              let quota = try? await UsageModel.json(UsageHistory.Quota.self, cli,
+                                                     ["ai", "usage", "quota", "--since", "7d"])
+        else { return nil }
+        return Dictionary(grouping: quota.readings.compactMap { r in r.sevenDay.map { (r.account, (at: r.date, pct: $0)) } },
+                          by: \.0).mapValues { $0.map(\.1) }
     }
 
     /// Settings, mappings, priorities, unclaimed, version: cheap, refreshed on demand.

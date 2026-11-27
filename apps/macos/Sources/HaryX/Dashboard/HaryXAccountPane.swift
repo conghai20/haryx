@@ -26,6 +26,7 @@ struct HaryXAccountPane: View {
             }
         }
         .formStyle(.grouped)
+        .paneFrame()
         .task { await sync.reload() }
     }
 }
@@ -58,7 +59,7 @@ private struct SignedOutSection: View {
             if let error = sync.loadError {
                 Text(error).font(.caption).foregroundStyle(.secondary)
             }
-        } header: { Text("HaryX Account") }
+        } header: { Text("HaryX account") }
     }
 }
 
@@ -67,7 +68,7 @@ private struct SignedInSection: View {
     let user: HaryXUser
 
     var body: some View {
-        Section("HaryX Account") {
+        Section("HaryX account") {
             LabeledContent("Signed in as", value: user.email)
             LabeledContent("With", value: user.providerName)
         }

@@ -34,7 +34,7 @@
 
 <dialog bind:this={dialog} aria-labelledby="new-group-title" onclose={onclose}>
   <form onsubmit={create}>
-    <h2 id="new-group-title">New Group</h2>
+    <h2 id="new-group-title">New group</h2>
     <p class="caption secondary">
       An account can be in several groups. Automatic switching tries accounts that share a group with the active one first, and leaves them only when none can take over.
     </p>

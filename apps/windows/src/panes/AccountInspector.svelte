@@ -5,7 +5,6 @@
   import { untrack } from "svelte";
   import { actions } from "../lib/actions";
   import { GROUP_MAX_CHARS, accountGroups, groupNames, isInGroup } from "../lib/groups";
-  import { bestTarget, peakPct } from "../lib/handoff";
   import { store } from "../lib/store.svelte";
   import {
     FIVE_HOUR_S,
@@ -19,9 +18,18 @@
     weeklyPace,
   } from "../lib/tide";
   import { SPECIES, baseHue, speciesTitle, type Mood } from "../lib/mascot";
-  import type { Account, Session } from "../lib/types";
+  import type { Account } from "../lib/types";
   import Mascot from "../components/Mascot.svelte";
   import TideStaff from "../components/TideStaff.svelte";
+  import ContinueMenu from "../components/ContinueMenu.svelte";
+  import Icon from "../components/Icon.svelte";
+
+  /** Esc closes the details panel, unless a menu or dialog is open and takes it first. */
+  function onWindowKey(e: KeyboardEvent) {
+    if (e.key !== "Escape" || e.defaultPrevented) return;
+    if (document.querySelector("[role='menu'], dialog[open]")) return;
+    onclose();
+  }
 
   let { account: a, onclose }: { account: Account; onclose: () => void } = $props();
 
@@ -150,11 +158,6 @@
     if (other && (await actions.swap(a, other))) store.revealSlot = other.number;
   }
 
-  function continueOn(s: Session, value: string) {
-    if (!value) return;
-    actions.continueSession(s.pid, value === "best" ? null : Number(value), s.cwd);
-  }
-
   function since(ms: number): string {
     const minutes = Math.max(0, Math.round((store.now - ms) / 60_000));
     if (minutes < 60) return `${minutes}m`;
@@ -169,6 +172,8 @@
   }
 </script>
 
+<svelte:window onkeydown={onWindowKey} />
+
 <aside aria-label="Account details">
   <header>
     <span title={moodCaption}>
@@ -179,7 +184,7 @@
       {#if detail}<span class="secondary truncate">{detail}</span>{/if}
       <span class="state {stateClass}">{stateText}</span>
     </div>
-    <button class="plain" aria-label="Close details" onclick={onclose}>✕</button>
+    <button class="plain icon-btn" aria-label="Close details" title="Close (Esc)" onclick={onclose}><Icon name="close" size={14} /></button>
   </header>
 
   {#if statusNote(a)}<p class="note">{statusNote(a)}</p>{/if}
@@ -189,7 +194,7 @@
       <button class="primary" disabled={!!store.busy} onclick={() => actions.use(a)}>Switch</button>
     {/if}
     {#if offersSignIn(a, store.now)}
-      <button class:prominent={needsRelogin(a)} onclick={() => actions.signIn(a)}>Sign In Again</button>
+      <button class:prominent={needsRelogin(a)} onclick={() => actions.signIn(a)}>Sign in again</button>
     {/if}
     <button onclick={() => actions.runAs(a)}>Run Claude</button>
     <button onclick={() => actions.runInFolder(a)}>Run in Folder…</button>
@@ -205,7 +210,7 @@
           {#if bar.w?.countdown}<span class="tertiary">resets in {bar.w.countdown}</span>{/if}
         </div>
         <div class="bar-row">
-          <TideStaff window={bar.w} windowS={bar.s} now={store.now} height={5} label="{bar.label} usage" />
+          <TideStaff window={bar.w} windowS={bar.s} now={store.now} height={5} label="{bar.label} usage" off={!!a.disabled} />
           <span class="pct">{pctLabel(bar.w?.pct)}</span>
         </div>
       </div>
@@ -230,21 +235,7 @@
             <span class="truncate" title={s.cwd}>{s.cwd || `pid ${s.pid}`}</span>
             <span class="caption tertiary">pid {s.pid} · running for {since(s.startedAt)}{s.profile === "session" ? " · session mode" : ""}</span>
           </div>
-          <select
-            aria-label="Continue this session on another account"
-            title="Ends this session and resumes the same conversation on another account, in a new terminal"
-            value=""
-            onchange={(e) => {
-              continueOn(s, e.currentTarget.value);
-              e.currentTarget.value = "";
-            }}
-          >
-            <option value="">Continue on…</option>
-            {#if bestTarget(store.accounts, a.number)}<option value="best">Best account</option>{/if}
-            {#each store.accounts.filter((x) => x.number !== a.number && !x.disabled) as x (x.number)}
-              <option value={String(x.number)}>{x.number}. {displayName(x)}{peakPct(x) != null ? ` (${peakPct(x)}%)` : ""}</option>
-            {/each}
-          </select>
+          <ContinueMenu session={s} from={a.number} />
         </div>
       {/each}
     </section>
@@ -281,7 +272,7 @@
               aria-label="Remove from {name}"
               title="Take {displayName(a)} out of {name}"
               disabled={!!store.busy}
-              onclick={() => actions.removeFromGroup(a, name)}>✕</button
+              onclick={() => actions.removeFromGroup(a, name)}><Icon name="close" size={10} /></button
             >
           </li>
         {/each}
@@ -393,7 +384,7 @@
         <button
           disabled={a.active}
           title="Activate the stored credentials without backing up the current login (--force)"
-          onclick={() => actions.forceUse(a)}>Switch Without Saving Current Login…</button
+          onclick={() => actions.forceUse(a)}>Switch without saving current login…</button
         >
       </div>
     </div>
@@ -401,7 +392,7 @@
 
   <div class="hairline"></div>
   <div>
-    <button class="danger" onclick={() => actions.remove(a)}>Remove Account…</button>
+    <button class="danger" onclick={() => actions.remove(a)}>Remove account…</button>
   </div>
 </aside>
 
@@ -554,8 +545,8 @@
     display: flex;
     flex-direction: column;
   }
-  .session select {
-    width: 130px;
+  .icon-btn {
+    display: inline-flex;
   }
   .group-chips {
     list-style: none;

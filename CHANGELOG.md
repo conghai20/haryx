@@ -83,8 +83,76 @@ cannot be released without one. Sections, in this order, only when they have ent
   (instant with Reduce Motion). Cards keep one width: the panel changes how many fit in a row, not
   how wide they are.
 
+- Will the week last: `haryx list --json` gains `rotation`, a verdict over the accounts auto-switch may
+  use (in rotation, not quarantined, subscription accounts, each up to its weekly switch line):
+  their room left, the fleet's burn rate (measured over the last 72 h of kept readings, else each
+  account's average since its reset), the next reset, and when the pool runs dry within the week.
+  `haryx list` ends with the same verdict in one line.
+- Apps (macOS and Windows alike), Usage: the page opens on that verdict ("The week lasts" or "Runs
+  dry Sat 10:28") and one row per account with its Week Tide, weekly %, pace and reset; a row opens
+  the account's details. It works with usage history off. The breakdown follows under "Where it
+  went", where the range and API cost controls now apply.
+- Apps, account cards: the weekly bar is now the Week Tide, the week so far as a curve against the
+  pace diagonal (stretches with no readings dashed). Cards are about 13 pt taller.
+
 ### Changed
 
+- Apps, Usage charts: each account keeps one fixed colour in every chart and table, with deeper
+  versions on light backgrounds. No account colour is a reading colour any more (yellow and lime
+  left the palette), and the active account is no longer redrawn in cyan, which recoloured past
+  days after every switch.
+- Apps, account cards: long names are cut in the middle, so accounts on one domain stay told apart
+  (`Dep1pj.claude02` vs `Dep1pj.claude03`).
+- Apps, AI section (macOS and Windows alike):
+  - **Sidebar:** the AI panes now sit under three headings in sentence case:
+    - Monitor: Accounts, Usage, Sessions
+    - Automate: Auto-switch, Wake, Folder mappings
+    - Set up: Setup profiles, AI settings, Backup & maintenance
+
+    Windows renames Tools to Backup & maintenance, and uses drawn icons instead of text symbols.
+  - **Settings wording:** settings show plain labels with a caption; the `haryx config` key is in the
+    hover help. For example, `autoswitch.hysteresisPct` reads "Headroom margin (pts)".
+  - **Auto-switch rules:** these settings live in Auto-switch only, and are no longer repeated in AI
+    settings. On Windows, the rules are now typed controls that save as you change them, in place
+    of text fields with a Save button on each row.
+  - **Usage charts:**
+    - A line now breaks where readings are missing, instead of drawing a straight line across the
+      gap.
+    - Each account keeps one colour in every chart, the active account in cyan.
+    - Axis figures read 400M / 1.2B.
+    - When usage history is off, a button turns it on.
+  - **Continue on…** asks before it ends a session. On Windows it is a menu instead of a list that
+    acted as soon as you picked an account. Windows also asks before Unmap and Forget, and errors
+    stay on screen until dismissed.
+  - **Layout and saving:** settings panes keep their form at 720 pt, centred, and now scroll across
+    the whole window. Before, on macOS, only the form column scrolled. Wake saves as you change it.
+  - **Wake:**
+    - "All accounts" shows a mixed state when only some accounts are on.
+    - Wake times read as relative times ("Woke 2 hr ago · next in 34 min").
+    - An Off account's wake skip reads "Skipped: account is off".
+  - **Backup & maintenance:**
+    - "Replace accounts that already exist" replaces "--force".
+    - The CLI section is titled "HaryX CLI".
+    - Purge moves to its own "Erase" section at the end.
+  - **Windows catches up with macOS:**
+    - Shell picker, "Test: open a new shell" and "Send test notification"
+    - Export picks several accounts
+    - Switch and Refresh on Accounts
+    - Captions at 12 px
+- Apps: an Off account's card (held out of rotation) shows the same usage reading as other cards:
+  the 5-hour figure with its reset, its staff and pace, and the week with its reset. Before, it
+  showed only a one-line "5-hour N% · week N%". The card still steps back with a lighter fill, a
+  pause mark, a dimmed mascot and Turn On. "Off: held out of rotation" now sits on the note line,
+  so Off and On cards are the same height. The CLI already polled Off accounts and `haryx ai list`
+  already showed their usage, so it is unchanged.
+- Apps: every account card (Off ones included) tracks its weekly pace on a line under the week:
+  "N pts ahead of pace · runs out Sat 10:15" in amber when the week is 5 or more points ahead (the
+  run-out only when the CLI projects it will not last to the reset), else "N pts under pace" or
+  "on pace". It reads the CLI's weekly `expectedPct`, so the line stays empty for the first day
+  after a reset. The CLI already sent these fields; it is unchanged.
+- Apps: an Off account's usage bars (on its card and in the details panel) are grey where they
+  would be cyan, since cyan means live. Amber (ahead of pace, or 85% and over) and red (at the
+  limit) stay, so an Off account that is being used elsewhere still stands out.
 - macOS app: Use no longer quits and reopens a running Claude Desktop. Desktop opens on an account
   only from its Open/Set Up Desktop button or the panel's Desktop line. The setting is renamed
   "Claude Desktop per account", and the "Claude Desktop follows Use" roadmap item is dropped. macOS only: the Windows app has no Desktop launcher.
@@ -97,6 +165,10 @@ cannot be released without one. Sections, in this order, only when they have ent
   Return or when you leave them, and no longer lose a half-typed edit when the selection
   changes or the account list refreshes. The Windows panel has no per-account Wake toggle yet;
   Wake is set in its Wake pane.
+
+### Removed
+
+- Apps, Usage: the "Quota over time" chart; the week rows replace it.
 
 ### Fixed
 

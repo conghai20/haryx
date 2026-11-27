@@ -271,6 +271,7 @@ func profileFixture<T: Decodable>(_ type: T.Type, _ name: String) throws -> T {
     #expect(WakeStatus.resultText("woke") == "Woke")
     #expect(WakeStatus.resultText("not-due") == "Not due")
     #expect(WakeStatus.resultText("skip:weekly-cap") == "Skipped: weekly cap")
+    #expect(WakeStatus.resultText("skip:disabled") == "Skipped: account is off")
     #expect(WakeStatus.resultText("failed:http-401") == "Failed: http 401")
     #expect(WakeStatus.resultText("other") == "other")
 }

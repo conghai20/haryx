@@ -3,6 +3,7 @@
 
 import { ask, open } from "@tauri-apps/plugin-dialog";
 import { api } from "./api";
+import { describeError } from "./errors";
 import { store } from "./store.svelte";
 import { isInGroup } from "./groups";
 import { haryxAccount } from "./haryx.svelte";
@@ -51,7 +52,7 @@ export const actions = {
     const n = store.accounts.filter((a) => isInGroup(a, name)).length;
     const ok = await ask(
       `Removes the group from ${n} account${n === 1 ? "" : "s"}. The accounts stay, in their other groups or Ungrouped.`,
-      { title: `Delete group ${name}?`, kind: "warning", okLabel: "Delete Group", cancelLabel: "Cancel" },
+      { title: `Delete group ${name}?`, kind: "warning", okLabel: "Delete group", cancelLabel: "Cancel" },
     );
     if (ok) await groupChange(store.run("Deleting group", ["group", "--delete", name]));
   },
@@ -92,7 +93,7 @@ export const actions = {
     const ok = await ask("Activates the stored credentials without first backing up the current login.", {
       title: `Force switch to ${displayName(a)}?`,
       kind: "warning",
-      okLabel: "Force Switch",
+      okLabel: "Force switch",
       cancelLabel: "Cancel",
     });
     if (ok) await actions.use(a, true);
@@ -104,7 +105,15 @@ export const actions = {
     await store.run("Mapping", ["map", ref(a), path]);
     await store.loadMappings();
   },
+  /** Asks first: the folder's plain `haryx ai run` goes back to the active account. */
   async unmap(path: string) {
+    const ok = await ask(`Plain haryx ai run in ${path} will use the active account again. The folder itself is not touched.`, {
+      title: "Unmap this folder?",
+      kind: "warning",
+      okLabel: "Unmap",
+      cancelLabel: "Cancel",
+    });
+    if (!ok) return;
     await store.run("Unmapping", ["unmap", path]);
     await store.loadMappings();
   },
@@ -115,7 +124,7 @@ export const actions = {
       const folder = await open({ directory: true, title });
       return typeof folder === "string" ? folder : null;
     } catch (e) {
-      store.flash(String(e), true);
+      store.fail(e, "Couldn't choose a folder");
       return null;
     }
   },
@@ -135,7 +144,7 @@ export const actions = {
       await api.openTerminal(job, store.prefs?.terminal, folder);
       await api.hideFlyout().catch(() => {});
     } catch (e) {
-      store.flash(String(e), true);
+      store.fail(e, "Couldn't open a terminal");
     }
   },
 
@@ -143,9 +152,9 @@ export const actions = {
   async signIn(a: Account | null) {
     const slot = a ? a.number : null;
     try {
-      await api.loginStart(slot, a ? `Sign In Again: ${a.email}` : "Sign In New Account");
+      await api.loginStart(slot, a ? `Sign in again: ${a.email}` : "Sign in new account");
     } catch (e) {
-      const fallback = await ask(`The sign-in window could not start: ${e}`, {
+      const fallback = await ask(`The sign-in window could not start. ${describeError(e).text}`, {
         title: "Sign in",
         kind: "warning",
         okLabel: "Use a terminal instead",

@@ -46,11 +46,15 @@ export interface QuotaReport {
   history?: HistoryStatus;
 }
 
+/** A count in a few characters: 812, 35K, 12.3M, 400M, 1.2B; a trailing ".0" is dropped (macOS `UsageChartSupport.compact`). */
 export function shortTokens(n: number): string {
-  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
-  return String(n);
+  const units: [number, string][] = [
+    [1e9, "B"],
+    [1e6, "M"],
+    [1e3, "K"],
+  ];
+  const [size, suffix] = units.find(([u]) => Math.abs(n) >= u) ?? [1, ""];
+  return `${(n / size).toFixed(1).replace(/\.0$/, "")}${suffix}`;
 }
 
 export function money(cost: number | null): string {
@@ -102,29 +106,34 @@ export function stackedBars(
   return { bars, max };
 }
 
-/** SVG polyline points for one account's window over time, x scaled across [from, to]. */
-export function quotaLine(
-  readings: Reading[],
-  account: number,
-  window: "fiveHour" | "sevenDay",
-  from: number,
-  to: number,
-  width: number,
-  height: number,
-): string {
-  const span = Math.max(1, to - from);
-  return readings
-    .filter((r) => r.account === account && r[window] != null)
-    .map((r) => {
-      const x = ((r.at - from) / span) * width;
-      const y = height - (Math.min(105, r[window] as number) / 105) * height;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
+/** Never break between readings closer than this, and never join readings further apart than MAX_JOIN_S. */
+export const MIN_BREAK_S = 15 * 60;
+export const MAX_JOIN_S = 2 * 60 * 60;
+
+/** The longest step a line may span: 3x the median spacing, kept within [15 min, 2 h] (macOS `UsageChartSupport.segments`). */
+export function gapSeconds(times: number[]): number {
+  const steps = times.slice(1).map((t, i) => t - times[i]!);
+  if (steps.length === 0) return MAX_JOIN_S;
+  const median = [...steps].sort((a, b) => a - b)[Math.floor(steps.length / 2)]!;
+  return Math.min(MAX_JOIN_S, Math.max(MIN_BREAK_S, 3 * median));
 }
 
-/** A fixed, readable colour per account number. */
-export function accountColor(n: number): string {
-  const palette = ["#3b82c4", "#d9822b", "#2e9e6b", "#b84a9e", "#7a5af5", "#c9a227", "#d64545", "#3fa7a7"];
-  return palette[(((n - 1) % palette.length) + palette.length) % palette.length] ?? "#888888";
+/**
+ * Account colours by account number, one per account in every chart and table and on macOS
+ * (`UsageChartSupport.palette`). None is a reading colour: no cyan (live), amber or yellow (pace), red
+ * (limit), or a lime that reads as either. `ACCOUNT_PALETTE` is for dark backgrounds, `ACCOUNT_PALETTE_LIGHT`
+ * (same hues, deeper) for light ones.
+ */
+export const ACCOUNT_PALETTE = ["#A78BFA", "#34D399", "#F472B6", "#60A5FA", "#D6B98C", "#6366F1", "#A8A29E", "#9CA36B"];
+export const ACCOUNT_PALETTE_LIGHT = ["#7C3AED", "#059669", "#DB2777", "#2563EB", "#8B6F47", "#4F46E5", "#78716C", "#65733A"];
+
+export function accountColor(n: number, light = false): string {
+  const list = light ? ACCOUNT_PALETTE_LIGHT : ACCOUNT_PALETTE;
+  const len = list.length;
+  return list[(((n - 1) % len) + len) % len]!;
+}
+
+/** An account's colour as a CSS value that follows the light or dark theme. */
+export function accountFill(n: number): string {
+  return `light-dark(${accountColor(n, true)}, ${accountColor(n)})`;
 }

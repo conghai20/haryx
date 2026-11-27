@@ -1,29 +1,29 @@
 <script lang="ts">
-  // Running Claude Code sessions (from `haryx ai sessions --json`), newest first, with their account.
+  // Running Claude Code sessions (from `haryx ai sessions --json`), newest first, with their account's
+  // mascot; each can continue on another account. Below them, Claude as any account in a new terminal.
   import { actions } from "../lib/actions";
   import { store } from "../lib/store.svelte";
+  import { middleTruncate, tildePath } from "../lib/text";
   import { displayName } from "../lib/tide";
-  import { bestTarget, peakPct } from "../lib/handoff";
-  import type { Session } from "../lib/types";
+  import ContinueMenu from "../components/ContinueMenu.svelte";
+  import Icon from "../components/Icon.svelte";
+  import Mascot from "../components/Mascot.svelte";
+
+  /** Names past this length are cut in the middle: emails that share a start stay apart. */
+  const NAME_MAX = 36;
 
   let stuckPids = $derived(new Set(store.stuck.map((s) => s.session.pid)));
-
-  function continueOn(s: Session, value: string) {
-    if (!value) return;
-    actions.continueSession(s.pid, value === "best" ? null : Number(value), s.cwd);
-  }
-
-  function choices(s: Session) {
-    const from = s.profile === "session" ? s.account : null;
-    return store.accounts.filter((a) => a.number !== from && !a.disabled);
-  }
 
   let sessions = $derived([...store.sessions.sessions].sort((a, b) => b.startedAt - a.startedAt));
 
   function nameFor(n: number | null, email: string): string {
     const account = store.accounts.find((a) => a.number === n);
-    return account ? displayName(account) : email || "no active account";
+    return middleTruncate(account ? displayName(account) : email || "no active account", NAME_MAX);
   }
+
+  const accountOf = (n: number | null) => store.accounts.find((a) => a.number === n) ?? null;
+
+  const fiveHour = (pct: number | null | undefined) => (pct == null ? null : `${Math.round(pct)}%`);
 
   function since(ms: number): string {
     const minutes = Math.max(0, Math.round((store.now - ms) / 60_000));
@@ -33,108 +33,119 @@
   }
 </script>
 
-{#if sessions.length === 0}
-  <p class="secondary">No Claude Code sessions running.</p>
-{:else}
-  <table>
-    <thead>
-      <tr class="caption tertiary">
-        <th>Account</th><th>Folder</th><th>Status</th><th class="num">Running for</th><th class="num">PID</th><th class="act"></th>
-      </tr>
-    </thead>
-    <tbody>
+<section aria-labelledby="running-title">
+  <h2 id="running-title">Running</h2>
+  {#if sessions.length === 0}
+    <p class="secondary">No Claude Code sessions running.</p>
+  {:else}
+    <ul class="sessions">
       {#each sessions as s (s.pid)}
-        <tr>
-          <td class="truncate" title={s.email}>
-            {nameFor(s.account, s.email)}
-            {#if s.profile === "session"}<span class="badge">own profile</span>{/if}
-          </td>
-          <td class="truncate folder" title={s.cwd}>{s.cwd}</td>
-          <td>
-            {#if stuckPids.has(s.pid)}<span class="stuck">out of quota</span>
-            {:else if s.status === "busy"}<span class="dot"></span> working{:else}{s.status ?? "–"}{/if}
-          </td>
-          <td class="num">{since(s.startedAt)}</td>
-          <td class="num tertiary">{s.pid}</td>
-          <td class="act">
-            <select
-              aria-label="Continue this session on another account"
-              title="Ends this session and resumes the same conversation on another account, in a new terminal"
-              value=""
-              onchange={(e) => {
-                continueOn(s, e.currentTarget.value);
-                e.currentTarget.value = "";
-              }}
-            >
-              <option value="">Continue on…</option>
-              {#if bestTarget(store.accounts, s.profile === "session" ? s.account : null)}
-                <option value="best">Best account</option>
-              {/if}
-              {#each choices(s) as a (a.number)}
-                <option value={String(a.number)}>{a.number}. {displayName(a)}{peakPct(a) != null ? ` (${peakPct(a)}%)` : ""}</option>
-              {/each}
-            </select>
-          </td>
-        </tr>
+        {@const a = accountOf(s.account)}
+        <li>
+          <span class="mascot">{#if a}<Mascot account={a} size={28} />{/if}</span>
+          <div class="who">
+            <span class="name" title={s.email}>
+              {nameFor(s.account, s.email)}
+              {#if s.profile === "session"}<span class="badge" title="Started with haryx ai run: it keeps its own login">own login</span>{/if}
+            </span>
+            <span class="folder truncate" title={s.cwd}>{tildePath(s.cwd)}</span>
+            <span class="caption">
+              {#if stuckPids.has(s.pid)}<span class="stuck">Out of quota</span> ·
+              {:else if s.status === "busy"}Working ·
+              {:else if s.status}{s.status.charAt(0).toUpperCase()}{s.status.slice(1)} ·{/if}
+              running for {since(s.startedAt)} · <span title="Process ID">PID {s.pid}</span>
+            </span>
+          </div>
+          <ContinueMenu session={s} from={s.profile === "session" ? s.account : null} />
+        </li>
       {/each}
-    </tbody>
-  </table>
-{/if}
-{#if store.sessions.unreadable > 0}
-  <p class="caption secondary">
-    {store.sessions.unreadable} session record(s) could not be read; more may be running.
-  </p>
-{/if}
+    </ul>
+    <p class="caption">Continue on… ends a session and resumes the same conversation on another account, in a new terminal.</p>
+  {/if}
+  {#if store.sessions.unreadable > 0}
+    <p class="caption">
+      {store.sessions.unreadable} session record{store.sessions.unreadable === 1 ? "" : "s"} could not be read; more may be running.
+    </p>
+  {/if}
+</section>
 
-<div class="hairline"></div>
-<p class="caption secondary">Start Claude as an account in a new terminal:</p>
-<div class="start">
-  {#each store.accounts as a (a.number)}
-    <button onclick={() => actions.runAs(a)}>{displayName(a)}</button>
-  {/each}
-</div>
+<section aria-labelledby="start-title">
+  <h2 id="start-title">Start Claude as an account in a new terminal</h2>
+  <ul class="start">
+    {#each store.accounts as a (a.number)}
+      <li>
+        <span class="grow truncate" title={a.email}>{a.number}. {middleTruncate(displayName(a), NAME_MAX)}</span>
+        {#if fiveHour(a.usage?.fiveHour?.pct)}<span class="caption">5-hour {fiveHour(a.usage?.fiveHour?.pct)}</span>{/if}
+        <button class="run" onclick={() => actions.runAs(a)} aria-label="Run Claude as {displayName(a)}">
+          <Icon name="terminal" size={14} />Run Claude
+        </button>
+      </li>
+    {/each}
+  </ul>
+</section>
 
 <style>
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
+  section {
+    margin-bottom: 24px;
   }
-  th {
-    text-align: left;
-    font-weight: 400;
-    padding: 4px 8px;
+  h2 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 6px;
   }
-  td {
-    padding: 6px 8px;
+  p {
+    margin: 6px 0 0;
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .sessions li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
     border-top: 1px solid var(--separator);
   }
-  .act {
-    width: 150px;
+  .mascot {
+    width: 28px;
+    flex: none;
   }
-  .act select {
-    width: 100%;
+  .who {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
   }
-  .stuck {
-    color: var(--orange, #c75000);
+  .name {
     font-weight: 600;
   }
-  .num {
-    text-align: right;
-    width: 90px;
-  }
   .folder {
-    width: 40%;
+    color: var(--label-2);
   }
   .badge {
     margin-left: 6px;
   }
-  .dot {
-    margin-right: 4px;
+  .stuck {
+    color: var(--amber);
+    font-weight: 600;
   }
-  .start {
+  .start li {
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+    border-top: 1px solid var(--separator);
+  }
+  .grow {
+    flex: 1;
+    min-width: 0;
+  }
+  .run {
+    display: inline-flex;
+    align-items: center;
     gap: 6px;
   }
 </style>

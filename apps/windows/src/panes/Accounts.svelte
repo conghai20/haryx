@@ -35,6 +35,8 @@
   import Mascot from "../components/Mascot.svelte";
   import TideStaff from "../components/TideStaff.svelte";
   import Inspector from "./AccountInspector.svelte";
+  import Icon from "../components/Icon.svelte";
+  import MenuButton from "../components/MenuButton.svelte";
 
   let selectedNumber = $state<number | null>(null);
 
@@ -54,8 +56,7 @@
   }
   /** The right-click menu: which card, and where the pointer was. */
   let menu = $state<{ account: Account; x: number; y: number } | null>(null);
-  /** The group whose … menu is open, and the one being renamed. */
-  let groupMenu = $state<string | null>(null);
+  /** The group being renamed. */
   let renaming = $state<string | null>(null);
   /** The New Group dialog, with these accounts ticked; null while it is closed. */
   let newGroup = $state<number[] | null>(null);
@@ -64,8 +65,6 @@
   const KEEPS_SELECTION = ".card, aside, button, select, input, label, a, [role='menu'], dialog";
 
   function closeOnEmptyClick(e: MouseEvent) {
-    // A group's … menu closes on any click outside its header.
-    if (!(e.target instanceof Element && e.target.closest(".group-head"))) groupMenu = null;
     if (e.target instanceof Element && e.target.closest(KEEPS_SELECTION)) return;
     showDetails(null);
   }
@@ -168,28 +167,29 @@
             aria-controls="group-{i}"
             onclick={() => toggle(section.key)}
           >
-            <span class="chevron" class:open={!isCollapsed} aria-hidden="true">›</span>
+            <span class="chevron" class:open={!isCollapsed}><Icon name="chevronRight" size={12} /></span>
             {section.name ?? "Ungrouped"}
             <span class="caption tertiary count">{section.accounts.length}</span>
           </button>
           {#if section.name}
             {@const name = section.name}
-            <button
-              class="plain group-more"
-              aria-label="{name} actions"
-              aria-haspopup="menu"
-              aria-expanded={groupMenu === name}
+            <MenuButton
+              plain
+              align="start"
+              ariaLabel="{name} actions"
               title="Rename or delete {name}"
-              onclick={() => (groupMenu = groupMenu === name ? null : name)}>⋯</button
+              sections={[
+                {
+                  heading: null,
+                  items: [
+                    { label: "Rename group…", onpick: () => (renaming = name) },
+                    { label: "Delete group…", danger: true, onpick: () => actions.deleteGroup(name) },
+                  ],
+                },
+              ]}
             >
-            {#if groupMenu === name}
-              <div class="group-menu" role="menu" aria-label="{name} actions">
-                <button role="menuitem" onclick={() => ((groupMenu = null), (renaming = name))}>Rename Group…</button>
-                <button role="menuitem" class="danger" onclick={() => ((groupMenu = null), void actions.deleteGroup(name))}
-                  >Delete Group…</button
-                >
-              </div>
-            {/if}
+              <Icon name="more" />
+            </MenuButton>
           {/if}
         </h2>
       {/if}
@@ -243,7 +243,7 @@
             <strong class="truncate">{m.alias || m.email}</strong>
             <span class="caption tertiary truncate">{m.alias ? m.email : ""}{m.alias && m.organizationName ? " · " : ""}{m.organizationName ?? ""}</span>
           </div>
-          <button class="mini primary" aria-label="Sign in {m.email} here" onclick={() => haryxAccount.signInHere(m)}>Sign In Here</button>
+          <button class="mini primary" aria-label="Sign in {m.email} here" onclick={() => haryxAccount.signInHere(m)}>Sign in here</button>
           <button class="mini plain" aria-label="Forget {m.email}" onclick={() => haryxAccount.forget(m)}>Forget</button>
         </li>
       {/each}
@@ -339,35 +339,6 @@
     display: flex;
     align-items: center;
     gap: 4px;
-  }
-  .group-more {
-    padding: 2px 8px;
-    color: var(--label-2);
-  }
-  .group-menu {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    z-index: 5;
-    min-width: 180px;
-    display: flex;
-    flex-direction: column;
-    padding: 4px;
-    background: var(--surface);
-    border: 1px solid var(--separator);
-    border-radius: var(--radius-banner);
-    box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
-    font-weight: 400;
-  }
-  .group-menu button {
-    text-align: left;
-    background: transparent;
-  }
-  .group-menu button:hover {
-    background: var(--fill);
-  }
-  .group-menu .danger {
-    color: var(--red);
   }
   .group-head button {
     display: inline-flex;

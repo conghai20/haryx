@@ -16,11 +16,44 @@ enum DashboardGroup: String, CaseIterable, Identifiable {
 
     /// HaryX Account is reached from the sidebar footer, not listed.
     var sections: [DashboardSection] { DashboardSection.allCases.filter { $0.group == self && $0 != .haryxAccount } }
+
+    /// The sidebar headings this group's sections sit under, in order.
+    var headings: [DashboardHeading] { DashboardHeading.allCases.filter { $0.group == self } }
+}
+
+/// The sidebar's sub-groups. AI splits by how often you visit: what you watch daily, what runs on its
+/// own, and what you set up once. The Windows app uses the same headings, labels and order.
+enum DashboardHeading: String, CaseIterable, Identifiable {
+    case monitor, automate, setUp, app
+    var id: String { rawValue }
+
+    var group: DashboardGroup { self == .app ? .app : .ai }
+
+    var title: String {
+        switch self {
+        case .monitor: "Monitor"
+        case .automate: "Automate"
+        case .setUp: "Set up"
+        case .app: "HaryX"
+        }
+    }
+
+    /// HaryX Account is reached from the sidebar footer, not listed.
+    var sections: [DashboardSection] { DashboardSection.allCases.filter { $0.heading == self && $0 != .haryxAccount } }
 }
 
 enum DashboardSection: String, CaseIterable, Identifiable {
     case accounts, usage, sessions, autoSwitch, wake, mappings, profiles, config, maintenance, haryxAccount, preferences, about
     var id: String { rawValue }
+
+    var heading: DashboardHeading {
+        switch self {
+        case .accounts, .usage, .sessions: .monitor
+        case .autoSwitch, .wake, .mappings: .automate
+        case .profiles, .config, .maintenance: .setUp
+        case .haryxAccount, .preferences, .about: .app
+        }
+    }
 
     var group: DashboardGroup {
         switch self {
@@ -34,15 +67,15 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         case .accounts: "Accounts"
         case .usage: "Usage"
         case .sessions: "Sessions"
-        case .autoSwitch: "Auto-Switch"
+        case .autoSwitch: "Auto-switch"
         case .wake: "Wake"
-        case .mappings: "Folder Mappings"
-        case .profiles: "Setup Profiles"
-        case .config: "AI Settings"
-        case .maintenance: "Backup & Maintenance"
-        case .haryxAccount: "HaryX Account"
-        case .preferences: "App Preferences"
-        case .about: "About & Updates"
+        case .mappings: "Folder mappings"
+        case .profiles: "Setup profiles"
+        case .config: "AI settings"
+        case .maintenance: "Backup & maintenance"
+        case .haryxAccount: "HaryX account"
+        case .preferences: "App preferences"
+        case .about: "About & updates"
         }
     }
 
@@ -60,6 +93,21 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         case .haryxAccount: "person.crop.circle"
         case .preferences: "gearshape"
         case .about: "info.circle"
+        }
+    }
+}
+
+extension View {
+    /// The frame every form-style pane uses: the form at most `maxWidth` wide and centred, inside a
+    /// scroll area that fills the window. A grouped Form caps its own content at
+    /// about 720 pt and centres it in anything wider, so the Form stops scrolling itself and sits in a
+    /// full-width ScrollView instead: scrolling and the scroll bar then work across the whole pane.
+    func paneFrame(maxWidth: CGFloat = 720) -> some View {
+        ScrollView {
+            scrollDisabled(true)
+                .scrollContentBackground(.hidden)
+                .frame(maxWidth: maxWidth)
+                .frame(maxWidth: .infinity)
         }
     }
 }
@@ -132,9 +180,9 @@ struct DashboardView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $router.section) {
-                ForEach(DashboardGroup.allCases) { group in
-                    Section(group.title) {
-                        ForEach(group.sections) { section in
+                ForEach(DashboardHeading.allCases) { heading in
+                    Section(heading.title) {
+                        ForEach(heading.sections) { section in
                             Label(section.title, systemImage: section.icon).tag(section)
                         }
                     }

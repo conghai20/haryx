@@ -175,10 +175,20 @@ struct ProfileItemRow: View {
                 }
             }
             ForEach(item.detail, id: \.self) { line in
-                Text(line).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2)
+                Text(Self.shortDetail(line)).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
+                    .truncationMode(.middle)
                     .padding(.leading, 26)
+                    .help(HookSummary.tilde(line))
             }
         }
+    }
+
+    /// A hook line names the script it runs, with the home folder as ~; the full command is in the
+    /// hover help. Other detail lines only get the ~.
+    static func shortDetail(_ line: String) -> String {
+        let prefix = "hook: "
+        guard line.hasPrefix(prefix) else { return HookSummary.tilde(line) }
+        return prefix + HookSummary.short(String(line.dropFirst(prefix.count)))
     }
 
     private var icon: String {

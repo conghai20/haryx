@@ -23,7 +23,7 @@
     try {
       await f();
     } catch (e) {
-      store.flash(String(e), true);
+      store.fail(e, "The update step failed");
     }
   }
 

@@ -324,10 +324,10 @@ private struct UsageSection: View {
                 Label(err, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(Brand.warn)
             }
             if let u = account.usage {
-                if u.fiveHour != nil { UsageBar(label: "5-hour", window: u.fiveHour?.withPace(windowSeconds: UsageWindow.fiveHourSeconds)) }
-                UsageBar(label: "Week", window: u.sevenDay)
+                if u.fiveHour != nil { UsageBar(label: "5-hour", window: u.fiveHour?.withPace(windowSeconds: UsageWindow.fiveHourSeconds), off: account.isDisabled) }
+                UsageBar(label: "Week", window: u.sevenDay, off: account.isDisabled)
                 ForEach(u.scoped ?? [], id: \.name) { s in
-                    UsageBar(label: s.name, window: UsageWindow(pct: s.pct, resetsAt: s.resetsAt))
+                    UsageBar(label: s.name, window: UsageWindow(pct: s.pct, resetsAt: s.resetsAt), off: account.isDisabled)
                 }
                 if let w = u.sevenDay, let d = w.paceDelta, let expected = w.expectedPct {
                     LabeledContent("Weekly pace") {
@@ -380,25 +380,38 @@ struct ContinueMenu: View {
     let process: ClaudeProcess
     /// The account it runs on, left out of the choices; nil when it runs on none.
     let from: Int?
+    /// The account picked in the menu, waiting for the confirmation; nil when none is up.
+    @State private var target: Account?
 
     var body: some View {
         Menu("Continue on…") {
             if let best = store.bestTarget(excluding: from) {
-                Button("Best: \(best.displayName) (\(Int(best.peakPct ?? 0))% used)") {
-                    store.continueSession(process, on: best)
-                }
+                Button("Best: \(best.displayName) (\(Int(best.peakPct ?? 0))% used)") { target = best }
                 Divider()
             }
             ForEach(store.accounts.filter { $0.number != from && !$0.isDisabled }) { a in
-                Button("\(a.number). \(a.displayName)\(a.peakPct.map { " — \(Int($0))% used" } ?? "")") {
-                    store.continueSession(process, on: a)
-                }
-                .disabled(a.needsRelogin)
+                Button("\(a.number). \(a.displayName)\(a.peakPct.map { " — \(Int($0))% used" } ?? "")") { target = a }
+                    .disabled(a.needsRelogin)
             }
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
         .help("Ends this Claude session and resumes the same conversation on another account, in a new terminal.")
+        .confirmationDialog("Continue on \(target?.displayName ?? "")?",
+                            isPresented: Binding(get: { target != nil }, set: { if !$0 { target = nil } })) {
+            Button("Continue") {
+                if let target { store.continueSession(process, on: target) }
+                target = nil
+            }
+            .keyboardShortcut(.defaultAction)
+            Button("Cancel", role: .cancel) { target = nil }
+        } message: {
+            Text("Ends the session in \(folder) and resumes the same conversation on \(target?.displayName ?? "") in a new terminal.")
+        }
+    }
+
+    private var folder: String {
+        process.cwd.map { ($0 as NSString).abbreviatingWithTildeInPath } ?? "this folder"
     }
 }
 

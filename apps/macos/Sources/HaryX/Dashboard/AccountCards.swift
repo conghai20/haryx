@@ -31,7 +31,7 @@ struct ActiveAccountCard: View {
             MascotView(style: store.style(for: account), mood: store.mood(for: account), size: 96, phase: store.phase(for: account))
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(account.displayName).font(.title3.weight(.semibold)).lineLimit(1)
+                    Text(account.displayName).font(.title3.weight(.semibold)).lineLimit(1).truncationMode(.middle)
                     InUseLabel()
                 }
                 CardMeta(account: account)
@@ -67,7 +67,8 @@ private struct InUseLabel: View {
 }
 
 /// An account you can switch to. An Off account (held out of rotation) steps back: a lighter fill,
-/// a pause mark before its name, usage as one line of text, and Turn On in place of Switch.
+/// a pause mark before its name, a dimmed mascot and Turn On in place of Switch. Its usage is still
+/// tracked, so it keeps the full tide reading; "Off: held out of rotation" takes the note line.
 struct AccountCard: View {
     @Environment(AppStore.self) private var store
     let account: Account
@@ -86,7 +87,7 @@ struct AccountCard: View {
                             Image(systemName: "pause.circle.fill").foregroundStyle(.secondary)
                                 .accessibilityLabel("Off")
                         }
-                        Text(account.displayName).font(.headline).lineLimit(1)
+                        Text(account.displayName).font(.headline).lineLimit(1).truncationMode(.middle)
                             .foregroundStyle(isOff ? .secondary : .primary)
                     }
                     CardMeta(account: account)
@@ -94,7 +95,7 @@ struct AccountCard: View {
                 }
                 Spacer(minLength: 0)
             }
-            if isOff { OffSummary(account: account) } else { CardTide(account: account) }
+            CardTide(account: account)
             CardNote(account: account)
             HStack {
                 if account.offersSignIn {
@@ -137,35 +138,20 @@ private struct CardMeta: View {
     }
 }
 
-/// The status note, or the wake summary for an account in rotation. A reserved line either way, so
-/// cards in a row stay level.
+/// The status note, else "Off" for an account held out of rotation, else the wake summary. A reserved
+/// line either way, so cards in a row stay level.
 private struct CardNote: View {
     @Environment(AppStore.self) private var store
     let account: Account
 
     var body: some View {
-        let wake = account.isDisabled ? nil : store.wake?.account(account.number)?.summary()
-        Text(account.statusNote ?? wake ?? " ")
+        let fallback = account.isDisabled
+            ? "Off: held out of rotation"
+            : store.wake?.account(account.number)?.summary()
+        Text(account.statusNote ?? fallback ?? " ")
             .font(.caption).foregroundStyle(account.statusNote != nil ? Brand.warn : .secondary)
             .lineLimit(1).truncationMode(.tail)
             .help(account.statusNote ?? "")
-    }
-}
-
-/// An Off account's usage as text: no staff, since it is not being drawn down.
-private struct OffSummary: View {
-    let account: Account
-
-    private func pct(_ w: UsageWindow?) -> String { w?.pct.map { "\(Int($0))%" } ?? "—" }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("Off: held out of rotation").font(.callout).foregroundStyle(.secondary)
-            Text("5-hour \(pct(account.usage?.fiveHour)) · week \(pct(account.usage?.sevenDay))")
-                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
     }
 }
 
@@ -209,6 +195,7 @@ private struct TerminalButton: View {
 
 /// The card's tide reading: the 5-hour % large, its reset, the staff, and the week.
 struct CardTide: View {
+    @Environment(AppStore.self) private var store
     let account: Account
     var figureSize: CGFloat = 28
 
@@ -225,18 +212,43 @@ struct CardTide: View {
                     Text("resets \(clock)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                 }
             }
-            TideStaff(window: five, height: 5)
+            TideStaff(window: five, height: 5, off: account.isDisabled)
+            // A reserved line, so cards in a row stay level when one has no 5-hour pace to name.
             HStack {
                 if let d = five?.paceDelta, abs(d) >= UsageWindow.paceThreshold {
                     Text(d > 0 ? "\(d) pts ahead of pace" : "\(-d) pts under pace")
                         .foregroundStyle(d > 0 ? Brand.warn : .secondary)
+                } else {
+                    Text(verbatim: " ").accessibilityHidden(true)
                 }
                 Spacer()
             }
             .font(.caption)
-            WeekStaff(window: account.usage?.sevenDay)
+            WeekStaff(window: account.usage?.sevenDay, off: account.isDisabled,
+                      readings: store.weekReadings[account.number] ?? [])
+            CardWeeklyPace(window: account.usage?.sevenDay)
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// The week's pace under its staff: "N pts ahead of pace · runs out Sat 10:15" in amber, else
+/// "N pts under pace" or "on pace" in secondary. A reserved line, so cards in a row stay level
+/// while the CLI has no weekly pace yet (the first day after a reset).
+private struct CardWeeklyPace: View {
+    let window: UsageWindow?
+
+    var body: some View {
+        let pace = WeeklyPace(window)
+        Text(pace?.text(runOut: Self.runOut) ?? " ")
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(pace?.isAhead == true ? Brand.warn : .secondary)
+            .lineLimit(1).truncationMode(.tail)
+            .accessibilityLabel(pace.map { "Weekly pace: \($0.text(runOut: Self.runOut))" } ?? "")
+    }
+
+    private static func runOut(_ date: Date) -> String {
+        date.formatted(.dateTime.weekday(.abbreviated).hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
     }
 }
 

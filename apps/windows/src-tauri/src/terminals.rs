@@ -101,13 +101,19 @@ impl Installed {
             .collect()
     }
 
-    /// The shell a Windows Terminal tab runs: PowerShell 7 when present.
-    fn tab_shell(&self) -> Option<(Terminal, &Path)> {
-        [Terminal::Pwsh, Terminal::Powershell, Terminal::Cmd]
+    /// The shell a Windows Terminal tab runs: `preferred` when it is a tab shell and installed, else
+    /// PowerShell 7 when present, then Windows PowerShell, then Command Prompt.
+    fn tab_shell(&self, preferred: Option<Terminal>) -> Option<(Terminal, &Path)> {
+        preferred
+            .filter(|t| TAB_SHELLS.contains(t))
             .into_iter()
+            .chain(TAB_SHELLS)
             .find_map(|t| self.path(t).map(|p| (t, p)))
     }
 }
+
+/// The shells a Windows Terminal tab can run, in "Automatic" order.
+pub const TAB_SHELLS: [Terminal; 3] = [Terminal::Pwsh, Terminal::Powershell, Terminal::Cmd];
 
 /// `root` joined with each part, so the path is built the same way on every OS (tests run on all).
 fn under(root: &Path, parts: &[&str]) -> PathBuf {
@@ -225,13 +231,15 @@ fn bash_command(words: &[String]) -> String {
         .join(" ")
 }
 
-/// The program and arguments that open `terminal` running `job`.
+/// The program and arguments that open `terminal` running `job`. `tab_shell` is the Shell preference,
+/// used only by Windows Terminal (every other terminal is its own shell).
 pub fn launch_argv(
     terminal: Terminal,
     job: &Job,
     haryx: &Path,
     folder: &Path,
     installed: &Installed,
+    tab_shell: Option<Terminal>,
 ) -> Result<Vec<String>, String> {
     if terminal == Terminal::Warp {
         return Err("Warp opens through a launch configuration, not a command line".into());
@@ -261,7 +269,7 @@ pub fn launch_argv(
     match terminal {
         Terminal::WindowsTerminal => {
             let (shell, shell_path) = installed
-                .tab_shell()
+                .tab_shell(tab_shell)
                 .ok_or("no shell found for Windows Terminal")?;
             argv.extend([
                 "new-tab".into(),
@@ -385,7 +393,8 @@ mod tests {
                 &Job::Shell,
                 Path::new(HARYX),
                 Path::new(r"D:\x"),
-                &all_installed()
+                &all_installed(),
+                None
             )
             .is_err()
         );
@@ -400,6 +409,7 @@ mod tests {
             Path::new(HARYX),
             Path::new(r"D:\code"),
             &all_installed(),
+            None,
         )
         .unwrap()
     }
@@ -511,9 +521,42 @@ mod tests {
             Path::new(HARYX),
             Path::new("."),
             &none,
+            None,
         )
         .unwrap_err();
         assert_eq!(err, "Windows Terminal is not installed");
+    }
+
+    #[test]
+    fn windows_terminal_uses_the_chosen_shell_when_installed() {
+        let with = |shell, installed: &Installed| {
+            launch_argv(
+                Terminal::WindowsTerminal,
+                &Job::Shell,
+                Path::new(HARYX),
+                Path::new(r"D:\code"),
+                installed,
+                shell,
+            )
+            .unwrap()[5]
+                .clone()
+        };
+        assert_eq!(with(Some(Terminal::Cmd), &all_installed()), r"C:\cmd.exe");
+        assert_eq!(
+            with(Some(Terminal::Powershell), &all_installed()),
+            r"C:\ps.exe"
+        );
+        // Not a tab shell: ignored, so Automatic picks PowerShell 7.
+        assert_eq!(
+            with(Some(Terminal::GitBash), &all_installed()),
+            r"C:\pwsh.exe"
+        );
+        // Chosen but missing: falls back to the first installed.
+        let no_cmd = Installed {
+            cmd: None,
+            ..all_installed()
+        };
+        assert_eq!(with(Some(Terminal::Cmd), &no_cmd), r"C:\pwsh.exe");
     }
 
     #[test]

@@ -75,6 +75,7 @@ pub fn run() {
             commands::open_dashboard,
             commands::mappings,
             commands::reveal,
+            commands::notify_test,
             commands::hide_flyout,
             commands::quit,
             commands::update_check,

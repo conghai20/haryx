@@ -46,6 +46,7 @@ struct MappingsPane: View {
             }
         }
         .formStyle(.grouped)
+        .paneFrame()
         .onAppear { store.loadMappings() }
     }
 }
@@ -64,10 +65,10 @@ struct MaintenancePane: View {
         Form {
             Section {
                 ForEach(store.accounts) { a in
-                    Toggle("\(a.number): \(a.displayName)", isOn: Binding(
+                    Toggle(isOn: Binding(
                         get: { exportSlots.contains(a.number) },
                         set: { on in exportSlots = on ? exportSlots.union([a.number]) : exportSlots.subtracting([a.number]) }
-                    ))
+                    )) { Text("\(a.number): \(a.displayName)").lineLimit(1).truncationMode(.middle) }
                 }
                 HStack {
                     Button("Select All") { exportSlots = Set(store.accounts.map(\.number)) }
@@ -90,12 +91,16 @@ struct MaintenancePane: View {
             }
 
             Section("Import") {
-                Toggle("Overwrite existing accounts (--force)", isOn: $importForce)
+                Toggle("Replace accounts that already exist", isOn: $importForce)
+                    .help("Imports over an account with the same email instead of skipping it (--force).")
                 Button("Import Accounts…") {
                     guard let url = openPanel() else { return }
                     Task { await store.importAccounts(from: url, force: importForce) }
                 }
-                Stepper("Hold imported usage for \(holdSeconds) s", value: $holdSeconds, in: 0...86_400, step: 300)
+                Stepper(holdSeconds == 0 ? "Read usage again right after importing"
+                                         : "Use the imported readings for \(holdSeconds / 60) min before reading usage again",
+                        value: $holdSeconds, in: 0...86_400, step: 300)
+                    .help("Imported readings stand in for this long, so this Mac doesn't also poll the usage endpoint (--hold).")
                 Button("Import Usage from Another Machine…") {
                     guard let url = openPanel() else { return }
                     Task { await store.importUsage(from: url, hold: holdSeconds > 0 ? holdSeconds : nil) }
@@ -115,7 +120,7 @@ struct MaintenancePane: View {
                     HStack {
                         VStack(alignment: .leading) {
                             Text(u.id).font(.caption.monospaced())
-                            Text("slot \(u.slot) · \(u.reason)").font(.caption).foregroundStyle(.secondary)
+                            Text("Account \(u.slot) · \(u.reason)").font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
                         Button("Purge", role: .destructive) { Task { await store.purgeUnclaimed(u.id) } }
@@ -123,7 +128,7 @@ struct MaintenancePane: View {
                 }
             }
 
-            Section(store.cli?.flavor.rawValue ?? "haryx") {
+            Section(store.cli?.flavor == .cswap ? "cswap CLI" : "HaryX CLI") {
                 LabeledContent("Version", value: store.version.isEmpty ? "—" : store.version)
                 LabeledContent("Executable", value: store.cli?.executable.path ?? "not found")
                 HStack {
@@ -137,11 +142,14 @@ struct MaintenancePane: View {
 
             Section {
                 Button("Purge All Account Data…", role: .destructive) { confirmPurge = true }
+            } header: {
+                Text("Erase")
             } footer: {
                 Text("Removes every stored account, backup, and setting. Your current Claude Code login stays as it is.")
             }
         }
         .formStyle(.grouped)
+        .paneFrame()
         .task { await store.loadExtras() }
         .onAppear(perform: takeExportSelection)
         .onChange(of: router.exportSelection) { takeExportSelection() }

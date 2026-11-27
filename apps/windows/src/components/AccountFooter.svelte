@@ -1,6 +1,7 @@
 <script lang="ts">
   // The dashboard sidebar's footer: the HaryX account. Signed out, a menu of ways to sign in;
   // signing in, progress and Cancel; signed in, who it is and a menu to manage the account.
+  import Icon from "./Icon.svelte";
   import { onMount } from "svelte";
   import { SIGN_IN_PROVIDERS, providerName, type SignInProvider } from "../lib/account";
   import { haryxAccount as acct } from "../lib/haryx.svelte";
@@ -65,16 +66,16 @@
           <span class="truncate">{user.email}</span>
           <span class="caption secondary truncate">{status}</span>
         </span>
-        <span class="chevron" aria-hidden="true">⌃</span>
+        <span class="chevron"><Icon name="chevronUp" size={12} /></span>
       </button>
     {:else if acct.signIn.phase === "waiting"}
       <div class="waiting" role="status">
         <span class="spinner" aria-hidden="true"></span>
         <span class="caption secondary truncate">Signing in with {providerName(acct.signInProvider)}…</span>
         {#if acct.signIn.hasLink}
-          <button class="icon-button" title="Open the sign-in page again" onclick={() => acct.openSignInPage()}>↗</button>
+          <button class="icon-button" aria-label="Open the sign-in page again" title="Open the sign-in page again" onclick={() => acct.openSignInPage()}><Icon name="external" size={12} /></button>
         {/if}
-        <button class="icon-button" title="Cancel sign-in" onclick={() => acct.cancelSignIn()}>✕</button>
+        <button class="icon-button" aria-label="Cancel sign-in" title="Cancel sign-in" onclick={() => acct.cancelSignIn()}><Icon name="close" size={12} /></button>
       </div>
     {:else}
       {#if acct.signIn.phase === "error"}
@@ -94,7 +95,7 @@
         title="Sign in to sync settings between your machines"
         onclick={() => (open = !open)}
       >
-        <span aria-hidden="true">◉</span>Sign in to HaryX<span class="chevron" aria-hidden="true">⌃</span>
+        <Icon name="account" />Sign in to HaryX<span class="chevron"><Icon name="chevronUp" size={12} /></span>
       </button>
     {/if}
   </div>
@@ -150,7 +151,7 @@
   .chevron {
     margin-left: auto;
     color: var(--label-2);
-    font-size: 11px;
+    font-size: 12px;
   }
   .menu {
     position: absolute;
@@ -185,6 +186,7 @@
     flex: 1;
   }
   .icon-button {
+    display: inline-flex;
     background: transparent;
     padding: 2px 6px;
   }

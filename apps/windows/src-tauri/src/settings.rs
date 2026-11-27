@@ -23,6 +23,9 @@ pub struct Prefs {
     pub refresh_seconds: u64,
     /// The terminal quick actions open.
     pub terminal: Option<Terminal>,
+    /// The shell a Windows Terminal tab runs (PowerShell 7, Windows PowerShell or Command Prompt);
+    /// unset picks the first installed, PowerShell 7 first. Other terminals are their own shell.
+    pub shell: Option<Terminal>,
     /// Where "Claude in a folder" starts, when no folder is picked.
     pub claude_folder: Option<PathBuf>,
     /// A specific haryx.exe instead of the one found on PATH.
@@ -64,6 +67,7 @@ impl Default for Prefs {
         Prefs {
             refresh_seconds: 60,
             terminal: None,
+            shell: None,
             claude_folder: None,
             haryx_path: None,
             auto_switch_on_launch: false,

@@ -2,14 +2,16 @@
   // One account card, as macOS AccountCard / ActiveAccountCard. `live` is the account in use: a
   // wider card above the grid with a larger mascot and figure and a cyan "In use" by its name (cyan
   // is the live colour). An Off account (held out of rotation) steps back: a lighter fill, a pause
-  // mark before its name, usage as one line of text, and Turn On in place of Switch.
+  // mark before its name, a dimmed mascot and Turn On in place of Switch. Its usage is still tracked,
+  // so it keeps the full tide reading; "Off: held out of rotation" takes the note line.
   import { actions } from "../lib/actions";
   import { exhausted } from "../lib/handoff";
   import { store } from "../lib/store.svelte";
-  import { FIVE_HOUR_S, HIGH_PCT, SEVEN_DAY_S, displayName, needsRelogin, paceLine, pctLabel, statusNote, tier } from "../lib/tide";
+  import { FIVE_HOUR_S, HIGH_PCT, SEVEN_DAY_S, cardWeeklyPace, displayName, middleEllipsis, needsRelogin, paceLine, pctLabel, statusNote, tier } from "../lib/tide";
   import type { Account } from "../lib/types";
   import Mascot from "./Mascot.svelte";
   import TideStaff from "./TideStaff.svelte";
+  import WeekTide from "./WeekTide.svelte";
 
   let {
     account: a,
@@ -32,7 +34,9 @@
   let five = $derived(a.usage?.fiveHour);
   let week = $derived(a.usage?.sevenDay);
   let pace = $derived(paceLine(five, store.now));
+  let weekPace = $derived(cardWeeklyPace(week, store.now));
   let running = $derived(store.runningFor(a));
+  let note = $derived(statusNote(a));
 </script>
 
 <article style:view-transition-name={transitionName} class="card" class:live class:off class:selected class:limit={!off && exhausted(a)} aria-label={displayName(a)} {oncontextmenu}>
@@ -48,7 +52,7 @@
             <rect x="8.75" y="4.75" width="1.75" height="6.5" rx="0.5" />
           </svg>
         {/if}
-        <strong class="truncate" class:secondary={off}>{displayName(a)}</strong>
+        <strong class="truncate" class:secondary={off} title={displayName(a)}>{middleEllipsis(displayName(a), live ? 40 : 24)}</strong>
         {#if live}<span class="in-use"><span class="dot"></span>In use</span>{/if}
       </div>
       <span class="caption tertiary truncate">#{a.number} · {a.email}</span>
@@ -69,30 +73,28 @@
   </div>
 
   <div class="reading">
-    {#if off}
-      <p class="secondary">Off: held out of rotation</p>
-      <p class="caption secondary">5-hour {pctLabel(five?.pct)} · week {pctLabel(week?.pct)}</p>
-    {:else}
-      <div class="figure-row">
-        <span
-          class="display figure"
-          class:warn={tier(five, FIVE_HOUR_S, store.now) === "warn"}
-          class:limit={tier(five, FIVE_HOUR_S, store.now) === "limit"}>{pctLabel(five?.pct)}</span
-        >
-        <span class="caption secondary">5-hour</span>
-        {#if five?.clock}<span class="caption secondary reset">resets {five.clock}</span>{/if}
-      </div>
-      <TideStaff window={five} windowS={FIVE_HOUR_S} now={store.now} height={5} label="5-hour usage" />
-      <div class="caption line">
-        {#if pace && pace.text !== "on pace"}<span class:warn-text={pace.warn}>{pace.text}</span>{:else}&nbsp;{/if}
-      </div>
-      <div class="caption line">
-        <span class:warn-text={(week?.pct ?? 0) >= HIGH_PCT}>Week {pctLabel(week?.pct)}</span>
-        {#if week?.countdown}<span class="tertiary"> · resets in {week.countdown}</span>{/if}
-      </div>
-      <TideStaff window={week} windowS={SEVEN_DAY_S} now={store.now} height={3} label="Weekly usage" />
-    {/if}
-    <div class="caption note">{statusNote(a) ?? ""}&nbsp;</div>
+    <div class="figure-row">
+      <span
+        class="display figure"
+        class:warn={tier(five, FIVE_HOUR_S, store.now) === "warn"}
+        class:limit={tier(five, FIVE_HOUR_S, store.now) === "limit"}>{pctLabel(five?.pct)}</span
+      >
+      <span class="caption secondary">5-hour</span>
+      {#if five?.clock}<span class="caption secondary reset">resets {five.clock}</span>{/if}
+    </div>
+    <TideStaff window={five} windowS={FIVE_HOUR_S} now={store.now} height={5} label="5-hour usage" {off} />
+    <div class="caption line">
+      {#if pace && pace.text !== "on pace"}<span class:warn-text={pace.warn}>{pace.text}</span>{:else}&nbsp;{/if}
+    </div>
+    <div class="caption line">
+      <span class:warn-text={(week?.pct ?? 0) >= HIGH_PCT}>Week {pctLabel(week?.pct)}</span>
+      {#if week?.countdown}<span class="tertiary"> · resets in {week.countdown}</span>{/if}
+    </div>
+    <div class="week-tide"><WeekTide window={week} readings={store.weekReadings[a.number] ?? []} now={store.now} {off} /></div>
+    <div class="caption line truncate" class:warn-text={weekPace?.warn} class:secondary={!weekPace?.warn} aria-label={weekPace ? `Weekly pace: ${weekPace.text}` : undefined}>
+      {weekPace?.text ?? ""}&nbsp;
+    </div>
+    <div class="caption note" class:secondary={!note}>{note ?? (off ? "Off: held out of rotation" : "")}&nbsp;</div>
   </div>
 
   {#if !live}
@@ -110,6 +112,9 @@
 </article>
 
 <style>
+  .week-tide {
+    margin-top: 2px;
+  }
   .card {
     position: relative;
     padding: 14px;
@@ -214,9 +219,6 @@
   .running .dot {
     margin-right: 3px;
   }
-  .reading p {
-    margin: 0;
-  }
   .figure-row {
     display: flex;
     align-items: baseline;
@@ -247,6 +249,9 @@
     color: var(--amber);
     margin-top: 6px;
     min-height: 14px;
+  }
+  .note.secondary {
+    color: var(--label-2);
   }
   .actions {
     margin-top: auto;

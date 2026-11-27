@@ -42,6 +42,7 @@ struct AboutPane: View {
             }
         }
         .formStyle(.grouped)
+        .paneFrame()
         .task { if updates.check == nil { await updates.checkNow(refresh: false) } }
     }
 }

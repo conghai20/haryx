@@ -31,6 +31,8 @@ extension Color {
 struct UsageBar: View {
     let label: String
     let window: UsageWindow?
+    /// An Off account's reading: grey where it would be cyan.
+    var off = false
 
     var body: some View {
         let pct = window?.pct
@@ -41,7 +43,7 @@ struct UsageBar: View {
                 if let reset = resetText { Text(reset).font(.caption.monospacedDigit()).foregroundStyle(.tertiary) }
             }
             HStack(spacing: 8) {
-                TideStaff(window: window, height: 5)
+                TideStaff(window: window, height: 5, off: off)
                 Text(pct.map { "\(Int($0))%" } ?? "—")
                     .font(.callout.weight(.medium).monospacedDigit())
                     .foregroundStyle(pct == nil ? .tertiary : .primary)

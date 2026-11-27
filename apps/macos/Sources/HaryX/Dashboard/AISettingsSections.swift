@@ -10,7 +10,7 @@ struct UsageDisplaySection: View {
     @AppStorage(Prefs.menuBarPercent) private var menuBarPercent = true
 
     var body: some View {
-        Section("Usage & Menu Bar") {
+        Section("Usage & menu bar") {
             Picker("Refresh usage every", selection: $refreshSeconds) {
                 Text("30 seconds").tag(30.0)
                 Text("1 minute").tag(60.0)

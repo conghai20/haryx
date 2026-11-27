@@ -21,6 +21,8 @@ export const api = {
   mappings: () => invoke<Mapping[]>("mappings"),
   /** Show haryx's data folder or its log file in Explorer. */
   reveal: (what: "store" | "log") => invoke<void>("reveal", { what }),
+  /** Post a test toast. */
+  notifyTest: () => invoke<void>("notify_test"),
   hideFlyout: () => invoke<void>("hide_flyout"),
   quit: () => invoke<void>("quit"),
   updateCheck: (refresh: boolean) => invoke<void>("update_check", { refresh }),

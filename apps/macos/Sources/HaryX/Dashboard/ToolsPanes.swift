@@ -55,26 +55,32 @@ struct MaintenancePane: View {
     @Environment(AppStore.self) private var store
     @Bindable private var router = DashboardRouter.shared
     @State private var exportSlots: Set<Int> = []
+    @State private var showExportAccounts = false
     @State private var exportFull = false
     @State private var importForce = false
     @State private var holdSeconds = 0
     @State private var confirmPurge = false
     @State private var purgeText = ""
+    @State private var purgeEntry: UnclaimedEntry?
 
     var body: some View {
         Form {
             Section {
-                ForEach(store.accounts) { a in
-                    Toggle(isOn: Binding(
-                        get: { exportSlots.contains(a.number) },
-                        set: { on in exportSlots = on ? exportSlots.union([a.number]) : exportSlots.subtracting([a.number]) }
-                    )) { Text("\(a.number): \(a.displayName)").lineLimit(1).truncationMode(.middle) }
-                }
-                HStack {
-                    Button("Select All") { exportSlots = Set(store.accounts.map(\.number)) }
-                    Button("Select None") { exportSlots = [] }
-                    Spacer()
-                    Text("\(chosenForExport.count) of \(store.accounts.count) selected").font(.caption).foregroundStyle(.secondary)
+                // Folded to one line: twenty accounts would push Export a screen down.
+                Fold(isExpanded: $showExportAccounts) {
+                    LabeledContent("Accounts", value: exportSummary)
+                } content: {
+                    ForEach(store.accounts) { a in
+                        Toggle(isOn: Binding(
+                            get: { exportSlots.contains(a.number) },
+                            set: { on in exportSlots = on ? exportSlots.union([a.number]) : exportSlots.subtracting([a.number]) }
+                        )) { Text("\(a.number): \(a.displayName)").lineLimit(1).truncationMode(.middle) }
+                        .toggleStyle(.checkbox)
+                    }
+                    HStack {
+                        Button("Select All") { exportSlots = Set(store.accounts.map(\.number)) }
+                        Button("Select None") { exportSlots = [] }
+                    }
                 }
                 Toggle("Full export (whole ~/.claude.json + credentials, same-machine backup)", isOn: $exportFull)
                 Button("Export…") {
@@ -90,22 +96,13 @@ struct MaintenancePane: View {
                       systemImage: "lock.trianglebadge.exclamationmark")
             }
 
-            Section("Import") {
+            Section("Import accounts") {
                 Toggle("Replace accounts that already exist", isOn: $importForce)
                     .help("Imports over an account with the same email instead of skipping it (--force).")
                 Button("Import Accounts…") {
                     guard let url = openPanel() else { return }
                     Task { await store.importAccounts(from: url, force: importForce) }
                 }
-                Stepper(holdSeconds == 0 ? "Read usage again right after importing"
-                                         : "Use the imported readings for \(holdSeconds / 60) min before reading usage again",
-                        value: $holdSeconds, in: 0...86_400, step: 300)
-                    .help("Imported readings stand in for this long, so this Mac doesn't also poll the usage endpoint (--hold).")
-                Button("Import Usage from Another Machine…") {
-                    guard let url = openPanel() else { return }
-                    Task { await store.importUsage(from: url, hold: holdSeconds > 0 ? holdSeconds : nil) }
-                }
-                .help("Feed `haryx ai list --json` output from another machine so both don't poll the usage endpoint")
                 // `haryx import --from-cswap` reads cswap's store; cswap itself has no such command.
                 if store.cli?.flavor == .haryx {
                     Button("Import from cswap") { Task { await store.importFromCswap() } }
@@ -114,8 +111,21 @@ struct MaintenancePane: View {
                 }
             }
 
-            Section("Unclaimed credentials") {
-                if store.unclaimed.isEmpty { Text("None").foregroundStyle(.secondary) }
+            Section {
+                Picker("Use imported readings for", selection: $holdSeconds) {
+                    ForEach(Self.holdChoices, id: \.seconds) { Text($0.title).tag($0.seconds) }
+                }
+                .help("Imported readings stand in for this long, so this Mac doesn't also poll the usage endpoint (--hold).")
+                Button("Import Usage from Another Machine…") {
+                    guard let url = openPanel() else { return }
+                    Task { await store.importUsage(from: url, hold: holdSeconds > 0 ? holdSeconds : nil) }
+                }
+            } header: { Text("Import usage") } footer: {
+                Text("Feed `haryx ai list --json` output from another machine so both don't poll the usage endpoint.")
+            }
+
+            Section {
+                if store.unclaimed.isEmpty { Text("None stashed").foregroundStyle(.secondary) }
                 ForEach(store.unclaimed) { u in
                     HStack {
                         VStack(alignment: .leading) {
@@ -123,25 +133,15 @@ struct MaintenancePane: View {
                             Text("Account \(u.slot) · \(u.reason)").font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button("Purge", role: .destructive) { Task { await store.purgeUnclaimed(u.id) } }
+                        Button("Purge", role: .destructive) { purgeEntry = u }.tint(.red)
                     }
                 }
-            }
-
-            Section(store.cli?.flavor == .cswap ? "cswap CLI" : "HaryX CLI") {
-                LabeledContent("Version", value: store.version.isEmpty ? "—" : store.version)
-                LabeledContent("Executable", value: store.cli?.executable.path ?? "not found")
-                HStack {
-                    Button("Upgrade \(store.cli?.flavor.rawValue ?? "haryx")") { Task { await store.upgrade() } }
-                    Button("Open Data Folder") { NSWorkspace.shared.open(URL(fileURLWithPath: CSwapCLI.backupRoot)) }
-                    Button("Show Log") {
-                        NSWorkspace.shared.selectFile(CSwapCLI.backupRoot + "/" + CSwapCLI.selectedFlavor.logFileName, inFileViewerRootedAtPath: "")
-                    }
-                }
+            } header: { Text("Unclaimed credentials") } footer: {
+                Text("Safety copies of logins kept during a switch. HaryX never uses them on its own; purge one once its account signs in normally.")
             }
 
             Section {
-                Button("Purge All Account Data…", role: .destructive) { confirmPurge = true }
+                Button("Purge All Account Data…", role: .destructive) { confirmPurge = true }.tint(.red)
             } header: {
                 Text("Erase")
             } footer: {
@@ -153,6 +153,13 @@ struct MaintenancePane: View {
         .task { await store.loadExtras() }
         .onAppear(perform: takeExportSelection)
         .onChange(of: router.exportSelection) { takeExportSelection() }
+        .confirmationDialog("Delete the stashed credential \(purgeEntry?.id ?? "")?", isPresented: Binding(
+            get: { purgeEntry != nil }, set: { if !$0 { purgeEntry = nil } }
+        ), presenting: purgeEntry) { u in
+            Button("Purge", role: .destructive) { Task { await store.purgeUnclaimed(u.id) } }
+        } message: { u in
+            Text("It belongs to account \(u.slot). Recovery is signing in again.")
+        }
         .sheet(isPresented: $confirmPurge) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Purge all account data?").font(.title3.bold())
@@ -161,16 +168,29 @@ struct MaintenancePane: View {
                 HStack {
                     Spacer()
                     Button("Cancel") { confirmPurge = false; purgeText = "" }
+                        .keyboardShortcut(.cancelAction)
                     Button("Purge", role: .destructive) {
                         confirmPurge = false
                         purgeText = ""
                         Task { await store.purgeAll() }
                     }
+                    .keyboardShortcut(.defaultAction)
                     .disabled(purgeText != "PURGE")
                 }
             }
             .padding(20).frame(width: 380)
         }
+    }
+
+    /// How long imported usage readings stand in before this Mac reads usage itself (`--hold`).
+    static let holdChoices: [(seconds: Int, title: String)] = [
+        (0, "Don't (read usage again now)"), (300, "5 minutes"), (900, "15 minutes"), (3600, "1 hour"), (86_400, "24 hours"),
+    ]
+
+    /// The folded account list's one line: all of them, some, or none.
+    private var exportSummary: String {
+        let total = store.accounts.count
+        return chosenForExport.count == total ? "All \(total)" : "\(chosenForExport.count) of \(total)"
     }
 
     /// Ticked accounts that still exist, in slot order.
@@ -180,6 +200,7 @@ struct MaintenancePane: View {
     private func takeExportSelection() {
         if let slots = router.exportSelection {
             exportSlots = slots
+            showExportAccounts = true // a card's Export… shows what it ticked
             router.exportSelection = nil
         } else if exportSlots.isEmpty {
             exportSlots = Set(store.accounts.map(\.number))

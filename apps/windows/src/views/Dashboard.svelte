@@ -35,7 +35,7 @@
     { id: "auto", group: "Automate", title: "Auto-switch", icon: "autoSwitch", wide: true, component: AutoSwitch },
     { id: "wake", group: "Automate", title: "Wake", icon: "wake", wide: false, component: Wake },
     { id: "mappings", group: "Automate", title: "Folder mappings", icon: "mappings", wide: false, component: Mappings },
-    { id: "profiles", group: "Set up", title: "Setup profiles", icon: "profiles", wide: true, component: Profiles },
+    { id: "profiles", group: "Set up", title: "Setup profiles", icon: "profiles", wide: false, component: Profiles },
     { id: "settings", group: "Set up", title: "AI settings", icon: "settings", wide: false, component: AiSettings },
     { id: "tools", group: "Set up", title: "Backup & maintenance", icon: "backup", wide: false, component: Tools },
     // Reached from the sidebar footer, not listed.

@@ -52,7 +52,15 @@
   let sideError = $state<string | null>(null);
 
   let summary = $derived(profiles.find((p) => p.name === selected) ?? null);
-  let groups = $derived(CATEGORIES.map(([c, title, on]) => ({ c, title: on ? title : `${title} (opt-in)`, list: (items ?? []).filter((i) => i.category === c) })).filter((g) => g.list.length > 0));
+  let groups = $derived(
+    CATEGORIES.map(([c, title, on]) => {
+      const list = (items ?? []).filter((i) => i.category === c);
+      const size = list.reduce((n, i) => n + (i.files > 0 ? i.size : 0), 0);
+      return { c, title: on ? title : `${title} (opt-in)`, list, size, problems: list.filter((i) => i.status !== "ok").length };
+    }).filter((g) => g.list.length > 0),
+  );
+  /** The last apply has a backup to restore: some profile is marked last applied. */
+  let canUndo = $derived(profiles.some((p) => p.last_applied));
   let changes = $derived(plan?.entries.filter((e) => CHANGES.includes(e.action)) ?? []);
   let encrypted = $derived(summary?.secrets === "encrypt");
   /** Opens an encrypted profile; passed to the CLI in its environment only, never kept. */
@@ -182,13 +190,8 @@
     {
       heading: null,
       items: [
-        ...(selected !== DEFAULT
-          ? [
-              { label: "Compare with live .claude", onpick: () => start("diff") },
-              { label: "Delete profile…", onpick: deleteProfile, danger: true },
-            ]
-          : []),
-        { label: "Undo last apply…", onpick: rollback },
+        { label: "Compare with live .claude", onpick: () => start("diff") },
+        { label: "Delete profile…", onpick: deleteProfile, danger: true },
       ],
     },
   ]);
@@ -197,6 +200,17 @@
   function detailText(line: string): string {
     const hook = /^hook:\s*(.*)$/.exec(line);
     return hook ? `hook: ${hookSummary(hook[1] ?? "")}` : tildePath(line);
+  }
+
+  /** An item's detail lines as shown: lines that read the same once shortened become one, with ×N. */
+  function detailRows(lines: string[]): { text: string; full: string; count: number }[] {
+    const rows = new Map<string, { text: string; full: string; count: number }>();
+    for (const line of lines) {
+      const text = detailText(line);
+      const row = rows.get(text);
+      rows.set(text, row ? { ...row, full: `${row.full}\n${line}`, count: row.count + 1 } : { text, full: line, count: 1 });
+    }
+    return [...rows.values()];
   }
 
   onMount(reload);
@@ -216,9 +230,25 @@
   <button onclick={() => start("save")}>Save snapshot…</button>
   <button onclick={() => start("export")}>Export…</button>
   <button onclick={pickImport}>Import…</button>
-  {#if selected !== DEFAULT}<button class="primary" onclick={() => start("apply")}>Apply…</button>{/if}
-  <MenuButton sections={moreMenu} plain ariaLabel="More profile actions" title="More"><Icon name="more" /></MenuButton>
+  {#if canUndo}<button onclick={rollback}>Undo last apply</button>{/if}
+  {#if selected !== DEFAULT}
+    <button class="primary" onclick={() => start("apply")}>Apply…</button>
+    <MenuButton sections={moreMenu} plain ariaLabel="More profile actions" title="More"><Icon name="more" /></MenuButton>
+  {/if}
 </div>
+
+{#if profiles.length === 0 && mode === "view"}
+  <section class="panel intro" aria-label="About profiles">
+    <p>
+      A profile is a saved copy of your Claude Code setup: settings, hooks, MCP servers and plugins. Save one to restore
+      it later, or export it to set up another machine.
+    </p>
+    <div class="line">
+      <button class="primary" onclick={() => start("save")}>Save snapshot…</button>
+      <button onclick={pickImport}>Import…</button>
+    </div>
+  </section>
+{/if}
 
 {#if mode !== "view"}
   <section class="panel" aria-label="Profile action">
@@ -297,16 +327,23 @@
   <p class="secondary">This profile is empty.</p>
 {:else}
   {#each groups as g (g.c)}
-    <h2 class="caption">{g.title}</h2>
-    {#each g.list as it (it.id)}
-      <div class="item">
-        <div class="line"><code class="truncate grow" title={it.id}>{it.id}</code>
-          {#if it.status !== "ok"}<span class="badge" class:broken={it.status === "broken"} class:amber={it.status !== "broken"}>{it.status}</span>{/if}
-          {#if it.files > 0}<span class="caption">{bytes(it.size)} · {it.files} file{it.files === 1 ? "" : "s"}</span>{/if}
+    <details class="group" open={g.problems > 0}>
+      <summary>
+        <span class="chevron" aria-hidden="true"><Icon name="chevronRight" size={12} /></span>
+        <span class="grow">{g.title}</span>
+        {#if g.problems > 0}<span class="badge amber">{g.problems} need attention</span>{/if}
+        <span class="caption">{g.list.length} item{g.list.length === 1 ? "" : "s"}{g.size > 0 ? ` · ${bytes(g.size)}` : ""}</span>
+      </summary>
+      {#each g.list as it (it.id)}
+        <div class="item">
+          <div class="line"><code class="truncate grow" title={it.id}>{it.id}</code>
+            {#if it.status !== "ok"}<span class="badge" class:broken={it.status === "broken"} class:amber={it.status !== "broken"}>{it.status}</span>{/if}
+            {#if it.files > 0}<span class="caption">{bytes(it.size)} · {it.files} file{it.files === 1 ? "" : "s"}</span>{/if}
+          </div>
+          {#each detailRows(it.detail) as row, i (i)}<div class="caption detail truncate" title={row.full}><code>{row.text}</code>{#if row.count > 1} ×{row.count}{/if}</div>{/each}
         </div>
-        {#each it.detail as line, i (i)}<div class="caption detail truncate" title={line}><code>{detailText(line)}</code></div>{/each}
-      </div>
-    {/each}
+      {/each}
+    </details>
   {/each}
 {/if}
 
@@ -326,7 +363,15 @@
   .icon-btn { display: inline-flex; }
   .act.remove { color: var(--red); }
   .warn { color: var(--amber); }
-  h2 { margin: 14px 0 4px; font-weight: 600; }
+  .intro p { max-width: 72ch; }
+  .group { border-top: 1px solid var(--separator); }
+  .group summary { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-weight: 600; cursor: pointer; }
+  .group summary .caption { font-weight: normal; }
+  .group summary { list-style: none; }
+  .group summary::-webkit-details-marker { display: none; }
+  .chevron { display: inline-flex; transition: transform 120ms ease-out; }
+  .group[open] .chevron { transform: rotate(90deg); }
+  @media (prefers-reduced-motion: reduce) { .chevron { transition: none; } }
   .item { padding: 5px 0; border-top: 1px solid var(--separator); }
   .detail { padding-left: 16px; }
   .badge.broken { color: var(--red); background: color-mix(in srgb, var(--red) 18%, transparent); }

@@ -87,7 +87,7 @@ struct AccountInspector: View {
 
     private var advancedSection: some View {
         Section {
-            DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
+            Fold("Advanced", isExpanded: $showAdvanced) {
                 MascotControls(account: account)
                 TextField("Alias", text: $alias, prompt: Text("none"))
                     .focused($focus, equals: .alias)

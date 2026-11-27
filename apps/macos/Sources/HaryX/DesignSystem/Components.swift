@@ -200,3 +200,38 @@ struct AccountContextMenu: View {
         Button("Show in Dashboard") { DashboardRouter.shared.reveal(account.number) }
     }
 }
+
+/// A collapsible list. Unlike `DisclosureGroup` on macOS, the whole label row toggles it, not only the
+/// chevron, and the rows it reveals sit flush with the label instead of indented. Inside a Form section
+/// each revealed view is a row of that section.
+struct Fold<Label: View, Content: View>: View {
+    @Binding var isExpanded: Bool
+    @ViewBuilder let label: () -> Label
+    @ViewBuilder let content: () -> Content
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button {
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { isExpanded.toggle() }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                label()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+        if isExpanded { content() }
+    }
+}
+
+extension Fold where Label == Text {
+    init(_ title: String, isExpanded: Binding<Bool>, @ViewBuilder content: @escaping () -> Content) {
+        self.init(isExpanded: isExpanded, label: { Text(title) }, content: content)
+    }
+}

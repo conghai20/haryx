@@ -11,6 +11,8 @@
   let text = $derived(settingText(entry.key));
   let id = $derived(`cfg-${entry.key.replace(/\W/g, "-")}`);
   let current = $derived(entry.value == null ? "" : String(entry.value));
+  /** The on/off setting this one needs is off: the control is shown but can't be used. */
+  let blocked = $derived(text.needs != null && config.entries?.find((e) => e.key === text.needs)?.value === false);
 
   function commit(e: Event & { currentTarget: HTMLInputElement }) {
     const v = e.currentTarget.value.trim();
@@ -27,7 +29,7 @@
   <div class="control">
     {#if text.choices}
       <select {id} value={current} onchange={(e) => config.set(entry.key, e.currentTarget.value)}>
-        {#each text.choices as c (c)}<option value={c}>{c}</option>{/each}
+        {#each text.choices as c (c)}<option value={c}>{text.choiceLabels?.[c] ?? c}</option>{/each}
       </select>
     {:else if typeof entry.value === "boolean"}
       <input
@@ -35,6 +37,7 @@
         type="checkbox"
         role="switch"
         class="switch"
+        disabled={blocked}
         checked={entry.value}
         onchange={(e) => config.set(entry.key, e.currentTarget.checked ? "true" : "false")}
       />

@@ -69,9 +69,15 @@ public enum HookSummary {
         let text = tilde(command, home: home)
         guard text.count > limit else { return text }
         let tokens = text.split(separator: " ").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "'\"")) }
-        guard let pathIndex = tokens.lastIndex(where: { $0.contains("/") }) else { return String(text.prefix(limit)) + "…" }
+        // The script is the last path that is not a flag's value (`--node /bin/node` names a helper).
+        let isFlag = { (t: String) in t.hasPrefix("-") }
+        guard let pathIndex = tokens.indices.last(where: { i in
+            tokens[i].contains("/") && (i == 0 || !isFlag(tokens[i - 1]))
+        }) else { return String(text.prefix(limit)) + "…" }
         let name = (tokens[pathIndex] as NSString).lastPathComponent
-        let args = tokens[(pathIndex + 1)...].joined(separator: " ")
+        let args = tokens[(pathIndex + 1)...].prefix { !isFlag($0) }
+            .map { ($0 as NSString).lastPathComponent }
+            .joined(separator: " ")
         return args.isEmpty ? name : "\(name) \(args)"
     }
 }

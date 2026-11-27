@@ -1,5 +1,6 @@
 <script lang="ts">
-  // HaryX › About & updates: versions, how updates install, and the latest release's notes.
+  // HaryX › About & updates: versions, the haryx CLI (moved here from Backup & maintenance, as on
+  // macOS), how updates install, and the latest release's notes.
   import { onMount } from "svelte";
   import { api } from "../lib/api";
   import { blocks, codeSpans } from "../lib/notes";
@@ -18,6 +19,12 @@
   let check = $derived(info?.state.check ?? null);
   let notes = $derived(blocks(check?.notes ?? ""));
   let lastCheck = $derived(info?.lastCheck ? new Date(info.lastCheck * 1000).toLocaleString() : null);
+
+  const upgrade = () => store.run("Upgrading haryx", ["upgrade"]);
+
+  /** The data folder, or haryx.log selected in it, in Explorer. */
+  const reveal = (what: "store" | "log") =>
+    api.reveal(what).catch((e) => store.fail(e, what === "log" ? "Couldn't show the log" : "Couldn't open the data folder"));
 
   async function call(f: () => Promise<void>) {
     try {
@@ -38,12 +45,24 @@
       <Lockup size={24} />
       <span class="secondary">Version {info.state.appVersion}</span>
     </div>
-    <p class="caption tertiary">haryx: {store.cliPath ?? "not found"}</p>
     <p class="links">
       <button class="link" onclick={() => call(() => api.openLink("https://github.com/conghai20/haryx"))}>GitHub</button>
       <button class="link" onclick={() => call(() => api.openLink("https://github.com/conghai20/haryx/releases"))}>All releases</button>
       <button class="link" onclick={() => call(() => api.openLink("https://github.com/conghai20/haryx/blob/main/LICENSE"))}>Licence (MIT)</button>
     </p>
+  </section>
+
+  <div class="hairline"></div>
+
+  <section aria-labelledby="a-cli">
+    <h2 id="a-cli">HaryX CLI</h2>
+    <p class="caption truncate" title={store.cliPath ?? ""}>Executable: {store.cliPath ?? "not found"}</p>
+    {#if store.storeRoot}<p class="caption truncate" title={store.storeRoot}>Data folder: {store.storeRoot}</p>{/if}
+    <div class="row">
+      <button disabled={!!store.busy || !store.cliPath} onclick={upgrade}>Upgrade haryx</button>
+      <button onclick={() => reveal("store")}>Open data folder</button>
+      <button onclick={() => reveal("log")}>Show log</button>
+    </div>
   </section>
 
   <div class="hairline"></div>
@@ -135,6 +154,9 @@
     display: flex;
     align-items: center;
     gap: 12px;
+  }
+  section p {
+    margin: 0;
   }
   .links {
     display: flex;

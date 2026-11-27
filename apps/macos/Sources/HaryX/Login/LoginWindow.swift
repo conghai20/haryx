@@ -55,7 +55,7 @@ private struct LoginView: View {
             } else {
                 outcome
             }
-            DisclosureGroup("Terminal output", isExpanded: $showOutput) { output }
+            Fold("Terminal output", isExpanded: $showOutput) { output }
                 .font(.callout)
             Spacer(minLength: 0)
             footer

@@ -21,15 +21,24 @@ describe("settings", () => {
     expect(keys).toEqual(["autoswitch.threshold", "autoswitch.strategy", "autoswitch.model", "autoswitch.future"]);
   });
 
-  it("groups the other settings by section, alphabetically, without the rules", () => {
+  it("groups the other settings by task, without the rules; newer groups last", () => {
     const sections = otherSections([
-      entry("usage.headerProbe"),
+      entry("usage.fableProbe"),
+      entry("updates.check"),
+      entry("brand.new"),
       entry("autoswitch.threshold"),
       entry("history.enabled"),
       entry("ui.theme"),
-      entry("usage.fableProbe"),
+      entry("usage.headerProbe"),
     ]);
-    expect(sections.map((s) => s.title)).toEqual(["Usage history", "Command-line display", "Usage readings"]);
-    expect(sections[2]?.entries.map((e) => e.key)).toEqual(["usage.headerProbe", "usage.fableProbe"]);
+    expect(sections.map((s) => s.title)).toEqual(["Usage & tray", "Usage history", "Command line", "Brand"]);
+    // The switch a setting needs comes before it, whatever the key order.
+    expect(sections[0]?.entries.map((e) => e.key)).toEqual(["usage.headerProbe", "usage.fableProbe"]);
+    expect(sections[2]?.entries.map((e) => e.key)).toEqual(["ui.theme", "updates.check"]);
+  });
+
+  it("names choice values in words and records what a setting needs", () => {
+    expect(settingText("history.import").choiceLabels?.none).toBe("Skip them");
+    expect(settingText("usage.fableProbe").needs).toBe("usage.headerProbe");
   });
 });

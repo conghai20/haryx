@@ -17,6 +17,10 @@ export interface SettingText {
   unit?: string;
   /** A fixed set of values: shown as a picker. */
   choices?: string[];
+  /** The word a picker shows for a value; the value itself otherwise. */
+  choiceLabels?: Record<string, string>;
+  /** A switch that does nothing while this other on/off setting is off: shown disabled then. */
+  needs?: string;
 }
 
 export const SETTING_TEXT: Record<string, SettingText> = {
@@ -51,6 +55,7 @@ export const SETTING_TEXT: Record<string, SettingText> = {
   "usage.fableProbe": {
     label: "Also read Fable's weekly limit",
     caption: "Needs the setting above. Uses a little Fable quota.",
+    needs: "usage.headerProbe",
   },
   "usage.shareBetweenMachines": {
     label: "Share usage readings with your other machines",
@@ -58,17 +63,27 @@ export const SETTING_TEXT: Record<string, SettingText> = {
   },
   "run.shareHistory": { label: "Share one chat history across accounts", caption: "For haryx ai run." },
   "updates.check": { label: "Check for updates daily" },
-  "ui.theme": { label: "Terminal colour theme", caption: "Auto follows the terminal background.", choices: ["auto", "dark", "light"] },
+  "ui.theme": {
+    label: "Terminal colour theme",
+    caption: "Auto follows the terminal background.",
+    choices: ["auto", "dark", "light"],
+    choiceLabels: { auto: "Auto", dark: "Dark", light: "Light" },
+  },
   "ui.orgTag": {
     label: "Show organisation tag",
     caption: "Auto shows it only where accounts share an email.",
     choices: ["auto", "on", "off"],
+    choiceLabels: { auto: "Auto", on: "On", off: "Off" },
   },
   "history.enabled": {
     label: "Keep a usage history",
     caption: "From Claude Code's transcripts on this PC. No conversation text is stored.",
   },
-  "history.import": { label: "Past transcripts on first read", choices: ["all", "none", "ask"] },
+  "history.import": {
+    label: "Past transcripts on first read",
+    choices: ["all", "none", "ask"],
+    choiceLabels: { ask: "Ask", all: "Import all", none: "Skip them" },
+  },
   "history.keepDays": { label: "Keep usage history for", unit: "days", caption: "0 keeps everything." },
 };
 
@@ -85,13 +100,28 @@ export const RULE_ORDER = [
   "autoswitch.model",
 ];
 
-/** Section titles for the settings outside auto-switch, by the key's first word. */
+/** The other settings in the order they read best: a switch before the one that needs it (as macOS). */
+export const KEY_ORDER = [
+  "usage.headerProbe",
+  "usage.fableProbe",
+  "usage.shareBetweenMachines",
+  "history.enabled",
+  "history.import",
+  "history.keepDays",
+];
+
+/** Which section of AI settings a key's first word lands in: ui and updates share "Command line". */
+const SECTION_OF: Record<string, string> = { usage: "usage", history: "history", run: "run", ui: "commandLine", updates: "commandLine" };
+
+/** The known sections, in page order; usage's rows sit under the app's "Usage & tray" heading. */
+export const SECTION_ORDER = ["usage", "history", "run", "commandLine"];
+
+/** Section titles for the settings outside auto-switch. */
 export const SECTION_TITLES: Record<string, string> = {
+  usage: "Usage & tray",
   history: "Usage history",
-  usage: "Usage readings",
   run: "Run",
-  ui: "Command-line display",
-  updates: "Updates",
+  commandLine: "Command line",
 };
 
 /** The words for a key; an unknown key (a newer CLI) shows the key itself. */
@@ -116,17 +146,36 @@ export interface SettingSection {
   entries: ConfigEntry[];
 }
 
-/** Every other setting, grouped by the key's first word, sections in alphabetical order (as macOS). */
+/** Known keys in KEY_ORDER, the rest after them in key order. */
+function byKeyOrder(a: ConfigEntry, b: ConfigEntry): number {
+  const rank = (k: string) => {
+    const i = KEY_ORDER.indexOf(k);
+    return i === -1 ? KEY_ORDER.length : i;
+  };
+  return rank(a.key) - rank(b.key) || a.key.localeCompare(b.key);
+}
+
+/**
+ * Every other setting by section: the known ones in SECTION_ORDER, then a newer CLI's unknown groups
+ * alphabetically, titled by their first word (as macOS).
+ */
 export function otherSections(entries: ConfigEntry[]): SettingSection[] {
   const bySection = new Map<string, ConfigEntry[]>();
   for (const e of entries) {
     if (isAutoSwitchKey(e.key)) continue;
-    const section = e.key.split(".")[0] ?? "";
+    const word = e.key.split(".")[0] ?? "";
+    const section = SECTION_OF[word] ?? word;
     bySection.set(section, [...(bySection.get(section) ?? []), e]);
   }
-  return [...bySection.keys()].sort().map((section) => ({
-    section,
-    title: SECTION_TITLES[section] ?? `${section.charAt(0).toUpperCase()}${section.slice(1)}`,
-    entries: bySection.get(section) ?? [],
-  }));
+  const rank = (s: string) => {
+    const i = SECTION_ORDER.indexOf(s);
+    return i === -1 ? SECTION_ORDER.length : i;
+  };
+  return [...bySection.keys()]
+    .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+    .map((section) => ({
+      section,
+      title: SECTION_TITLES[section] ?? `${section.charAt(0).toUpperCase()}${section.slice(1)}`,
+      entries: [...(bySection.get(section) ?? [])].sort(byKeyOrder),
+    }));
 }

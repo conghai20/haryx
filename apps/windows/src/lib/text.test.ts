@@ -35,4 +35,10 @@ describe("text", () => {
     expect(hookSummary("codegraph prompt-hook")).toBe("codegraph prompt-hook");
     expect(hookSummary(String.raw`node C:\Users\hai\x.js`)).toBe(String.raw`node ~\x.js`);
   });
+
+  it("names the script a hook runs, not the paths given as flag values", () => {
+    const cmd =
+      "'/Users/hai/.caveman/bin/caveman-proxy' native-hook claude --adapter '/Users/hai/.nvm/lib/node_modules/cli/dist/native-hook-fast.js' --node '/Users/hai/.nvm/bin/node'";
+    expect(hookSummary(cmd)).toBe("caveman-proxy native-hook claude");
+  });
 });

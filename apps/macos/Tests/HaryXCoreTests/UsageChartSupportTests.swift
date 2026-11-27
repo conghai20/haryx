@@ -60,4 +60,9 @@ import Testing
         #expect(HookSummary.tilde(cmd, home: "/Users/me").contains("~/.claude/skills"))
         #expect(HookSummary.short("codegraph prompt-hook", home: "/Users/me") == "codegraph prompt-hook")
     }
+
+    @Test func hookCommandSkipsFlagValuePaths() {
+        let cmd = "'/Users/me/.caveman/bin/caveman-proxy' native-hook claude --adapter '/Users/me/lib/native-hook-fast.js' --node '/Users/me/bin/node'"
+        #expect(HookSummary.short(cmd, home: "/Users/me") == "caveman-proxy native-hook claude")
+    }
 }

@@ -1,0 +1,22 @@
+{
+  "machines": [
+    {
+      "machineId": "9b2e5c1a-4f0d-4a67-8d3e-1c7a5b0e2f91",
+      "name": "Work MacBook",
+      "os": "macos",
+      "version": "1.9.0",
+      "lastSeenAt": "2026-11-25T10:00:00Z",
+      "isThisMachine": true,
+      "signedIn": true
+    },
+    {
+      "machineId": "c41d7e08-2b9a-4e35-a6f1-70d8e3b94a52",
+      "name": "Home PC",
+      "os": "windows",
+      "version": "1.9.0",
+      "lastSeenAt": "2026-11-23T21:41:00Z",
+      "isThisMachine": false,
+      "signedIn": false
+    }
+  ]
+}

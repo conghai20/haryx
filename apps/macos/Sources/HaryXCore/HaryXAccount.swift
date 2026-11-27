@@ -8,25 +8,30 @@ import Foundation
 public struct WhoAmI: Decodable, Sendable, Equatable {
     public let signedIn: Bool
     public let user: HaryXUser?
+    /// Absent from an older `haryx` and when signed out.
+    public let consents: [ConsentState]?
 
     public static let signedOut = WhoAmI(signedIn: false, user: nil)
 
-    public init(signedIn: Bool, user: HaryXUser?) {
+    public init(signedIn: Bool, user: HaryXUser?, consents: [ConsentState]? = nil) {
         self.signedIn = signedIn
         self.user = user
+        self.consents = consents
     }
 }
 
 public struct HaryXUser: Decodable, Sendable, Equatable {
     public let id: String
     public let email: String
-    /// `github` or `google`.
+    /// `github`, `google`, `apple` or `email`.
     public let provider: String
 
     public var providerName: String {
         switch provider {
         case "github": "GitHub"
         case "google": "Google"
+        case "apple": "Apple"
+        case "email": "Email"
         default: provider.capitalized
         }
     }
@@ -207,4 +212,54 @@ public enum SyncPassphrase {
         if let confirm, confirm != passphrase { return "The two passphrases do not match." }
         return nil
     }
+}
+
+// MARK: - consents, machines, usage sync
+// (`packages/contracts/haryx/{consents,machines,usage-sync}.json`; `whoami.json` carries `consents`.)
+
+/// A HaryX consent purpose: `sync` or `machines`.
+public typealias ConsentPurpose = String
+
+/// One entry of `whoami.json`'s `consents`.
+public struct ConsentState: Decodable, Sendable, Equatable {
+    public let purpose: ConsentPurpose
+    public let granted: Bool
+    public let version: String?
+}
+
+public struct ConsentEvent: Decodable, Sendable, Equatable {
+    /// `grant` or `withdraw`.
+    public let action: String
+    public let version: String
+    public let at: String
+    /// `cli`, `macos`, `windows`, `web` or `sso`.
+    public let source: String
+}
+
+public struct Consent: Decodable, Sendable, Equatable {
+    public let purpose: ConsentPurpose
+    public let granted: Bool
+    public let version: String?
+    public let at: String?
+    public let history: [ConsentEvent]
+}
+
+/// `haryx account consents --json`.
+public struct Consents: Decodable, Sendable, Equatable {
+    public let consents: [Consent]
+}
+
+public struct HaryXMachine: Decodable, Sendable, Equatable {
+    public let machineId: String
+    public let name: String
+    public let os: String
+    public let version: String
+    public let lastSeenAt: String
+    public let isThisMachine: Bool
+    public let signedIn: Bool
+}
+
+/// `haryx account machines --json`.
+public struct HaryXMachines: Decodable, Sendable, Equatable {
+    public let machines: [HaryXMachine]
 }

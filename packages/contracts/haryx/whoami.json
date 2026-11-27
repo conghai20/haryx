@@ -4,5 +4,9 @@
     "id": "3f0c9b1e-7d2a-4c55-9e41-0b6f2d8a1c77",
     "email": "you@example.com",
     "provider": "github"
-  }
+  },
+  "consents": [
+    { "purpose": "sync", "granted": true, "version": "2026-11-01" },
+    { "purpose": "machines", "granted": false, "version": null }
+  ]
 }

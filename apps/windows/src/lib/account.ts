@@ -98,5 +98,6 @@ export const SIGN_IN_PROVIDERS = [
 export type SignInProvider = (typeof SIGN_IN_PROVIDERS)[number]["id"];
 
 export function providerName(provider: string): string {
-  return provider === "github" ? "GitHub" : provider === "google" ? "Google" : provider;
+  const names: Record<string, string> = { github: "GitHub", google: "Google", apple: "Apple", email: "Email" };
+  return names[provider] ?? provider;
 }

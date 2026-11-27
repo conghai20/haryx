@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import whoami from "../../../../packages/contracts/haryx/whoami.json";
+import consents from "../../../../packages/contracts/haryx/consents.json";
+import machines from "../../../../packages/contracts/haryx/machines.json";
+import usageSync from "../../../../packages/contracts/haryx/usage-sync.json";
 import loginEvents from "../../../../packages/contracts/haryx/login-events.json";
 import syncResult from "../../../../packages/contracts/haryx/sync-result.json";
 import syncStatus from "../../../../packages/contracts/haryx/sync-status.json";
@@ -12,7 +15,7 @@ import {
   syncProblem,
   syncedAgo,
 } from "./account";
-import type { AccountLoginEvent, RunResult, SyncResult, SyncStatus, Whoami } from "./types";
+import type { AccountLoginEvent, Consents, HaryxMachines, RunResult, SyncResult, SyncStatus, UsageSync, Whoami } from "./types";
 
 const run = (stdout: string, ok = true, message = ""): RunResult => ({ ok, status: ok ? 0 : 1, stdout, message });
 
@@ -22,6 +25,20 @@ describe("contract fixtures", () => {
     expect(isFailure(w)).toBe(false);
     expect((w as Whoami).user?.email).toBe("you@example.com");
     expect(providerName((w as Whoami).user?.provider ?? "")).toBe("GitHub");
+  });
+
+  it("decodes whoami consents, the consents list, machines and a usage sync body", () => {
+    const w = parseCli<Whoami>(run(JSON.stringify(whoami))) as Whoami;
+    expect(w.consents?.map((c) => c.purpose)).toEqual(["sync", "machines"]);
+    const c = parseCli<Consents>(run(JSON.stringify(consents))) as Consents;
+    expect(c.consents[1]?.granted).toBe(false);
+    expect(c.consents[1]?.history.map((e) => e.action)).toEqual(["grant", "withdraw"]);
+    const m = parseCli<HaryxMachines>(run(JSON.stringify(machines))) as HaryxMachines;
+    expect(m.machines.map((x) => x.isThisMachine)).toEqual([true, false]);
+    const u = usageSync as UsageSync;
+    expect(u.month).toBe("2026-11");
+    expect(u.days[1]?.account).toBeNull();
+    expect(JSON.stringify(u)).not.toMatch(/\/|project/);
   });
 
   it("decodes each login event in order", () => {

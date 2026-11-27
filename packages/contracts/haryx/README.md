@@ -24,3 +24,6 @@ keeps decoding haryx output as well as cswap's (`../cswap`).
   could not be read). Read from Claude Code's `sessions/{pid}.json` records, so it works on every OS; the
   Windows app uses it in place of the macOS app's native process scan.
 
+- `whoami.json`, `consents.json`, `machines.json`, `usage-sync.json` — the HaryX account contracts, camelCase;
+  field rules are in `../README.md`. `consents.json` and `machines.json` are also the response bodies of
+  `GET /api/v1/consents` and `GET /api/v1/machines`.

@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "machineId": "9b2e5c1a-4f0d-4a67-8d3e-1c7a5b0e2f91",
+  "month": "2026-11",
+  "updatedAt": "2026-11-25T10:00:00Z",
+  "days": [
+    {"day": "2026-11-24", "account": "you@example.com", "model": "claude-opus-4-5", "replies": 120, "input": 2100, "output": 410000, "cacheRead": 61000000, "cacheWrite5m": 1500000, "cacheWrite1h": 0},
+    {"day": "2026-11-24", "account": null, "model": "claude-sonnet-5", "replies": 12, "input": 30, "output": 5000, "cacheRead": 120000, "cacheWrite5m": 9000, "cacheWrite1h": 0}
+  ],
+  "quota": [
+    {"at": 1795600800, "account": "you@example.com", "fiveHourPct": 42.5, "sevenDayPct": null}
+  ]
+}

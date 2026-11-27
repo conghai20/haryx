@@ -25,6 +25,7 @@ pub mod printer;
 pub mod account;
 pub mod autoswitch;
 pub mod claude_setup;
+pub mod contracts;
 pub mod credentials;
 pub mod desktop;
 pub mod handoff;

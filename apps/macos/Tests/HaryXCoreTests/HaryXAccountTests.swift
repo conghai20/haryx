@@ -25,6 +25,18 @@ private func failure<T>(_ r: Result<T, HaryXFailure>) -> HaryXFailure? {
     #expect(try decode(WhoAmI.self, #"{"signedIn": false, "user": null}"#).get() == .signedOut)
 }
 
+@Test func decodesTheConsentMachineAndWhoAmIConsentFixtures() throws {
+    let w = try HaryXFailure.decode(WhoAmI.self, stdout: fixture("whoami.json"), status: 0, stderr: "").get()
+    #expect(w.consents?.map(\.purpose) == ["sync", "machines"])
+    #expect(w.consents?[1].version == nil)
+    let c = try HaryXFailure.decode(Consents.self, stdout: fixture("consents.json"), status: 0, stderr: "").get()
+    #expect(c.consents[1].granted == false)
+    #expect(c.consents[1].history.map(\.action) == ["grant", "withdraw"])
+    let m = try HaryXFailure.decode(HaryXMachines.self, stdout: fixture("machines.json"), status: 0, stderr: "").get()
+    #expect(m.machines[0].isThisMachine && !m.machines[1].signedIn)
+    #expect(m.machines[0].lastSeenAt == "2026-11-25T10:00:00Z")
+}
+
 @Test func parsesLoginEventLines() throws {
     let lines = try JSONSerialization.jsonObject(with: fixture("login-events.json")) as? [[String: Any]] ?? []
     let events = try lines.map { try JSONSerialization.data(withJSONObject: $0) }

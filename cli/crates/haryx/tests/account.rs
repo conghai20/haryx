@@ -168,6 +168,13 @@ fn contract(name: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
+/// `whoami.json` without `consents`, which the CLI starts emitting in plan task 11.
+fn whoami_contract() -> Value {
+    let mut v = contract("whoami.json");
+    v.as_object_mut().unwrap().remove("consents");
+    v
+}
+
 /// Same keys, recursively; values may differ.
 fn same_shape(actual: &Value, expected: &Value) -> bool {
     match (actual, expected) {
@@ -189,7 +196,7 @@ fn whoami_signed_out_matches_the_contract() {
     let status = &json_lines(&out)[0];
     assert_eq!(status["signedIn"], false);
     assert_eq!(status["user"], Value::Null);
-    assert!(same_shape(status, &contract("whoami.json")));
+    assert!(same_shape(status, &whoami_contract()));
 
     let text = s.haryx(&["whoami"], "");
     assert!(String::from_utf8_lossy(&text.stdout).contains("Not signed in to HaryX"));
@@ -232,7 +239,7 @@ fn login_through_the_browser_keeps_the_session_and_whoami_shows_it() {
     let whoami = json_lines(&s.haryx(&["whoami", "--json"], ""));
     assert_eq!(whoami[0]["signedIn"], true);
     assert_eq!(whoami[0]["user"]["provider"], "github");
-    assert!(same_shape(&whoami[0], &contract("whoami.json")));
+    assert!(same_shape(&whoami[0], &whoami_contract()));
     let text = s.haryx(&["whoami"], "");
     assert!(
         String::from_utf8_lossy(&text.stdout)

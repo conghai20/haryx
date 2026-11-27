@@ -1,0 +1,23 @@
+{
+  "consents": [
+    {
+      "purpose": "sync",
+      "granted": true,
+      "version": "2026-11-01",
+      "at": "2026-11-20T09:14:00Z",
+      "history": [
+        { "action": "grant", "version": "2026-11-01", "at": "2026-11-20T09:14:00Z", "source": "macos" }
+      ]
+    },
+    {
+      "purpose": "machines",
+      "granted": false,
+      "version": "2026-11-01",
+      "at": "2026-11-24T18:02:00Z",
+      "history": [
+        { "action": "grant", "version": "2026-11-01", "at": "2026-11-20T09:15:00Z", "source": "cli" },
+        { "action": "withdraw", "version": "2026-11-01", "at": "2026-11-24T18:02:00Z", "source": "web" }
+      ]
+    }
+  ]
+}

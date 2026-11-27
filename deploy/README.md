@@ -105,15 +105,17 @@ A second realm on the same Keycloak, so the E2E (plan task 13) signs in for real
    email* **off** (no mail is sent; the users below are verified by hand). **Security defenses →
    Brute force detection**: **off**, so repeated scripted sign-ins never lock a user. Themes: leave
    the default; the script reads Keycloak's own login form.
-2. **Clients**: `haryx-cli` and `haryx-platform`, exactly as above, mappers and scopes included.
-   `haryx-platform` also gets the dev server: *Valid redirect URIs* and *Valid post logout
-   redirect URIs* add `http://127.0.0.1:5173/platform/*`, *Web origins* adds
-   `http://127.0.0.1:5173`.
-3. **Identity providers**: none. Social sign-in is checked by hand on `wecoap`.
-4. **Users → Add user**, twice: `e2e-a` and `e2e-b`, each with an email (`e2e-a@example.com`…),
-   *Email verified* on, and a first and last name (without them Keycloak stops the sign-in to ask
-   for them). **Credentials → Set password**, *Temporary* off. No required actions.
-5. Put the details in **`deploy/.env.e2e`** (never committed), not in chat:
+2. **Realm settings → Action (top right) → Partial import**: the file
+   `deploy/keycloak/wecoap-test-import.json`, *If a resource exists*: **Fail**. It adds the two
+   clients as above (mappers and scopes included; `haryx-platform` also allows the dev server
+   `http://127.0.0.1:5173`) and the users `e2e-a` and `e2e-b` (verified, named, no required
+   actions, **no password**). Identity providers: none; social sign-in is checked by hand on
+   `wecoap`.
+3. **What the import cannot carry**, by hand:
+   - **Clients → `haryx-platform` → Client scopes → `haryx-platform-dedicated` → Scope → Assign
+     role → filter by clients → `account`**: `manage-account` and `view-profile`.
+   - **Users → `e2e-a` → Credentials → Set password**, *Temporary* off; the same for `e2e-b`.
+4. Put the details in **`deploy/.env.e2e`** (never committed), not in chat:
 
    ```
    HARYX_E2E_ISSUER=https://sso.wecoap.com/realms/wecoap-test

@@ -1,9 +1,13 @@
-//! `haryx login`, `haryx logout`, `haryx whoami`: the HaryX account itself, outside the `ai` section.
-//! Plan: `docs/sso-platform-plan.md`.
+//! `haryx login`, `haryx logout`, `haryx whoami`, `haryx account …`: the HaryX account itself,
+//! outside the `ai` section. Plan: `docs/sso-platform-plan.md`.
+
+use std::path::PathBuf;
 
 use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser, ValueEnum};
 use haryx_core::account::Provider;
+use haryx_core::account::api::Source;
+use haryx_core::contracts::Purpose;
 
 use super::help::{HELP_TEMPLATE, p};
 use super::{Command, Error, Invocation};
@@ -30,6 +34,49 @@ pub enum AccountAction {
         yes: bool,
         json: bool,
     },
+    /// `account consents`.
+    Consents {
+        json: bool,
+    },
+    /// `account consent grant|withdraw PURPOSE`.
+    Consent {
+        grant: bool,
+        purpose: Purpose,
+        source: Source,
+        yes: bool,
+        json: bool,
+    },
+    /// `account export [PATH]`.
+    Export {
+        path: Option<PathBuf>,
+        json: bool,
+    },
+    /// `account machines`.
+    Machines {
+        json: bool,
+    },
+    /// `account machine rename ID NAME`.
+    RenameMachine {
+        id: String,
+        name: String,
+        json: bool,
+    },
+}
+
+impl AccountAction {
+    pub fn wants_json(&self) -> bool {
+        match self {
+            AccountAction::Login { json, .. }
+            | AccountAction::Logout { json }
+            | AccountAction::Whoami { json }
+            | AccountAction::Delete { json, .. }
+            | AccountAction::Consents { json }
+            | AccountAction::Consent { json, .. }
+            | AccountAction::Export { json, .. }
+            | AccountAction::Machines { json }
+            | AccountAction::RenameMachine { json, .. } => *json,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -38,6 +85,27 @@ enum ProviderArg {
     Google,
     Apple,
     Email,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum ChangeArg {
+    Grant,
+    Withdraw,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum PurposeArg {
+    /// End-to-end encrypted sync between your machines
+    Sync,
+    /// Showing your machines on HaryX web
+    Machines,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum SourceArg {
+    Cli,
+    Macos,
+    Windows,
 }
 
 #[derive(Parser, Debug)]
@@ -87,7 +155,8 @@ struct LogoutArgs {
 #[command(
     name = "whoami",
     bin_name = format!("{} whoami", haryx_core::PROG),
-    about = p("Show which HaryX account this machine is signed in to. Works offline."),
+    about = p("Show which HaryX account this machine is signed in to, and its consents. Works \
+               offline, without the consents."),
     help_template = HELP_TEMPLATE,
 )]
 struct WhoamiArgs {
@@ -126,6 +195,117 @@ enum AccountVerb {
         #[arg(long)]
         debug: bool,
     },
+    /// Your HaryX consents: Sync, and showing your machines on HaryX web
+    Consents {
+        /// Print the result as JSON
+        #[arg(long)]
+        json: bool,
+        /// Enable debug logging
+        #[arg(long)]
+        debug: bool,
+    },
+    /// Grant or withdraw a consent. Withdrawing erases that purpose's data on the server
+    Consent {
+        #[arg(value_enum)]
+        change: ChangeArg,
+        #[arg(value_enum)]
+        purpose: PurposeArg,
+        /// Withdraw without asking for confirmation
+        #[arg(long, short = 'y')]
+        yes: bool,
+        /// Where the user answered, when an app runs this
+        #[arg(long, value_enum, default_value = "cli")]
+        source: SourceArg,
+        /// Print the result as JSON
+        #[arg(long)]
+        json: bool,
+        /// Enable debug logging
+        #[arg(long)]
+        debug: bool,
+    },
+    /// Download everything HaryX keeps about you, as one JSON file
+    Export {
+        /// Where to write it (default: ./haryx-export-DATE.json)
+        path: Option<PathBuf>,
+        /// Print the result as JSON
+        #[arg(long)]
+        json: bool,
+        /// Enable debug logging
+        #[arg(long)]
+        debug: bool,
+    },
+    /// The machines shown on HaryX web
+    Machines {
+        /// Print the result as JSON
+        #[arg(long)]
+        json: bool,
+        /// Enable debug logging
+        #[arg(long)]
+        debug: bool,
+    },
+    /// Manage one machine shown on HaryX web
+    Machine {
+        #[command(subcommand)]
+        verb: MachineVerb,
+    },
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum MachineVerb {
+    /// Rename a machine; its heartbeats never change the name back
+    Rename {
+        /// The machine id, as 'account machines' lists it
+        id: String,
+        name: String,
+        /// Print the result as JSON
+        #[arg(long)]
+        json: bool,
+        /// Enable debug logging
+        #[arg(long)]
+        debug: bool,
+    },
+}
+
+fn account_action(verb: AccountVerb) -> (bool, AccountAction) {
+    match verb {
+        AccountVerb::Delete { yes, json, debug } => (debug, AccountAction::Delete { yes, json }),
+        AccountVerb::Consents { json, debug } => (debug, AccountAction::Consents { json }),
+        AccountVerb::Consent {
+            change,
+            purpose,
+            yes,
+            source,
+            json,
+            debug,
+        } => {
+            let action = AccountAction::Consent {
+                grant: matches!(change, ChangeArg::Grant),
+                purpose: match purpose {
+                    PurposeArg::Sync => Purpose::Sync,
+                    PurposeArg::Machines => Purpose::Machines,
+                },
+                source: match source {
+                    SourceArg::Cli => Source::Cli,
+                    SourceArg::Macos => Source::Macos,
+                    SourceArg::Windows => Source::Windows,
+                },
+                yes,
+                json,
+            };
+            (debug, action)
+        }
+        AccountVerb::Export { path, json, debug } => (debug, AccountAction::Export { path, json }),
+        AccountVerb::Machines { json, debug } => (debug, AccountAction::Machines { json }),
+        AccountVerb::Machine {
+            verb:
+                MachineVerb::Rename {
+                    id,
+                    name,
+                    json,
+                    debug,
+                },
+        } => (debug, AccountAction::RenameMachine { id, name, json }),
+    }
 }
 
 fn login_epilog() -> String {
@@ -180,8 +360,7 @@ pub(super) fn parse(verb: &str, rest: &[String]) -> Result<Invocation, Error> {
             }
             "account" => {
                 let args = AccountArgs::try_parse_from(argv(verb, rest))?;
-                let AccountVerb::Delete { yes, json, debug } = args.verb;
-                (debug, AccountAction::Delete { yes, json })
+                account_action(args.verb)
             }
             "logout" => {
                 let args = LogoutArgs::try_parse_from(argv(verb, rest))?;
@@ -266,5 +445,72 @@ mod tests {
             AccountAction::Whoami { json: false }
         );
         assert!(action("whoami", &["extra"]).is_err());
+    }
+
+    #[test]
+    fn consent_verbs_parse_with_their_flags() {
+        assert_eq!(
+            action("account", &["consents", "--json"]).unwrap(),
+            AccountAction::Consents { json: true }
+        );
+        assert_eq!(
+            action("account", &["consent", "grant", "sync"]).unwrap(),
+            AccountAction::Consent {
+                grant: true,
+                purpose: Purpose::Sync,
+                source: Source::Cli,
+                yes: false,
+                json: false,
+            }
+        );
+        assert_eq!(
+            action(
+                "account",
+                &[
+                    "consent", "withdraw", "machines", "--yes", "--source", "windows", "--json"
+                ]
+            )
+            .unwrap(),
+            AccountAction::Consent {
+                grant: false,
+                purpose: Purpose::Machines,
+                source: Source::Windows,
+                yes: true,
+                json: true,
+            }
+        );
+        assert!(action("account", &["consent", "grant", "usage"]).is_err());
+        assert!(action("account", &["consent", "grant", "sync", "--source", "web"]).is_err());
+    }
+
+    #[test]
+    fn export_and_machine_verbs_parse() {
+        assert_eq!(
+            action("account", &["export"]).unwrap(),
+            AccountAction::Export {
+                path: None,
+                json: false
+            }
+        );
+        assert_eq!(
+            action("account", &["export", "out.json", "--json"]).unwrap(),
+            AccountAction::Export {
+                path: Some("out.json".into()),
+                json: true
+            }
+        );
+        assert_eq!(
+            action("account", &["machines"]).unwrap(),
+            AccountAction::Machines { json: false }
+        );
+        assert_eq!(
+            action("account", &["machine", "rename", "abc", "Work Mac"]).unwrap(),
+            AccountAction::RenameMachine {
+                id: "abc".into(),
+                name: "Work Mac".into(),
+                json: false
+            }
+        );
+        assert!(action("account", &["machine", "rename", "abc"]).is_err());
     }
 }

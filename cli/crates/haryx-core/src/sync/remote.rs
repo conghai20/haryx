@@ -87,6 +87,7 @@ pub(crate) enum Method {
     Get,
     Post,
     Put,
+    Patch,
     Delete,
 }
 
@@ -122,6 +123,7 @@ impl Api {
             Method::Get => http::get(&url, &all, timeout),
             Method::Post => http::post(&url, &all, body, timeout),
             Method::Put => http::put(&url, &all, body, timeout),
+            Method::Patch => http::patch(&url, &all, body, timeout),
             Method::Delete => http::delete(&url, &all, timeout),
         }
     }
@@ -165,7 +167,7 @@ impl Api {
         }
     }
 
-    fn json(
+    pub(crate) fn json(
         &self,
         method: Method,
         path: &str,

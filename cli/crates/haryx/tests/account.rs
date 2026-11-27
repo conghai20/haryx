@@ -1,231 +1,13 @@
-//! `haryx login`, `logout`, `whoami` end to end: the real binary against a fake Keycloak
-//! (`tiny_http`), a fake browser (`$BROWSER`) that follows the sign-in straight back, and on macOS a
-//! fake `security` that keeps items as files.
+//! `haryx login`, `logout`, `whoami` end to end: the real binary against a fake Keycloak, a fake
+//! browser and on macOS a fake `security` (`common`).
 
 // The fakes are `#!/bin/sh` scripts.
 #![cfg(unix)]
 
-use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
-use std::sync::{Arc, Mutex};
+mod common;
 
-use serde_json::{Value, json};
-use tempfile::TempDir;
-
-/// Follows the sign-in URL back to its `redirect_uri` with `?$FAKE_QUERY`.
-const FAKE_BROWSER: &str = r#"#!/bin/sh
-echo "$1" >> "$HOME/browser.log"
-redirect=$(printf '%s' "$1" | sed -e 's/.*redirect_uri=//' -e 's/&.*//' -e 's/%3A/:/g' -e 's#%2F#/#g')
-curl -s "$redirect?$FAKE_QUERY" > /dev/null &
-"#;
-
-/// Keeps `-a/-s` items as files next to itself, as `security` would keep them in the Keychain.
-const FAKE_SECURITY: &str = r#"#!/bin/sh
-dir="$(dirname "$0")/keychain"; mkdir -p "$dir"
-if [ "$1" = "-i" ]; then set -- $(cat | tr -d '"'); fi
-op="$1"; shift
-while [ $# -gt 0 ]; do
-  case "$1" in -a) acct="$2"; shift 2;; -s) svc="$2"; shift 2;; -X) hex="$2"; shift 2;; *) shift;; esac
-done
-f="$dir/$svc.$acct"
-case "$op" in
-  add-generic-password) printf '%s' "$hex" | xxd -r -p > "$f";;
-  find-generic-password) [ -f "$f" ] || exit 44; cat "$f"; echo;;
-  delete-generic-password) [ -f "$f" ] || exit 44; rm "$f";;
-  *) exit 1;;
-esac
-"#;
-
-/// The access token's payload: `{"sub":"u-test","email":"you@example.com","sid":"sid-test",
-/// "identity_provider":"github","azp":"haryx-cli"}`.
-const ACCESS_TOKEN: &str = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LXRlc3QiLCJlbWFpbCI6In\
-    lvdUBleGFtcGxlLmNvbSIsInNpZCI6InNpZC10ZXN0IiwiaWRlbnRpdHlfcHJvdmlkZXIiOiJnaXRodWIiLCJhenAiOiJoYX\
-    J5eC1jbGkifQ.c2ln";
-
-const REALM: &str = "/realms/t";
-const OIDC: &str = "/realms/t/protocol/openid-connect";
-
-/// A fake Keycloak: discovery, token, revocation and device endpoints; records every request.
-struct FakeKeycloak {
-    issuer: String,
-    requests: Arc<Mutex<Vec<(String, String)>>>,
-    server: Arc<tiny_http::Server>,
-}
-
-impl FakeKeycloak {
-    fn start(token_status: u16) -> Self {
-        let server = Arc::new(tiny_http::Server::http("127.0.0.1:0").unwrap());
-        let base = format!("http://{}", server.server_addr().to_ip().unwrap());
-        let issuer = format!("{base}{REALM}");
-        let requests = Arc::new(Mutex::new(Vec::new()));
-        let (srv, reqs, iss) = (Arc::clone(&server), Arc::clone(&requests), issuer.clone());
-        std::thread::spawn(move || {
-            for mut req in srv.incoming_requests() {
-                let mut body = String::new();
-                let _ = req.as_reader().read_to_string(&mut body);
-                let url = req.url().to_owned();
-                reqs.lock().unwrap().push((url.clone(), body));
-                let (status, reply) = answer(&iss, &url, token_status);
-                let _ =
-                    req.respond(tiny_http::Response::from_string(reply).with_status_code(status));
-            }
-        });
-        FakeKeycloak {
-            issuer,
-            requests,
-            server,
-        }
-    }
-
-    fn paths(&self) -> Vec<String> {
-        self.requests
-            .lock()
-            .unwrap()
-            .iter()
-            .map(|(p, _)| p.clone())
-            .collect()
-    }
-
-    /// The body of the first request to `path`.
-    fn body(&self, path: &str) -> String {
-        let requests = self.requests.lock().unwrap();
-        requests.iter().find(|(p, _)| p == path).unwrap().1.clone()
-    }
-}
-
-fn answer(issuer: &str, url: &str, token_status: u16) -> (u16, String) {
-    match url.strip_prefix(REALM).unwrap_or_default() {
-        "/.well-known/openid-configuration" => {
-            let oidc = format!("{issuer}/protocol/openid-connect");
-            let doc = json!({
-                "issuer": issuer,
-                "authorization_endpoint": format!("{oidc}/auth"),
-                "token_endpoint": format!("{oidc}/token"),
-                "revocation_endpoint": format!("{oidc}/revoke"),
-                "device_authorization_endpoint": format!("{oidc}/auth/device"),
-            });
-            (200, doc.to_string())
-        }
-        "/protocol/openid-connect/token" if token_status == 200 => {
-            let tokens = json!({
-                "access_token": ACCESS_TOKEN, "expires_in": 300, "refresh_token": "rt-test",
-                "id_token": "id_never_kept", "token_type": "Bearer",
-            });
-            (200, tokens.to_string())
-        }
-        "/protocol/openid-connect/token" => (
-            token_status,
-            r#"{"error":"invalid_grant","error_description":"Code not valid"}"#.into(),
-        ),
-        "/protocol/openid-connect/auth/device" => {
-            let device = json!({
-                "device_code": "dc-test", "user_code": "WXYZ-ABCD",
-                "verification_uri": format!("{issuer}/device"),
-                "verification_uri_complete": format!("{issuer}/device?user_code=WXYZ-ABCD"),
-                "expires_in": 600, "interval": 1,
-            });
-            (200, device.to_string())
-        }
-        _ => (200, String::new()),
-    }
-}
-
-impl Drop for FakeKeycloak {
-    fn drop(&mut self) {
-        self.server.unblock();
-    }
-}
-
-struct Sandbox {
-    dir: TempDir,
-    keycloak: FakeKeycloak,
-}
-
-impl Sandbox {
-    fn new(token_status: u16) -> Self {
-        let sandbox = Sandbox {
-            dir: tempfile::tempdir().unwrap(),
-            keycloak: FakeKeycloak::start(token_status),
-        };
-        write_exec(&sandbox.home().join("browser"), FAKE_BROWSER);
-        write_exec(&sandbox.home().join("security"), FAKE_SECURITY);
-        sandbox
-    }
-
-    fn home(&self) -> &Path {
-        self.dir.path()
-    }
-
-    fn command(&self, argv: &[&str], query: &str) -> Command {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_haryx"));
-        command
-            .args(argv)
-            .current_dir(self.home())
-            .env("HOME", self.home())
-            .env("HARYX_HOME", self.home().join("store"))
-            .env("HARYX_SECURITY_BIN", self.home().join("security"))
-            .env("HARYX_SSO_ISSUER", &self.keycloak.issuer)
-            .env("HARYX_API_URL", "http://127.0.0.1:9/api/v1")
-            .env("BROWSER", self.home().join("browser"))
-            .env("FAKE_QUERY", query)
-            .env("NO_COLOR", "1")
-            .env_remove("XDG_DATA_HOME");
-        command
-    }
-
-    fn haryx(&self, argv: &[&str], query: &str) -> Output {
-        self.command(argv, query).output().unwrap()
-    }
-
-    /// Where the session ended up: the fake Keychain item on macOS, the sealed file elsewhere.
-    fn stored_session(&self) -> PathBuf {
-        if cfg!(target_os = "macos") {
-            self.home().join("keychain/haryx-account.session")
-        } else {
-            self.home().join("store/account/session")
-        }
-    }
-}
-
-fn write_exec(path: &Path, body: &str) {
-    std::fs::write(path, body).unwrap();
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
-}
-
-fn json_lines(out: &Output) -> Vec<Value> {
-    String::from_utf8_lossy(&out.stdout)
-        .lines()
-        .map(|line| serde_json::from_str(line).unwrap_or_else(|e| panic!("{e}: {line:?}")))
-        .collect()
-}
-
-fn contract(name: &str) -> Value {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../packages/contracts/haryx")
-        .join(name);
-    serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
-}
-
-/// `whoami.json` without `consents`, which the CLI starts emitting in plan task 11.
-fn whoami_contract() -> Value {
-    let mut v = contract("whoami.json");
-    v.as_object_mut().unwrap().remove("consents");
-    v
-}
-
-/// Same keys, recursively; values may differ.
-fn same_shape(actual: &Value, expected: &Value) -> bool {
-    match (actual, expected) {
-        (Value::Object(a), Value::Object(e)) => {
-            a.len() == e.len()
-                && e.iter()
-                    .all(|(k, ev)| a.get(k).is_some_and(|av| same_shape(av, ev)))
-        }
-        (Value::Null, _) | (_, Value::Null) => true,
-        (a, e) => std::mem::discriminant(a) == std::mem::discriminant(e),
-    }
-}
+use common::*;
+use serde_json::Value;
 
 #[test]
 fn whoami_signed_out_matches_the_contract() {
@@ -235,7 +17,7 @@ fn whoami_signed_out_matches_the_contract() {
     let status = &json_lines(&out)[0];
     assert_eq!(status["signedIn"], false);
     assert_eq!(status["user"], Value::Null);
-    assert!(same_shape(status, &whoami_contract()));
+    assert!(same_shape(status, &whoami_without_consents()));
 
     let text = s.haryx(&["whoami"], "");
     assert!(String::from_utf8_lossy(&text.stdout).contains("Not signed in to HaryX"));
@@ -290,7 +72,11 @@ fn login_through_the_browser_keeps_the_session_and_whoami_shows_it() {
     assert_eq!(whoami[0]["signedIn"], true);
     assert_eq!(whoami[0]["user"]["provider"], "github");
     assert_eq!(whoami[0]["user"]["id"], "u-test");
-    assert!(same_shape(&whoami[0], &whoami_contract()));
+    assert!(
+        whoami[0].get("consents").is_none(),
+        "no API here: no consents, still signed in"
+    );
+    assert!(same_shape(&whoami[0], &whoami_without_consents()));
     let text = s.haryx(&["whoami"], "");
     assert!(
         String::from_utf8_lossy(&text.stdout)
@@ -420,7 +206,7 @@ fn a_supabase_session_is_signed_out_and_says_to_sign_in_again() {
     );
     let status = &json_lines(&s.haryx(&["whoami", "--json"], ""))[0];
     assert_eq!(status["signedIn"], false);
-    assert!(same_shape(status, &whoami_contract()));
+    assert!(same_shape(status, &whoami_without_consents()));
 
     assert!(s.haryx(&["logout"], "").status.success());
     assert!(!path.exists());

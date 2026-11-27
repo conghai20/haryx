@@ -63,7 +63,10 @@ pub enum SyncError {
     Busy,
     /// The API answered 403 `consent_required`: this HaryX ID has not granted (or withdrew) the
     /// Sync consent, so the server keeps none of its data.
-    #[error("Sync is off for your HaryX ID: it has not given its consent to sync.")]
+    #[error(
+        "Sync is off for your HaryX ID: it has not given its consent to sync. Run 'haryx account \
+         consent grant sync' to turn it on."
+    )]
     ConsentRequired,
     #[error("{0}")]
     Invalid(String),

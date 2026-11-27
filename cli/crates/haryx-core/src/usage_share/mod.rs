@@ -21,7 +21,7 @@ mod row;
 mod tests;
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use log::debug;
 
@@ -34,9 +34,6 @@ use crate::sync::remote::{Api, Remote, Row};
 use crate::sync::sources::label;
 use crate::sync::{self, Document, KIND_USAGE, Opened, SyncError};
 use crate::usage_store::{CLAIM_TTL_S, Identities, Identity, SharedState, UsageStore};
-
-/// File under the store's cache directory naming this machine in shared rows.
-const MACHINE_ID_FILE: &str = "machine-id";
 
 /// A connection to the sync server, with this machine's sync key.
 pub struct Connection {
@@ -63,25 +60,6 @@ impl std::fmt::Debug for UsageShare {
 /// Unix seconds now.
 fn unix_now() -> i64 {
     jiff::Timestamp::now().as_second()
-}
-
-/// This machine's id, made on first use: random, so it says nothing about the machine.
-fn machine_id(store_root: &Path) -> String {
-    let path: PathBuf = store_root.join("cache").join(MACHINE_ID_FILE);
-    if let Ok(text) = std::fs::read_to_string(&path) {
-        let id = text.trim();
-        if !id.is_empty() && id.len() <= 64 && id.bytes().all(|b| b.is_ascii_hexdigit()) {
-            return id.to_owned();
-        }
-    }
-    let id = format!("{:016x}", rand::random::<u64>());
-    if let Some(dir) = path.parent() {
-        let _ = std::fs::create_dir_all(dir);
-    }
-    if let Err(err) = std::fs::write(&path, &id) {
-        debug!("usage share: could not save the machine id: {err}");
-    }
-    id
 }
 
 /// The signed-in session's connection, renewing the access token when needed.
@@ -111,7 +89,7 @@ impl UsageShare {
     pub fn for_store(store_root: &Path) -> Self {
         let root = store_root.to_path_buf();
         UsageShare::new(
-            machine_id(store_root),
+            crate::machine::machine_id(store_root),
             Box::new(move || connect_store(&root)),
         )
     }

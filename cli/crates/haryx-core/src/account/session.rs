@@ -213,7 +213,7 @@ impl SessionStore {
             }
             Err(AccountError::Refused(reason)) => {
                 self.clear()?;
-                Err(AccountError::SignedOut(reason))
+                Err(AccountError::ended(&reason))
             }
             Err(other) => Err(other),
         }
@@ -398,10 +398,12 @@ mod tests {
         store
             .save(&on(backend.issuer(), "at", "rt-dead", NOW - 10))
             .unwrap();
-        assert_eq!(
-            store.current(&backend, NOW).unwrap_err(),
-            AccountError::SignedOut("Offline user session not found".into())
-        );
+        let err = store.current(&backend, NOW).unwrap_err();
+        assert_eq!(err, AccountError::ended("Offline user session not found"));
+        let text = err.to_string();
+        assert!(text.starts_with("Signed out of HaryX: "), "{text}");
+        assert!(text.contains("on the web") && text.contains("WeCoAp account page"));
+        assert!(text.contains("Offline user session not found") && text.contains("haryx login"));
         assert_eq!(store.load().unwrap(), None);
     }
 

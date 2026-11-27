@@ -60,7 +60,7 @@ Commands:
   {prog} logout           sign this machine out of HaryX
   {prog} whoami           show the HaryX account this machine uses
   {prog} sync             sync settings and accounts between your machines
-  {prog} account delete   delete your HaryX account and everything synced
+  {prog} account          consents, machines, export and deleting your HaryX account
   {prog} upgrade          self-upgrade to latest
 
 Aliases: update=upgrade. Bare '{prog}' in a terminal opens the AI dashboard ('{ai} tui').")

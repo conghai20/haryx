@@ -6,7 +6,8 @@
 
 use std::io::{BufRead as _, IsTerminal as _, Read as _};
 
-use haryx_core::account::{Backend, Session, SessionStore};
+use haryx_core::account::api as account_api;
+use haryx_core::account::{AccountError, Backend, Session, SessionStore};
 use haryx_core::printer::{accent, dimmed, warning};
 use haryx_core::profile::{Category, ProfileEnv};
 use haryx_core::switcher::{Switcher, prompt, prompt_secret};
@@ -49,7 +50,7 @@ fn wants_json(action: &SyncAction) -> bool {
     }
 }
 
-fn failure(err: &SyncError, json: bool) -> CommandError {
+pub(super) fn failure(err: &SyncError, json: bool) -> CommandError {
     if json {
         println!(
             "{}",
@@ -67,7 +68,7 @@ fn local(err: impl std::fmt::Display) -> SyncError {
     SyncError::Local(err.to_string())
 }
 
-fn now() -> i64 {
+pub(super) fn now() -> i64 {
     jiff::Timestamp::now().as_second()
 }
 
@@ -76,7 +77,7 @@ fn store_root() -> Result<std::path::PathBuf, SyncError> {
 }
 
 /// The session for the compiled-in (or configured) issuer, renewed if needed.
-fn session(store: &SessionStore, backend: &Backend) -> Result<Session, SyncError> {
+pub(super) fn session(store: &SessionStore, backend: &Backend) -> Result<Session, SyncError> {
     store.current(backend, now())?.ok_or(SyncError::NotSignedIn)
 }
 
@@ -98,7 +99,10 @@ fn with_session(action: &SyncAction, debug: bool) -> Result<(), SyncError> {
         now: now(),
     };
     match action {
-        SyncAction::Run { json } => run_sync(&ctx, *json),
+        SyncAction::Run { json } => {
+            heartbeat(&api, &root)?;
+            run_sync(&ctx, *json)
+        }
         SyncAction::HasPassphrase { .. } => {
             let has = sync::has_passphrase(&api)?;
             println!("{}", json!({"ok": true, "hasPassphrase": has}));
@@ -142,6 +146,18 @@ fn with_session(action: &SyncAction, debug: bool) -> Result<(), SyncError> {
 }
 
 // --- sync -------------------------------------------------------------------------------------
+
+/// Once per `sync`: tell the machine registry this machine is here, when the user lets HaryX show
+/// it on the web. Only a sign-out stops the sync; anything else is logged.
+fn heartbeat(api: &Api, root: &std::path::Path) -> Result<(), SyncError> {
+    match account_api::heartbeat(api, root) {
+        Ok(true) => log::debug!("machine heartbeat sent"),
+        Ok(false) => log::debug!("machine heartbeat skipped: the machines consent is off"),
+        Err(err @ SyncError::Account(AccountError::SignedOut(_))) => return Err(err),
+        Err(err) => log::warn!("could not update this machine on HaryX web: {err}"),
+    }
+    Ok(())
+}
 
 fn run_sync(ctx: &Context<'_>, json: bool) -> Result<(), SyncError> {
     let report = sync::run(ctx)?;

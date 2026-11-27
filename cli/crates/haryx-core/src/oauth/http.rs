@@ -262,6 +262,18 @@ pub(crate) fn put(
     collect(req.send(body).map_err(map_transport)?)
 }
 
+pub(crate) fn patch(
+    url: &str,
+    headers: &[(&str, &str)],
+    body: &[u8],
+    timeout: Duration,
+) -> Result<HttpResponse, FetchError> {
+    let req = headers
+        .iter()
+        .fold(agent(timeout).patch(url), |r, (k, v)| r.header(*k, *v));
+    collect(req.send(body).map_err(map_transport)?)
+}
+
 pub(crate) fn delete(
     url: &str,
     headers: &[(&str, &str)],

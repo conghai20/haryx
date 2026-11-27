@@ -13,6 +13,16 @@ pub enum Purpose {
     Machines,
 }
 
+impl Purpose {
+    /// The API's and the contract's name for it.
+    pub fn id(self) -> &'static str {
+        match self {
+            Purpose::Sync => "sync",
+            Purpose::Machines => "machines",
+        }
+    }
+}
+
 /// `consents` in `whoami.json`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConsentState {

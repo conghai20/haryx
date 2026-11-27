@@ -5,6 +5,7 @@
 //! (`--no-browser`, over SSH) it is the device authorization grant (RFC 8628) instead. haryx keeps
 //! only the tokens and who signed in. Plan: `docs/sso-platform-plan.md`.
 
+pub mod api;
 pub mod browser;
 pub mod client;
 mod loopback;
@@ -81,7 +82,7 @@ pub enum AccountError {
     Network(String),
     #[error("Could not store the HaryX sign-in: {0}")]
     Storage(String),
-    #[error("Signed out of HaryX ({0}).")]
+    #[error("Signed out of HaryX: {0}.")]
     SignedOut(String),
 }
 
@@ -96,6 +97,18 @@ impl AccountError {
             AccountError::Storage(_) => "storage",
             AccountError::SignedOut(_) => "signed_out",
         }
+    }
+
+    /// Keycloak refused to renew this machine's sign-in (`invalid_grant`). It answers the same
+    /// whether the session was ended from HaryX on the web, from the WeCoAp account page, or ran
+    /// out unused, so the text names all three rather than guess.
+    pub(crate) fn ended(reason: &str) -> Self {
+        AccountError::SignedOut(format!(
+            "this machine's sign-in has ended. It was signed out from HaryX on the web or from the \
+             WeCoAp account page, or it went unused too long (the sign-in server said: {reason}). \
+             Run '{} login' to sign in again; everything on this machine keeps working",
+            crate::PROG
+        ))
     }
 }
 

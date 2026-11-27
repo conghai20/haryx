@@ -30,6 +30,7 @@ pub mod credentials;
 pub mod desktop;
 pub mod handoff;
 pub mod json_output;
+pub mod machine;
 pub mod mappings;
 pub mod models;
 pub mod oauth;

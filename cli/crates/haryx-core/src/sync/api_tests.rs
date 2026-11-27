@@ -283,7 +283,7 @@ fn a_refused_renewal_signs_out() {
     let api = w.signed_in(STALE);
     assert_eq!(
         Remote::list(&api).unwrap_err(),
-        SyncError::Account(AccountError::SignedOut("Session not active".into()))
+        SyncError::Account(AccountError::ended("Session not active"))
     );
     assert_eq!(w.store.load().unwrap(), None);
     assert_eq!(w.api_requests().len(), 1, "no retry without a new token");

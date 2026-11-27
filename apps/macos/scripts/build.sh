@@ -9,7 +9,7 @@ REPO=${ROOT:h:h}           # repository root
 BRAND_ICON="$REPO/assets/brand/png/haryx-app-icon-1024.png"
 BUILD="$ROOT/build"
 APP="$BUILD/HaryX.app"
-VERSION="0.1.6"
+VERSION="0.2.0"
 BUNDLE_ID="dev.haryx.app"
 
 cd "$ROOT"

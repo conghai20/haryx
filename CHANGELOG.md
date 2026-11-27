@@ -11,6 +11,8 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-27
+
 ### Added
 
 - `haryx login`, `haryx logout` and `haryx whoami` (each with `--json`): sign this machine in to a
@@ -432,7 +434,8 @@ cannot be released without one. Sections, in this order, only when they have ent
 First release: the `haryx` CLI (a Rust port of claude-swap, drop-in compatible with `cswap`) and
 the HaryX macOS menu bar app.
 
-[Unreleased]: https://github.com/conghai20/haryx/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/conghai20/haryx/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/conghai20/haryx/compare/v0.1.6...v0.2.0
 [0.1.6]: https://github.com/conghai20/haryx/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/conghai20/haryx/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/conghai20/haryx/compare/v0.1.2...v0.1.4

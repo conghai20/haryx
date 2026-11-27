@@ -1,0 +1,35 @@
+/* Tokens copied from the Windows app's app.css ("The Tide Table"); the web has no Fluent font stack
+   guarantee, so system-ui leads. CSP allows 'self' styles only: no inline <style> beyond Svelte's
+   extracted CSS file. */
+:root {
+  color-scheme: light dark;
+  --font-body: system-ui, "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  --cyan: light-dark(#0891b2, #22d3ee);
+  --cyan-text: light-dark(#155e75, #22d3ee);
+  --amber: light-dark(#c25e00, #ff9f0a);
+  --red: light-dark(#d13438, #ff453a);
+  --bg: light-dark(#f3f3f3, #202020);
+  --surface: light-dark(#fbfbfb, #2b2b2b);
+  --fill: light-dark(rgb(0 0 0 / 0.045), rgb(255 255 255 / 0.055));
+  --fill-strong: light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.09));
+  --selected: light-dark(rgb(14 116 144 / 0.18), rgb(34 211 238 / 0.16));
+  --label: light-dark(rgb(0 0 0 / 0.9), rgb(255 255 255 / 0.92));
+  --label-2: light-dark(rgb(0 0 0 / 0.62), rgb(255 255 255 / 0.66));
+  --separator: light-dark(rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.09));
+  --radius-card: 12px;
+  --radius-control: 6px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--label); font: 15px/1.45 var(--font-body); -webkit-font-smoothing: antialiased; }
+h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+h2 { font-size: 1.05rem; margin: 0 0 .5rem; }
+p { margin: 0 0 .75rem; }
+a { color: var(--cyan-text); }
+button, .btn {
+  font: inherit; color: inherit; border: 0; border-radius: var(--radius-control);
+  background: var(--fill-strong); padding: .5rem .9rem; min-height: 40px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center;
+}
+button:hover:not(:disabled), .btn:hover { background: var(--selected); }
+button.primary { background: var(--cyan); color: #fff; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }

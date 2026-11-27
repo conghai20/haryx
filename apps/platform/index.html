@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Same policy nginx sends for /platform/ (deploy/nginx/haryx.wecoap.com.conf), minus
+         frame-ancestors, which only works as a header. The build has no inline script or style.
+         The dev server injects component CSS as <style> tags, so vite.config.ts adds
+         'unsafe-inline' to style-src in dev only. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; worker-src 'self'; connect-src 'self' https://sso.wecoap.com; frame-src https://sso.wecoap.com; base-uri 'self'; form-action 'self' https://sso.wecoap.com; object-src 'none'"
+    />
+    <link rel="icon" href="data:," />
+    <title>HaryX</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

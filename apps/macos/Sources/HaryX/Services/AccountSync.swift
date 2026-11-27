@@ -24,16 +24,24 @@ final class AccountSync {
 
     /// How to sign in to HaryX; the raw value is `haryx login --provider`.
     enum SignInProvider: String, CaseIterable, Identifiable {
-        case github, google
+        case github, google, apple, email
         var id: String { rawValue }
 
         var label: String {
             switch self {
             case .github: "GitHub"
             case .google: "Google"
+            case .apple: "Apple"
+            case .email: "Email"
             }
         }
+
+        /// The sign-in menu's item.
+        var menuTitle: String { self == .email ? "Sign in with email" : "Continue with \(label)" }
     }
+
+    /// Consent changes record where they were made.
+    static let consentSource = "macos"
 
     /// nil until first read (or with a cswap backend).
     private(set) var whoami: WhoAmI?
@@ -49,8 +57,12 @@ final class AccountSync {
     private(set) var isSyncing = false
     /// Why the last sync failed; nil after a good one.
     private(set) var problem: SyncProblem?
-    /// An account action (unlock, sign out, delete…) is running.
+    /// An account action (unlock, sign out, consent…) is running.
     private(set) var working = false
+    /// This Mac's sign-in was ended from elsewhere (HaryX on the web, the WeCoAp account page).
+    private(set) var signedOutFromWeb = false
+    /// The consent sheet to show; set to ask for a consent.
+    var consentRequest: ConsentKind?
 
     /// App-local, never synced: whether this Mac syncs at all.
     var syncEnabled = Prefs.d.bool(forKey: Prefs.syncEnabled) {
@@ -74,12 +86,22 @@ final class AccountSync {
     @ObservationIgnored private var rerun = false
     @ObservationIgnored private var applying = false
     @ObservationIgnored private var lastSnapshot: [String: Any] = [:]
+    /// A sign-out from this app is running, so losing the session is not news.
+    @ObservationIgnored private var signingOut = false
 
     /// Accounts need the haryx backend; cswap has none.
     var cli: CSwapCLI? { cliProvider().flatMap { $0.flavor == .haryx ? $0 : nil } }
     var user: HaryXUser? { whoami?.signedIn == true ? whoami?.user : nil }
     var isUnlocked: Bool { user != nil && status?.unlocked == true }
-    var canSync: Bool { isUnlocked && syncEnabled }
+    var canSync: Bool { isUnlocked && syncEnabled && syncConsent != false }
+    /// The Sync consent; nil when the CLI could not say (offline, older haryx).
+    var syncConsent: Bool? { user == nil ? nil : whoami?.consent(.sync) }
+    /// "Show this Mac on HaryX web"; nil when unknown.
+    var machinesConsent: Bool? { user == nil ? nil : whoami?.consent(.machines) }
+    /// Ask for the Sync consent before the passphrase and the first sync.
+    var needsSyncConsent: Bool { user != nil && (syncConsent == false || problem == .consentRequired) }
+    /// Usage totals leave this Mac: signed in, Sync consented and sync on here.
+    var usageSyncs: Bool { user != nil && syncConsent == true && syncEnabled }
     var otherMachineAccounts: [OtherMachineAccount] { user == nil ? [] : status?.otherMachineAccounts ?? [] }
 
     // MARK: lifecycle
@@ -110,12 +132,17 @@ final class AccountSync {
     /// exists when the form needs to know.
     func reload() async {
         guard let cli else { return }
+        let wasSignedIn = user != nil
         switch await cli.reply(WhoAmI.self, ["whoami", "--json"]) {
-        case .success(let w): whoami = w; loadError = nil
+        case .success(let w):
+            whoami = w
+            loadError = nil
+            // whoami renews the session; a refused renewal answers signed out.
+            if wasSignedIn, user == nil, !signingOut { signedOutFromWeb = true }
         case .failure(let f): loadError = f.message
         }
         await reloadStatus()
-        if user != nil, status?.unlocked == false, hasPassphrase == nil { await checkPassphrase() }
+        if user != nil, syncConsent != false, status?.unlocked == false, hasPassphrase == nil { await checkPassphrase() }
         if user == nil { hasPassphrase = nil; problem = nil }
     }
 
@@ -148,7 +175,8 @@ final class AccountSync {
         case .failure(let failure):
             let p = SyncProblem(failure)
             problem = p
-            if p == .signedOut { await reload() }
+            if p == .signedOutFromWeb { signedOutFromWeb = true }
+            if p.isSignedOut { await reload() }
             if p.needsUnlock { hasPassphrase = true }
         }
         await reloadStatus()
@@ -227,6 +255,7 @@ final class AccountSync {
     func signIn(with provider: SignInProvider) {
         guard let cli, loginProcess == nil else { return }
         signInProvider = provider
+        signedOutFromWeb = false
         let process = Process()
         process.executableURL = cli.executable
         process.arguments = ["login", "--provider", provider.rawValue, "--json"]
@@ -265,6 +294,7 @@ final class AccountSync {
             signIn = .waiting(url: url, opened: opened)
         case .signedIn(let user):
             signIn = .idle
+            signedOutFromWeb = false
             whoami = WhoAmI(signedIn: true, user: user)
             hasPassphrase = nil
             await reload()
@@ -297,11 +327,41 @@ final class AccountSync {
 
     /// Signs out and forgets this Mac's sync key.
     func signOut() async -> String? {
-        await perform(["logout", "--json"]) { await self.reload() }
+        signingOut = true
+        defer { signingOut = false }
+        return await perform(["logout", "--json"]) { await self.reload() }
     }
 
-    func deleteAccount() async -> String? {
-        await perform(["account", "delete", "--yes", "--json"]) { await self.reload() }
+    func dismissSignedOutNotice() { signedOutFromWeb = false }
+
+    /// Grants or withdraws `kind` (withdrawing erases its server data; the UI confirmed first).
+    func setConsent(_ kind: ConsentKind, granted: Bool) async -> String? {
+        guard let cli else { return CLIError.notFound.localizedDescription }
+        working = true
+        defer { working = false }
+        switch await cli.reply(Consents.self, kind.arguments(grant: granted, source: Self.consentSource)) {
+        case .success(let consents):
+            whoami = whoami?.with(consents)
+            if kind == .sync, problem == .consentRequired { problem = nil }
+            if kind == .sync, granted {
+                if hasPassphrase == nil, status?.unlocked == false { await checkPassphrase() }
+                Task { await self.syncNow() }
+            }
+            return nil
+        case .failure(let f):
+            return f.message
+        }
+    }
+
+    /// `haryx account export PATH`: one JSON file of everything HaryX keeps about this account.
+    func export(to url: URL) async -> String? {
+        guard let cli else { return CLIError.notFound.localizedDescription }
+        working = true
+        defer { working = false }
+        switch await cli.reply(ExportResult.self, ["account", "export", url.path, "--json"]) {
+        case .success: return nil
+        case .failure(let f): return f.message
+        }
     }
 
     func forget(_ account: OtherMachineAccount) async -> String? {

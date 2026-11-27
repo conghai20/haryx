@@ -1,10 +1,26 @@
 <script lang="ts">
-  // HaryX › HaryX Account: sign in with GitHub, unlock sync with the passphrase, then sync settings,
-  // preferences and account setup between machines. Claude logins never leave this PC.
+  // HaryX › HaryX Account: sign in, consent to sync, unlock it with the passphrase, then sync
+  // settings, preferences and account setup between machines; then privacy: showing this PC on
+  // HaryX web, withdrawing a consent, exporting. Claude logins never leave this PC.
+  // Mirrors macOS HaryXAccountPane.
+  import { ask, save } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
-  import { MIN_PASSPHRASE, PASSPHRASE_WARNING, overwriteLine, passphraseProblem, providerName, syncedAgo } from "../lib/account";
+  import ConsentDialog from "../components/ConsentDialog.svelte";
+  import MenuButton from "../components/MenuButton.svelte";
+  import {
+    MIN_PASSPHRASE,
+    PASSPHRASE_WARNING,
+    SIGN_IN_PROVIDERS,
+    overwriteLine,
+    passphraseProblem,
+    providerName,
+    syncedAgo,
+  } from "../lib/account";
+  import { api } from "../lib/api";
+  import { CONSENT_COPY, HARYX_WEB, POLICY_VERSION, PRIVACY_POLICY } from "../lib/consent";
   import { haryxAccount as acct } from "../lib/haryx.svelte";
   import { store } from "../lib/store.svelte";
+  import type { ConsentPurpose } from "../lib/types";
 
   let passphrase = $state("");
   let repeat = $state("");
@@ -15,6 +31,48 @@
   let creating = $derived(acct.hasPassphrase === false);
   let user = $derived(acct.whoami?.user ?? null);
   let overwritten = $derived((acct.last?.ok ? acct.last.overwritten : acct.status?.overwritten) ?? []);
+  let privacyNote = $state<string | null>(null);
+  let privacyError = $state<string | null>(null);
+  let signInSections = $derived([
+    { heading: null, items: SIGN_IN_PROVIDERS.map((p) => ({ label: p.menu, onpick: () => acct.startSignIn(p.id) })) },
+  ]);
+
+  function openLink(url: string) {
+    api.openLink(url).catch((e) => store.flash(String(e), true));
+  }
+
+  async function withdraw(purpose: ConsentPurpose) {
+    const copy = CONSENT_COPY[purpose];
+    const ok = await ask(copy.withdrawMessage, {
+      title: copy.withdrawTitle,
+      kind: "warning",
+      okLabel: copy.withdrawButton,
+      cancelLabel: "Cancel",
+    });
+    if (!ok) return;
+    privacyError = await acct.setConsent(purpose, false);
+    privacyNote = privacyError ? null : "Withdrawn. Its data is gone from HaryX's servers.";
+  }
+
+  function toggleMachines(e: Event & { currentTarget: HTMLInputElement }) {
+    const on = e.currentTarget.checked;
+    // The box follows the consent, not the click: the dialog or the confirmation decides.
+    e.currentTarget.checked = acct.machinesConsent === true;
+    if (on) acct.consentRequest = "machines";
+    else void withdraw("machines");
+  }
+
+  async function exportData() {
+    const path = await save({
+      defaultPath: `haryx-export-${new Date().toISOString().slice(0, 10)}.json`,
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (!path) return;
+    privacyError = await acct.exportTo(path);
+    privacyNote = privacyError
+      ? null
+      : "Saved. Synced data in it stays encrypted: only your sync passphrase opens it.";
+  }
 
   onMount(() => {
     void acct.init();
@@ -52,6 +110,12 @@
   <p class="secondary">Loading…</p>
 {:else if !acct.signedIn || !user}
   <section aria-labelledby="signin-title">
+    {#if acct.signedOutFromWeb}
+      <div class="banner" role="status">
+        <strong>Signed out of HaryX from the web</strong>
+        <span class="secondary">Sign in again to keep syncing. Everything on this PC keeps working.</span>
+      </div>
+    {/if}
     <h2 id="signin-title">Sync between your machines</h2>
     <p class="lede">
       Sign in to sync settings, preferences and account setup between your PCs and Macs. Your Claude logins never
@@ -77,9 +141,7 @@
         <div class="banner error" role="alert">{acct.signIn.message}</div>
       {/if}
       <div class="row">
-        <button class="primary" onclick={() => acct.startSignIn()}>
-          {acct.signIn.phase === "error" ? "Try again with GitHub" : "Continue with GitHub"}
-        </button>
+        <MenuButton sections={signInSections} align="start" label={acct.signIn.phase === "error" ? "Try again" : "Sign in…"} />
       </div>
     {/if}
     <p class="caption tertiary">Signed out, HaryX sends nothing.</p>
@@ -91,11 +153,24 @@
       <strong class="truncate">{user.email}</strong>
       <span class="caption secondary">Signed in with {providerName(user.provider)}</span>
     </div>
+    <div class="row"><button class="link" onclick={() => openLink(HARYX_WEB)}>Open HaryX on the web</button></div>
   </section>
 
   <div class="hairline"></div>
 
-  {#if !acct.unlocked}
+  {#if acct.needsSyncConsent}
+    <section aria-labelledby="consent-title">
+      <h2 id="consent-title">Sync</h2>
+      {#if acct.problem?.consent && acct.syncConsent !== false}
+        <p class="caption amber" role="status">{acct.problem.text}</p>
+      {/if}
+      <p class="secondary">
+        Sync keeps settings, app preferences and account setup the same on your PCs and Macs. HaryX asks for your
+        consent first.
+      </p>
+      <div class="row"><button class="primary" onclick={() => (acct.consentRequest = "sync")}>Turn on sync…</button></div>
+    </section>
+  {:else if !acct.unlocked}
     <section aria-labelledby="unlock-title">
       <h2 id="unlock-title">{creating ? "Set a sync passphrase" : "Unlock sync on this PC"}</h2>
       {#if acct.problem?.unlock}
@@ -203,14 +278,50 @@
 
   <div class="hairline"></div>
 
+  <section aria-labelledby="privacy-title">
+    <h2 id="privacy-title">Privacy</h2>
+    <label class="check">
+      <input
+        type="checkbox"
+        checked={acct.machinesConsent === true}
+        disabled={acct.machinesConsent == null || acct.working}
+        onchange={toggleMachines}
+      />
+      Show this PC on HaryX web
+    </label>
+    {#if acct.syncConsent === true}
+      <div class="row">
+        <span>Sync consent given</span>
+        <button disabled={acct.working} onclick={() => withdraw("sync")}>Withdraw…</button>
+      </div>
+    {/if}
+    <div class="row">
+      <span>A copy of everything HaryX keeps about your account</span>
+      <button disabled={acct.working} onclick={exportData}>Export…</button>
+    </div>
+    {#if privacyNote}<p class="caption secondary" role="status">{privacyNote}</p>{/if}
+    {#if privacyError}<p class="caption error-text" role="alert">{privacyError}</p>{/if}
+    {#if acct.machinesConsent == null}
+      <p class="caption tertiary">HaryX could not read your consents. Check your connection.</p>
+    {/if}
+    <div class="row">
+      <button class="link caption" onclick={() => openLink(PRIVACY_POLICY)}>Privacy policy, version {POLICY_VERSION}</button>
+    </div>
+  </section>
+
+  <div class="hairline"></div>
+
   <section aria-label="Account actions">
     <div class="row">
       <button onclick={() => acct.signOut()}>Sign out</button>
-      {#if acct.unlocked}
-        <button class="plain danger" onclick={() => acct.deleteAccount()}>Delete account…</button>
-      {/if}
+      <button class="plain danger" onclick={() => acct.deleteAccount()}>Delete account…</button>
     </div>
+    <p class="caption tertiary">Signing out forgets this PC's sync key. Your Claude accounts on this PC are not touched.</p>
   </section>
+{/if}
+
+{#if acct.consentRequest}
+  <ConsentDialog purpose={acct.consentRequest} onclose={() => (acct.consentRequest = null)} />
 {/if}
 
 <style>
@@ -273,6 +384,11 @@
   li {
     display: flex;
     flex-direction: column;
+  }
+  .banner {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
   .amber {
     color: var(--amber);

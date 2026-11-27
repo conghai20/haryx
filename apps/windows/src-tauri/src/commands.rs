@@ -51,10 +51,21 @@ pub const ALLOWED_VERBS: &[&str] = &[
     "sync",
 ];
 
-/// `auto --once` is allowed (a single tick); a looping `auto` is not.
+/// Second words the UI may send after `account`: the privacy verbs of the HaryX Account pane
+/// (`consents`, `consent grant|withdraw`, `export`, `machines`, `machine rename`) and `delete`,
+/// which only answers where a WeCoAp ID is deleted.
+pub const ACCOUNT_VERBS: &[&str] = &[
+    "consent", "consents", "export", "machines", "machine", "delete",
+];
+
+/// `auto --once` is allowed (a single tick); a looping `auto` is not. `account` needs a second word
+/// from [`ACCOUNT_VERBS`].
 pub fn is_allowed(args: &[String]) -> bool {
     match args.first().map(String::as_str) {
         Some("auto") => args.iter().any(|a| a == "--once"),
+        Some("account") => args
+            .get(1)
+            .is_some_and(|verb| ACCOUNT_VERBS.contains(&verb.as_str())),
         Some(verb) => ALLOWED_VERBS.contains(&verb),
         None => false,
     }
@@ -506,8 +517,14 @@ mod tests {
                 "account", "consent", "withdraw", "machines", "--yes", "--source", "windows",
                 "--json",
             ],
-            &["account", "export", "C:\\Users\\me\\haryx-data.json", "--json"],
+            &[
+                "account",
+                "export",
+                "C:\\Users\\me\\haryx-data.json",
+                "--json",
+            ],
             &["account", "machines", "--json"],
+            &["account", "machine", "rename", "abc", "Work PC", "--json"],
             &["sync", "--json"],
             &["sync", "status", "--json"],
             &["sync", "unlock", "--passphrase-stdin", "--json"],
@@ -527,6 +544,18 @@ mod tests {
         ] {
             assert!(!is_allowed(&args(&[verb])), "{verb}");
         }
+        for words in [
+            &["account"][..],
+            &["account", "frobnicate"],
+            &["account", "--help"],
+        ] {
+            assert!(!is_allowed(&args(words)), "{words:?}");
+        }
+        assert_eq!(
+            ACCOUNT_VERBS.len(),
+            6,
+            "a new account verb needs its own review and test"
+        );
         assert_eq!(
             ALLOWED_VERBS.len(),
             28,

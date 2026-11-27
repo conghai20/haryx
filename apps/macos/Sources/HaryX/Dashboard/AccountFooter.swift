@@ -39,6 +39,10 @@ struct AccountFooter: View {
                         .help("Cancel sign-in")
                 }
             case .idle, .failed:
+                if sync.signedOutFromWeb, sync.signIn == .idle {
+                    Label("Signed out of HaryX from the web", systemImage: "person.crop.circle.badge.xmark")
+                        .font(.caption).foregroundStyle(Brand.warn).lineLimit(2)
+                }
                 if case .failed(let message) = sync.signIn {
                     Label(message, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption).foregroundStyle(Brand.warn).lineLimit(3)
@@ -59,7 +63,7 @@ struct SignInMenu: View {
     var body: some View {
         Menu {
             ForEach(AccountSync.SignInProvider.allCases) { provider in
-                Button("Continue with \(provider.label)") {
+                Button(provider.menuTitle) {
                     sync.signIn(with: provider)
                 }
             }
@@ -80,6 +84,7 @@ private struct SignedInMenu: View {
         Menu {
             Section("Signed in with \(user.providerName)") {
                 Button("Account & Sync…") { DashboardRouter.shared.section = .haryxAccount }
+                Link("Open HaryX on the Web", destination: HaryXLinks.web)
                 Button("Sign Out") { Task { error = await sync.signOut() } }
             }
         } label: {

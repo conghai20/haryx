@@ -4,7 +4,9 @@ import SwiftUI
 
 /// AI › Usage. First, will the week last: the CLI's rotation verdict and each account's Week Tide.
 /// Then where it went: tokens (or API-price cost) per day by account and the projects and sessions
-/// that used the most, from `haryx ai usage` once usage history is on. Everything stays on this Mac.
+/// that used the most, from `haryx ai usage` once usage history is on. It stays on this Mac unless
+/// the Sync consent is given and sync is on: then daily totals per account and model sync
+/// (`UsagePrivacy`); projects and sessions never leave.
 struct UsagePane: View {
     @Environment(AppStore.self) private var store
 
@@ -47,11 +49,12 @@ private struct HistoryOff: View {
 
 /// The first-open question.
 private struct ImportChoice: View {
+    @Environment(AppStore.self) private var store
     let model: UsageModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("HaryX can read your past Claude Code transcripts to show how each account, project and session used its quota. It reads token counts only, never the conversations, and keeps them on this Mac.")
+            Text("HaryX can read your past Claude Code transcripts to show how each account, project and session used its quota. It reads token counts only, never the conversations. \(UsagePrivacy.kept(device: "Mac", syncing: store.accountSync.usageSyncs))")
                 .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             HStack {
                 Button("Read Past Transcripts") { model.choose(importAll: true) }.buttonStyle(.glassProminent)
@@ -210,7 +213,7 @@ private struct UsageContent: View {
                 .fixedSize()
                 Toggle("Weekly summary notification", isOn: $weeklySummary)
             }
-            Text("Costs are what the tokens would cost at Anthropic's API prices as of \(r.pricesAsOf); plans are flat-priced, so this is the value of your usage, not a bill. ~ marks days whose account was worked out from the switch log. Read from Claude Code's transcripts on this Mac; no conversation text is stored.")
+            Text("Costs are what the tokens would cost at Anthropic's API prices as of \(r.pricesAsOf); plans are flat-priced, so this is the value of your usage, not a bill. ~ marks days whose account was worked out from the switch log. Read from Claude Code's transcripts on this Mac; no conversation text is stored. \(UsagePrivacy.kept(device: "Mac", syncing: store.accountSync.usageSyncs))")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

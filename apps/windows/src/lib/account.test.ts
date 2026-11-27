@@ -92,13 +92,18 @@ describe("syncProblem", () => {
     expect(f("key_changed").text).toMatch(/changed on another machine/);
   });
 
+  it("asks for the Sync consent on consent_required", () => {
+    expect(f("consent_required")).toMatchObject({ consent: true, unlock: false, signedOut: false });
+  });
+
   it("is quiet about network and server trouble", () => {
     expect(f("network").text).toBe("Sync unavailable, will retry.");
     expect(f("server")).toEqual({ text: "Sync unavailable, will retry.", unlock: false, signedOut: false });
   });
 
   it("shows sign-in when the session is gone, and the CLI's words otherwise", () => {
-    expect(f("signed_out").signedOut).toBe(true);
+    expect(f("signed_out")).toMatchObject({ signedOut: true, fromWeb: true, text: "Signed out of HaryX from the web." });
+    expect(f("not_signed_in").fromWeb).toBeUndefined();
     expect(f("not_signed_in").signedOut).toBe(true);
     expect(f("busy").unlock).toBe(false);
     expect(f("invalid", "Bad row").text).toBe("Bad row");

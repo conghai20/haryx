@@ -1,12 +1,15 @@
 <script lang="ts">
   // Usage. First, will the week last: the CLI's rotation verdict and each account's Week Tide
   // (WeekSection). Then where it went: tokens (or API-price cost) per day by account and the projects
-  // and sessions that used the most, from `haryx ai usage --json` once usage history is on. Kept on this PC.
+  // and sessions that used the most, from `haryx ai usage --json` once usage history is on. Kept on this PC unless
+  // the Sync consent is given and sync is on: then daily totals per account and model sync (`usageKept`).
   import { api } from "../lib/api";
   import { actions } from "../lib/actions";
   import { describeError } from "../lib/errors";
   import Icon from "../components/Icon.svelte";
   import WeekSection from "../components/WeekSection.svelte";
+  import { usageKept } from "../lib/consent";
+  import { haryxAccount } from "../lib/haryx.svelte";
   import { store } from "../lib/store.svelte";
   import { displayName } from "../lib/tide";
   import {
@@ -128,7 +131,7 @@
   <section class="choice">
     <p class="secondary">
       HaryX can read your past Claude Code transcripts to show how each account, project and session used
-      its quota. It reads token counts only, never the conversations, and keeps them on this PC.
+      its quota. It reads token counts only, never the conversations. {usageKept(haryxAccount.usageSyncs)}
     </p>
     <div class="row">
       <button class="primary" onclick={() => choose(true)}>Read past transcripts</button>
@@ -274,7 +277,7 @@
     <p class="caption tertiary">
       Costs are what the tokens would cost at Anthropic's API prices as of {byAccount.pricesAsOf}; plans are
       flat-priced, so this is the value of your usage, not a bill. ~ marks days whose account was worked out
-      from the switch log. No conversation text is stored.
+      from the switch log. No conversation text is stored. {usageKept(haryxAccount.usageSyncs)}
     </p>
   {/if}
 {/if}

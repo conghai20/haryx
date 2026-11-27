@@ -1,8 +1,10 @@
 import HaryXCore
 import SwiftUI
+import UniformTypeIdentifiers
 
-/// HaryX › HaryX Account: sign in, unlock sync with the passphrase, and sync settings between
-/// machines. Claude logins never leave this Mac.
+/// HaryX › HaryX Account: sign in, consent to sync, unlock it with the passphrase, and sync
+/// settings between machines; then privacy: showing this Mac on HaryX web, withdrawing a consent,
+/// exporting. Claude logins never leave this Mac. Mirrors Windows `panes/Account.svelte`.
 struct HaryXAccountPane: View {
     @Environment(AppStore.self) private var store
 
@@ -15,11 +17,14 @@ struct HaryXAccountPane: View {
                 }
             } else if let user = sync.user {
                 SignedInSection(sync: sync, user: user)
-                if sync.isUnlocked {
+                if sync.needsSyncConsent {
+                    SyncConsentSection(sync: sync)
+                } else if sync.isUnlocked {
                     SyncSection(sync: sync)
                 } else {
                     PassphraseSection(sync: sync)
                 }
+                PrivacySection(sync: sync)
                 AccountActionsSection(sync: sync)
             } else {
                 SignedOutSection(sync: sync)
@@ -28,6 +33,9 @@ struct HaryXAccountPane: View {
         .formStyle(.grouped)
         .paneFrame()
         .task { await sync.reload() }
+        .sheet(item: Binding(get: { sync.consentRequest }, set: { sync.consentRequest = $0 })) { kind in
+            ConsentSheet(sync: sync, kind: kind)
+        }
     }
 }
 
@@ -36,6 +44,12 @@ private struct SignedOutSection: View {
 
     var body: some View {
         Section {
+            if sync.signedOutFromWeb {
+                Label("Signed out of HaryX from the web", systemImage: "person.crop.circle.badge.xmark")
+                    .foregroundStyle(Brand.warn)
+                Text("Sign in again to keep syncing. Everything on this Mac keeps working.")
+                    .foregroundStyle(.secondary)
+            }
             Text("Sign in to sync settings, preferences and account setup between your Macs and PCs. Your Claude logins never leave this Mac.")
                 .fixedSize(horizontal: false, vertical: true)
             switch sync.signIn {
@@ -71,6 +85,7 @@ private struct SignedInSection: View {
         Section("HaryX account") {
             LabeledContent("Signed in as", value: user.email)
             LabeledContent("With", value: user.providerName)
+            Link("Open HaryX on the Web", destination: HaryXLinks.web)
         }
     }
 }
@@ -171,8 +186,130 @@ private struct SyncSection: View {
     }
 }
 
+/// Asks for the Sync consent before the passphrase and the first sync.
+private struct SyncConsentSection: View {
+    let sync: AccountSync
+
+    var body: some View {
+        Section {
+            if sync.problem == .consentRequired, sync.syncConsent != false {
+                Label(SyncProblem.consentRequired.summary, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Brand.warn)
+            }
+            Text("Sync keeps settings, app preferences and account setup the same on your Macs and PCs. HaryX asks for your consent first.")
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Spacer()
+                Button("Turn On Sync…") { sync.consentRequest = .sync }
+                    .buttonStyle(.glassProminent)
+            }
+        } header: { Text("Sync") }
+    }
+}
+
+/// Showing this Mac on HaryX web, the consents and their withdrawal, and the data export.
+private struct PrivacySection: View {
+    let sync: AccountSync
+    @State private var withdrawing: ConsentKind?
+    @State private var message: String?
+    @State private var error: String?
+
+    var body: some View {
+        Section {
+            Toggle("Show this Mac on HaryX web", isOn: Binding(
+                get: { sync.machinesConsent == true },
+                set: { $0 ? (sync.consentRequest = .machines) : (withdrawing = .machines) }
+            ))
+            .disabled(sync.machinesConsent == nil || sync.working)
+            if sync.syncConsent == true {
+                HStack {
+                    Text("Sync consent given")
+                    Spacer()
+                    Button("Withdraw…") { withdrawing = .sync }.disabled(sync.working)
+                }
+            }
+            HStack {
+                Text("A copy of everything HaryX keeps about your account")
+                Spacer()
+                Button("Export…", action: export).disabled(sync.working)
+            }
+            if let message { Text(message).foregroundStyle(.secondary) }
+            if let error { Text(error).foregroundStyle(Brand.limit) }
+        } header: { Text("Privacy") } footer: {
+            VStack(alignment: .leading, spacing: 4) {
+                if sync.machinesConsent == nil {
+                    Text("HaryX could not read your consents. Check your connection.")
+                }
+                Link("Privacy policy, version \(privacyPolicyVersion)", destination: HaryXLinks.privacyPolicy)
+            }
+        }
+        .alert(withdrawing?.withdrawTitle ?? "", isPresented: Binding(get: { withdrawing != nil }, set: { if !$0 { withdrawing = nil } }),
+               presenting: withdrawing) { kind in
+            Button(kind.withdrawButton, role: .destructive) {
+                Task {
+                    error = await sync.setConsent(kind, granted: false)
+                    message = error == nil ? "Withdrawn. Its data is gone from HaryX's servers." : nil
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { kind in
+            Text(kind.withdrawMessage)
+        }
+    }
+}
+
+extension PrivacySection {
+    /// Asks where to save, then `haryx account export PATH` writes the file there.
+    fileprivate func export() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "haryx-export-\(Date().formatted(.iso8601.year().month().day())).json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task {
+            error = await sync.export(to: url)
+            message = error == nil ? "Saved to \(url.lastPathComponent). Synced data in it stays encrypted: only your sync passphrase opens it." : nil
+        }
+    }
+}
+
+/// The consent sheet: what the user agrees to, the policy version and a link to it.
+private struct ConsentSheet: View {
+    let sync: AccountSync
+    let kind: ConsentKind
+    @Environment(\.dismiss) private var dismiss
+    @State private var error: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(kind.title(device: "Mac")).font(.title3.weight(.semibold))
+            ForEach(kind.points(device: "Mac"), id: \.self) { point in
+                Label { Text(point).fixedSize(horizontal: false, vertical: true) } icon: { Image(systemName: "circle.fill").font(.system(size: 5)) }
+            }
+            Link("Privacy policy, version \(privacyPolicyVersion)", destination: HaryXLinks.privacyPolicy)
+            if let error { Text(error).foregroundStyle(Brand.limit) }
+            HStack {
+                Spacer()
+                if sync.working { ProgressView().controlSize(.small) }
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(kind.agree) {
+                    Task {
+                        error = await sync.setConsent(kind, granted: true)
+                        if error == nil { dismiss() }
+                    }
+                }
+                .buttonStyle(.glassProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(sync.working)
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
+    }
+}
+
 private struct AccountActionsSection: View {
     let sync: AccountSync
+    @Environment(\.openURL) private var openURL
     @State private var confirmDelete = false
     @State private var error: String?
 
@@ -189,10 +326,10 @@ private struct AccountActionsSection: View {
             Text("Signing out forgets this Mac's sync key. Your Claude accounts on this Mac are not touched.")
         }
         .alert("Delete your HaryX account?", isPresented: $confirmDelete) {
-            Button("Delete Account", role: .destructive) { Task { error = await sync.deleteAccount() } }
+            Button("Open WeCoAp Account") { openURL(HaryXLinks.wecoapAccount) }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This removes everything synced, on every machine. Your Claude accounts on this Mac are not touched.")
+            Text("Your HaryX account is your WeCoAp ID, and it is deleted on the WeCoAp account page. To erase HaryX's data and keep your WeCoAp ID, withdraw both consents instead. Your Claude accounts on this Mac are not touched.")
         }
     }
 }

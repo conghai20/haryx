@@ -5,9 +5,19 @@
 import { listen } from "@tauri-apps/api/event";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { api } from "./api";
-import { DELETE_CONFIRM, isFailure, parseCli, syncProblem, type SignInProvider, type SyncProblem } from "./account";
+import { isFailure, parseCli, syncProblem, type SignInProvider, type SyncProblem } from "./account";
+import { DELETE_ACCOUNT_MESSAGE, WECOAP_ACCOUNT, consentArgs, consentGranted, withConsents } from "./consent";
 import { store } from "./store.svelte";
-import type { AccountLoginEvent, CliFailure, OtherMachineAccount, SyncResult, SyncStatus, Whoami } from "./types";
+import type {
+  AccountLoginEvent,
+  CliFailure,
+  ConsentPurpose,
+  Consents,
+  OtherMachineAccount,
+  SyncResult,
+  SyncStatus,
+  Whoami,
+} from "./types";
 
 /** After a group change: short, but long enough that a change made of several CLI calls syncs once. */
 const SYNC_SOON_MS = 1000;
@@ -30,6 +40,14 @@ class HaryxAccount {
   signInProvider = $state<SignInProvider>("github");
   syncing = $state(false);
   last = $state<SyncResult | null>(null);
+  /** This PC's sign-in was ended from elsewhere (HaryX on the web, the WeCoAp account page). */
+  signedOutFromWeb = $state(false);
+  /** The consent dialog to show; set to ask for a consent. */
+  consentRequest = $state<ConsentPurpose | null>(null);
+  /** A consent change or export is running. */
+  working = $state(false);
+  /** A sign-out from this app is running, so losing the session is not news. */
+  #signingOut = false;
   /** A sync said the key changed or is locked, before `sync status` caught up. */
   #needsUnlock = $state(false);
   #ready: Promise<void> | null = null;
@@ -38,6 +56,14 @@ class HaryxAccount {
   unlocked = $derived(this.signedIn && this.status?.unlocked === true && !this.#needsUnlock);
   /** The last sync's problem, as quiet status text. */
   problem = $derived<SyncProblem | null>(this.last && isFailure(this.last) ? syncProblem(this.last) : null);
+  /** The Sync consent; null when the CLI could not say (offline, older haryx). */
+  syncConsent = $derived(consentGranted(this.whoami, "sync"));
+  /** "Show this PC on HaryX web"; null when unknown. */
+  machinesConsent = $derived(consentGranted(this.whoami, "machines"));
+  /** Ask for the Sync consent before the passphrase and the first sync. */
+  needsSyncConsent = $derived(this.signedIn && (this.syncConsent === false || this.problem?.consent === true));
+  /** Usage totals leave this PC: signed in, Sync consented and sync on here. */
+  usageSyncs = $derived(this.signedIn && this.syncConsent === true && store.prefs?.syncEnabled !== false);
   otherMachines = $derived<OtherMachineAccount[]>(
     this.signedIn && this.last?.ok ? this.last.otherMachineAccounts : (this.status?.otherMachineAccounts ?? []),
   );
@@ -77,7 +103,10 @@ class HaryxAccount {
       return;
     }
     this.loadError = null;
+    const wasSignedIn = this.signedIn;
     this.whoami = who;
+    // whoami renews the session; a refused renewal answers signed out.
+    if (wasSignedIn && !who.signedIn && !this.#signingOut) this.signedOutFromWeb = true;
     if (!who.signedIn) {
       this.status = null;
       this.hasPassphrase = null;
@@ -88,7 +117,7 @@ class HaryxAccount {
       this.status = status;
       if (status.unlocked) this.#needsUnlock = false;
     }
-    if (!this.unlocked && this.hasPassphrase == null) await this.checkPassphrase();
+    if (!this.unlocked && this.syncConsent !== false && this.hasPassphrase == null) await this.checkPassphrase();
   }
 
   /** Whether the account has a passphrase yet (network). */
@@ -103,6 +132,7 @@ class HaryxAccount {
 
   async startSignIn(provider: SignInProvider = "github") {
     this.signInProvider = provider;
+    this.signedOutFromWeb = false;
     this.signIn = { phase: "waiting", hasLink: false, browserOpened: false };
     try {
       await api.accountLoginStart(provider);
@@ -126,6 +156,7 @@ class HaryxAccount {
         break;
       case "signed_in":
         this.signIn = { phase: "idle" };
+        this.signedOutFromWeb = false;
         this.hasPassphrase = null;
         await this.refresh();
         break;
@@ -145,6 +176,7 @@ class HaryxAccount {
     if (info.last && isFailure(info.last)) {
       const p = syncProblem(info.last);
       if (p.unlock) this.#needsUnlock = true;
+      if (p.fromWeb) this.signedOutFromWeb = true;
       if (p.signedOut || p.unlock) void this.refresh();
     } else void this.refresh();
   }
@@ -200,30 +232,63 @@ class HaryxAccount {
   }
 
   async signOut() {
-    const r = await this.#json<Whoami>(["logout", "--json"]);
-    if (isFailure(r)) store.flash(r.message, true);
-    this.last = null;
-    this.hasPassphrase = null;
-    await this.refresh();
+    this.#signingOut = true;
+    try {
+      const r = await this.#json<Whoami>(["logout", "--json"]);
+      if (isFailure(r)) store.flash(r.message, true);
+      this.last = null;
+      this.hasPassphrase = null;
+      await this.refresh();
+    } finally {
+      this.#signingOut = false;
+    }
   }
 
+  dismissSignedOutNotice() {
+    this.signedOutFromWeb = false;
+  }
+
+  /** HaryX does not delete accounts: the WeCoAp ID is deleted on its own account page (plan A10). */
   async deleteAccount() {
-    const ok = await ask(DELETE_CONFIRM, {
-      title: "Delete HaryX account",
+    const ok = await ask(DELETE_ACCOUNT_MESSAGE, {
+      title: "Delete your HaryX account?",
       kind: "warning",
-      okLabel: "Delete Account",
+      okLabel: "Open WeCoAp account",
       cancelLabel: "Cancel",
     });
-    if (!ok) return;
-    const r = await this.#json<{ ok: true }>(["account", "delete", "--yes", "--json"]);
-    if (isFailure(r)) {
-      store.flash(r.message, true);
-      return;
+    if (ok) await api.openLink(WECOAP_ACCOUNT).catch((e) => store.flash(String(e), true));
+  }
+
+  /**
+   * Grants or withdraws `purpose` (withdrawing erases its server data; the UI confirmed first).
+   * Returns the problem to show, or null.
+   */
+  async setConsent(purpose: ConsentPurpose, grant: boolean): Promise<string | null> {
+    this.working = true;
+    try {
+      const r = await this.#json<Consents>(consentArgs(purpose, grant));
+      if (isFailure(r)) return r.message;
+      if (this.whoami) this.whoami = withConsents(this.whoami, r);
+      if (purpose === "sync" && this.last && isFailure(this.last) && this.last.code === "consent_required") this.last = null;
+      if (purpose === "sync" && grant) {
+        if (!this.unlocked && this.hasPassphrase == null) await this.checkPassphrase();
+        void this.syncNow();
+      }
+      return null;
+    } finally {
+      this.working = false;
     }
-    store.flash("HaryX account deleted");
-    this.last = null;
-    this.hasPassphrase = null;
-    await this.refresh();
+  }
+
+  /** `haryx account export PATH`: one JSON file of everything HaryX keeps about this account. */
+  async exportTo(path: string): Promise<string | null> {
+    this.working = true;
+    try {
+      const r = await this.#json<{ ok: true; path: string }>(["account", "export", path, "--json"]);
+      return isFailure(r) ? r.message : null;
+    } finally {
+      this.working = false;
+    }
   }
 
   /** "Sign in here": the usual new-account Claude sign-in. The backend syncs once it finishes, and

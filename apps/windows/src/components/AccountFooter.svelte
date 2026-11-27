@@ -4,6 +4,8 @@
   import Icon from "./Icon.svelte";
   import { onMount } from "svelte";
   import { SIGN_IN_PROVIDERS, providerName, type SignInProvider } from "../lib/account";
+  import { api } from "../lib/api";
+  import { HARYX_WEB } from "../lib/consent";
   import { haryxAccount as acct } from "../lib/haryx.svelte";
   import { store } from "../lib/store.svelte";
 
@@ -57,6 +59,7 @@
         <div class="menu" role="menu" aria-label="HaryX account">
           <p class="menu-head caption tertiary">Signed in with {providerName(user.provider)}</p>
           <button role="menuitem" onclick={() => choose(onopen)}>Account &amp; sync…</button>
+          <button role="menuitem" onclick={() => choose(() => void api.openLink(HARYX_WEB).catch((e) => store.flash(String(e), true)))}>Open HaryX on the web</button>
           <button role="menuitem" onclick={() => choose(() => void acct.signOut())}>Sign out</button>
         </div>
       {/if}
@@ -78,13 +81,16 @@
         <button class="icon-button" aria-label="Cancel sign-in" title="Cancel sign-in" onclick={() => acct.cancelSignIn()}><Icon name="close" size={12} /></button>
       </div>
     {:else}
+      {#if acct.signedOutFromWeb && acct.signIn.phase === "idle"}
+        <p class="caption amber" role="status">Signed out of HaryX from the web</p>
+      {/if}
       {#if acct.signIn.phase === "error"}
         <p class="caption error-text" role="alert">{acct.signIn.message}</p>
       {/if}
       {#if open}
         <div class="menu" role="menu" aria-label="Sign in to HaryX">
           {#each SIGN_IN_PROVIDERS as p (p.id)}
-            <button role="menuitem" onclick={() => signIn(p.id)}>Continue with {p.label}</button>
+            <button role="menuitem" onclick={() => signIn(p.id)}>{p.menu}</button>
           {/each}
         </div>
       {/if}
@@ -102,6 +108,9 @@
 {/if}
 
 <style>
+  .amber {
+    color: var(--amber);
+  }
   .footer {
     position: relative;
     display: flex;

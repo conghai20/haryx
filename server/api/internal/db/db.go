@@ -6,6 +6,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -85,6 +86,23 @@ func (s *Store) IsRevoked(ctx context.Context, sessionID string) (bool, error) {
 		`select exists(select 1 from revoked_sessions where session_id = $1 and until > now())`,
 		sessionID).Scan(&revoked)
 	return revoked, err
+}
+
+// TouchUser records a request from the user: it creates their row on the first one, and moves
+// last_seen at most once an hour after that, so a busy user costs no write per request. Handlers
+// run after it, so the row their foreign keys need always exists.
+func (s *Store) TouchUser(ctx context.Context, userID string) error {
+	_, err := s.pool.Exec(ctx, `insert into users (user_id) values ($1)
+		on conflict (user_id) do update set last_seen = now()
+		where users.last_seen < now() - interval '1 hour'`, userID)
+	return err
+}
+
+// DeleteInactiveUsers deletes the users with no request for `retention`, and with them, through
+// `on delete cascade`, everything HaryX holds about them.
+func (s *Store) DeleteInactiveUsers(ctx context.Context, retention time.Duration) (int64, error) {
+	tag, err := s.pool.Exec(ctx, `delete from users where last_seen < now() - $1::interval`, retention)
+	return tag.RowsAffected(), err
 }
 
 // DeleteExpiredRevocations drops revocations past `until`: by then every token of that session

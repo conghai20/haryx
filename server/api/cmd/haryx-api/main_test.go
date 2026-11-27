@@ -28,7 +28,7 @@ func TestRoutes(t *testing.T) {
 	}
 	store := db.NewStore(pool)
 	// Nothing listens on the issuer: no request below gets as far as a key lookup.
-	h := routes(pool, auth.NewRemote("http://127.0.0.1:1/realms/wecoap", store.IsRevoked))
+	h := routes(pool, store, auth.NewRemote("http://127.0.0.1:1/realms/wecoap", store.IsRevoked))
 
 	get := func(path, authz string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
@@ -55,13 +55,56 @@ func TestRoutes(t *testing.T) {
 		t.Errorf("outside /api/v1/: %d, want 404", rec.Code)
 	}
 
-	sweepCtx, cancel := context.WithCancel(ctx)
+	// An authenticated request creates the caller's users row before its handler runs.
+	const caller = "3f0c6a52-6a3e-4d2b-9a57-0b7d1d6f9e21"
+	reached := false
+	touched := touchUser(store, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		var n int
+		_ = pool.QueryRow(ctx, `select count(*) from users where user_id = $1`, caller).Scan(&n)
+		reached = n == 1
+	}))
+	authed := func() *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/sync/rows", nil)
+		req = req.WithContext(auth.WithUser(req.Context(), auth.User{ID: caller}))
+		rec := httptest.NewRecorder()
+		touched.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := authed(); rec.Code != http.StatusOK || !reached {
+		t.Errorf("touch: %d, handler saw the users row: %v", rec.Code, reached)
+	}
+
+	// A user idle past the retention goes, with a 364-day-idle one kept.
+	const recent = "0d5e8f8e-1111-4c2b-8a57-0b7d1d6f9e22"
+	if _, err := pool.Exec(ctx, `update users set last_seen = now() - interval '400 days';
+		insert into users (user_id, last_seen) values ('`+recent+`', now() - interval '364 days')`); err != nil {
+		t.Fatal(err)
+	}
+	sweepOnce(ctx, store)
+	var users int
+	_ = pool.QueryRow(ctx, `select count(*) from users where user_id = $1`, recent).Scan(&users)
+	if users != 1 {
+		t.Error("sweep deleted a user idle for 364 days")
+	}
+	if _, err := pool.Exec(ctx, `delete from users where user_id = $1`, recent); err != nil {
+		t.Fatal(err)
+	}
+	// The loop itself returns once its context is done.
+	stopped, cancel := context.WithCancel(ctx)
 	cancel()
-	sweepRevocations(sweepCtx, store) // one sweep, then returns on the cancelled context
+	sweep(stopped, store)
+	_ = pool.QueryRow(ctx, `select count(*) from users`).Scan(&users)
+	if users != 0 {
+		t.Errorf("sweep left %d users idle for 400 days", users)
+	}
 
 	pool.Close()
 	if rec := get("/api/v1/health", ""); rec.Code != http.StatusServiceUnavailable {
 		t.Errorf("health with the database gone: %d, want 503", rec.Code)
+	}
+	reached = false
+	if rec := authed(); rec.Code != http.StatusServiceUnavailable || reached {
+		t.Errorf("touch with the database gone: %d, handler ran: %v", rec.Code, reached)
 	}
 }
 

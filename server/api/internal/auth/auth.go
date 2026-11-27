@@ -125,8 +125,13 @@ func (v *Verifier) Middleware(next http.Handler) http.Handler {
 			web.Error(w, http.StatusServiceUnavailable, "unavailable")
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), contextKey{}, user)))
+		next.ServeHTTP(w, r.WithContext(WithUser(r.Context(), user)))
 	})
+}
+
+// WithUser puts a caller in ctx, as Middleware does. Handler tests use it to skip tokens.
+func WithUser(ctx context.Context, user User) context.Context {
+	return context.WithValue(ctx, contextKey{}, user)
 }
 
 // FromContext returns the caller that Middleware put in the request's context.

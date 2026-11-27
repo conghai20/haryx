@@ -182,6 +182,9 @@ The HaryX setup:
 **Schema** (`server/api/migrations/`, plain SQL, embedded, applied at start):
 
 ```sql
+create table users (user_id uuid primary key, first_seen timestamptz,
+  last_seen timestamptz);                -- touched per request, expired after 12 months (A10)
+-- every user_id below: references users on delete cascade
 create table sync_rows (user_id uuid, kind text, key text, body text, version bigint,
   updated_at timestamptz, primary key (user_id, kind, key));          -- same checks as today
 create table profile_files (user_id uuid, name_hmac text, body bytea, updated_at timestamptz,
@@ -197,8 +200,8 @@ create table revoked_sessions (session_id text primary key, until timestamptz);
 ```
 
 `consent_events` survive the deletion of the data they cover, as proof of the withdrawal. They are
-deleted only with the account, by the cleanup of deleted WeCoAp IDs (A10, open). Retention is
-stated in the privacy policy.
+deleted only with the user, when the `users` row expires (A10). Retention is stated in the
+privacy policy.
 
 ### CLI (`cli/`)
 
@@ -312,8 +315,9 @@ I'm not a lawyer. This lists what the code and docs must provide, and the legal 
 - [ ] **Data-subject rights**:
   - Access and export: `/me/export`.
   - Correction: the Keycloak account console.
-  - Erasure: the WeCoAp account page deletes the account (A10); withdrawal per purpose erases
-    HaryX data and keeps the account.
+  - Erasure: the WeCoAp account page deletes the account, and HaryX erases that user's data when
+    their `users` row expires, within 12 months (A10); withdrawal per purpose erases HaryX data
+    and keeps the account.
   - Restriction: withdrawal.
   - Each one reachable from the web and the CLI.
 - [ ] **Data residency**: all storage and backups in Vietnam, and mail through the self-hosted
@@ -447,15 +451,17 @@ Unlock time by scrypt work factor (`log_n`):
   action and the `account` role `delete-account` in the default roles (`deploy/README.md`). That
   deletes the WeCoAp ID for every WeCoAp product, AR Onion included. Erasing only HaryX data is
   withdrawing both consents.
-  - **Open, before release: HaryX is never told that a WeCoAp ID was deleted.** The realm's only
-    event listener is `jboss-logging`, and HaryX has no admin access to read `DELETE_ACCOUNT`
-    events. Until something closes this, the deleted user's HaryX rows and `consent_events` stay
-    on the server, which Law 91 erasure does not allow. Two ways, the owner's choice:
-    1. **WeCoAp SSO tells the products**: an event listener in `wecoap-sso` that, on
-       `DELETE_ACCOUNT`, calls each product's signed webhook (`POST /api/v1/hooks/account-deleted`).
-       Immediate, and the same for AR Onion.
-    2. **HaryX expires inactive users**: a `last_seen` per user, and everything deleted after N
-       months with no request. N goes in the privacy policy. It works alone, but erasure is late.
+  - **HaryX is never told that a WeCoAp ID was deleted.** The realm's only event listener is
+    `jboss-logging`, and HaryX has no admin access to read `DELETE_ACCOUNT` events. So **HaryX
+    expires inactive users** (owner, 2026-11-27, over an SSO webhook): like every WeCoAp product,
+    it keeps its own `users` table. Each authenticated request creates or touches the caller's
+    row; every table's `user_id` references it `on delete cascade`; and a user with no request
+    for **12 months** is deleted, everything of theirs with it, `consent_events` included. A
+    deleted WeCoAp ID can make no request, so it is erased within 12 months.
+  - What the user sees after 12 months idle: local data is untouched; the server copy is gone, so
+    the next sync asks for the Sync consent again and uploads afresh.
+  - The 12 months is `userRetention` in `server/api/cmd/haryx-api`, and the privacy policy
+    states it. The policy also says that deleting the WeCoAp ID erases HaryX data within it.
 
 ## Tasks
 

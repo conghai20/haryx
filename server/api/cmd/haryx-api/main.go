@@ -23,10 +23,14 @@ import (
 )
 
 const (
-	addr             = ":8080"
-	shutdownTimeout  = 10 * time.Second
-	healthTimeout    = 2 * time.Second
-	revocationSweeps = time.Hour
+	addr            = ":8080"
+	shutdownTimeout = 10 * time.Second
+	healthTimeout   = 2 * time.Second
+	sweepEvery      = time.Hour
+
+	// userRetention: a user with no request for this long is deleted with all their data (plan
+	// A10). It is how a deleted WeCoAp ID's data is erased. The privacy policy states it.
+	userRetention = 365 * 24 * time.Hour
 )
 
 func main() {
@@ -54,11 +58,11 @@ func run() error {
 		return fmt.Errorf("migrate: %w", err)
 	}
 	store := db.NewStore(pool)
-	go sweepRevocations(ctx, store)
+	go sweep(ctx, store)
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           routes(pool, auth.NewRemote(issuer, store.IsRevoked)),
+		Handler:           routes(pool, store, auth.NewRemote(issuer, store.IsRevoked)),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       time.Minute, // profile uploads are up to 10 MB
 		WriteTimeout:      time.Minute,
@@ -78,9 +82,9 @@ func run() error {
 	return srv.Shutdown(shutdown)
 }
 
-// routes: /api/v1/health is open; everything else under /api/v1/ needs a valid token. Tasks 6–8
-// register their endpoints on `api`.
-func routes(pool *pgxpool.Pool, verifier *auth.Verifier) http.Handler {
+// routes: /api/v1/health is open; everything else under /api/v1/ needs a valid token, and
+// touches the caller's users row. Tasks 6–8 register their endpoints on `api`.
+func routes(pool *pgxpool.Pool, store *db.Store, verifier *auth.Verifier) http.Handler {
 	api := http.NewServeMux()
 	api.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		web.Error(w, http.StatusNotFound, "not_found")
@@ -88,8 +92,22 @@ func routes(pool *pgxpool.Pool, verifier *auth.Verifier) http.Handler {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", health(pool))
-	mux.Handle("/api/v1/", verifier.Middleware(api))
+	mux.Handle("/api/v1/", verifier.Middleware(touchUser(store, api)))
 	return mux
+}
+
+// touchUser keeps the caller's users row alive (plan A10). Without it a handler's insert would
+// break the foreign key, so a failure stops the request.
+func touchUser(store *db.Store, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, _ := auth.FromContext(r.Context())
+		if err := store.TouchUser(r.Context(), user.ID); err != nil {
+			slog.Error("touch user", "err", err)
+			web.Error(w, http.StatusServiceUnavailable, "unavailable")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func health(pool *pgxpool.Pool) http.HandlerFunc {
@@ -105,19 +123,29 @@ func health(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-func sweepRevocations(ctx context.Context, store *db.Store) {
-	ticker := time.NewTicker(revocationSweeps)
+// sweep, at start and then hourly: inactive users (with their data) and expired revocations.
+func sweep(ctx context.Context, store *db.Store) {
+	ticker := time.NewTicker(sweepEvery)
 	defer ticker.Stop()
 	for {
-		if n, err := store.DeleteExpiredRevocations(ctx); err != nil {
-			slog.Warn("sweep revoked sessions", "err", err)
-		} else if n > 0 {
-			slog.Info("swept revoked sessions", "deleted", n)
-		}
+		sweepOnce(ctx, store)
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 		}
+	}
+}
+
+func sweepOnce(ctx context.Context, store *db.Store) {
+	if n, err := store.DeleteInactiveUsers(ctx, userRetention); err != nil {
+		slog.Error("sweep inactive users", "err", err)
+	} else if n > 0 {
+		slog.Info("deleted inactive users", "deleted", n)
+	}
+	if n, err := store.DeleteExpiredRevocations(ctx); err != nil {
+		slog.Warn("sweep revoked sessions", "err", err)
+	} else if n > 0 {
+		slog.Info("swept revoked sessions", "deleted", n)
 	}
 }

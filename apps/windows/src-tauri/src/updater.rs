@@ -170,11 +170,19 @@ pub fn launch_installer(installer: &Path, relaunch: bool) -> Result<(), String> 
         .map_err(|e| format!("cannot start the installer: {e}"))
 }
 
-/// Only HaryX's own GitHub pages open from the app.
+/// Only HaryX's own GitHub pages, and the WeCoAp pages below, open from the app.
 pub const LINK_PREFIX: &str = "https://github.com/conghai20/haryx";
 
+/// HaryX on the web, the WeCoAp account page (A10) and the privacy policy, matched exactly.
+pub const WECOAP_LINKS: &[&str] = &[
+    "https://haryx.wecoap.com/platform/",
+    "https://sso.wecoap.com/realms/wecoap/account/",
+    "https://www.wecoap.com/en/privacy-policy/",
+];
+
 pub fn is_allowed_link(url: &str) -> bool {
-    url == LINK_PREFIX
+    WECOAP_LINKS.contains(&url)
+        || url == LINK_PREFIX
         || url
             .strip_prefix(LINK_PREFIX)
             .is_some_and(|rest| rest.starts_with('/') && !rest.contains(['"', ' ', '\\']))
@@ -450,6 +458,16 @@ mod tests {
         assert!(!is_allowed_link(
             "https://github.com/conghai20/haryx/x\" & calc"
         ));
+    }
+
+    #[test]
+    fn only_the_listed_wecoap_pages_open() {
+        for url in WECOAP_LINKS {
+            assert!(is_allowed_link(url), "{url}");
+        }
+        assert!(!is_allowed_link("https://haryx.wecoap.com/platform/x"));
+        assert!(!is_allowed_link("https://sso.wecoap.com/admin/"));
+        assert!(!is_allowed_link("https://www.wecoap.com/"));
     }
 
     #[test]

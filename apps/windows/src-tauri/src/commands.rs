@@ -498,6 +498,16 @@ mod tests {
             &["logout", "--json"],
             &["whoami", "--json"],
             &["account", "delete", "--yes", "--json"],
+            &["account", "consents", "--json"],
+            &[
+                "account", "consent", "grant", "sync", "--yes", "--source", "windows", "--json",
+            ],
+            &[
+                "account", "consent", "withdraw", "machines", "--yes", "--source", "windows",
+                "--json",
+            ],
+            &["account", "export", "C:\\Users\\me\\haryx-data.json", "--json"],
+            &["account", "machines", "--json"],
             &["sync", "--json"],
             &["sync", "status", "--json"],
             &["sync", "unlock", "--passphrase-stdin", "--json"],

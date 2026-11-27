@@ -43,7 +43,7 @@ private func failure<T>(_ r: Result<T, HaryXFailure>) -> HaryXFailure? {
         .compactMap { LoginEvent.parse(line: String(decoding: $0, as: UTF8.self)) }
     #expect(events.count == 3)
     guard case .browser(let url, let opened) = events[0] else { Issue.record("not browser"); return }
-    #expect(url?.host() == "ygvcznwlugaxqqmlsssh.supabase.co")
+    #expect(url?.host() == "sso.wecoap.com")
     #expect(opened)
     guard case .signedIn(let user) = events[1] else { Issue.record("not signed_in"); return }
     #expect(user.provider == "github")

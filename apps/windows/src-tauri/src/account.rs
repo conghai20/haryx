@@ -62,6 +62,8 @@ pub fn provider_arg(provider: &str) -> Result<&'static str, String> {
     match provider {
         "github" => Ok("github"),
         "google" => Ok("google"),
+        "apple" => Ok("apple"),
+        "email" => Ok("email"),
         other => Err(format!("unknown sign-in provider: {other}")),
     }
 }
@@ -214,6 +216,9 @@ mod tests {
     fn provider_arg_takes_only_known_providers() {
         assert_eq!(provider_arg("github"), Ok("github"));
         assert_eq!(provider_arg("google"), Ok("google"));
+        assert_eq!(provider_arg("apple"), Ok("apple"));
+        assert_eq!(provider_arg("email"), Ok("email"));
+        assert!(provider_arg("supabase").is_err());
         assert!(provider_arg("github --evil").is_err());
         assert!(provider_arg("").is_err());
     }

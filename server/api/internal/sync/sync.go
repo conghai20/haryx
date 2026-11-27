@@ -2,7 +2,7 @@
 // It replaces Supabase's sync_rows table and profiles bucket. There is no row-level security to
 // lean on: every query names the caller's user_id.
 //
-// JSON field names are snake_case, as PostgREST returned them. Times are RFC 3339. Errors are
+// JSON field names are camelCase, as in packages/contracts/haryx. Times are RFC 3339. Errors are
 // {"error": "<code>"} (internal/web).
 package sync
 

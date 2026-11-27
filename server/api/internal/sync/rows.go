@@ -31,7 +31,7 @@ type Row struct {
 	Key       string    `json:"key"`
 	Body      string    `json:"body"`
 	Version   int64     `json:"version"`
-	UpdatedAt time.Time `json:"updated_at"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 const rowColumns = `kind, key, body, version, updated_at`

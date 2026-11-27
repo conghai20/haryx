@@ -22,7 +22,7 @@ var profileName = regexp.MustCompile(`^[0-9a-f]{1,64}$`)
 type Profile struct {
 	Name      string    `json:"name"`
 	Bytes     int64     `json:"bytes"`
-	UpdatedAt time.Time `json:"updated_at"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // profileFile is the {name} path value, or "" after answering 400.

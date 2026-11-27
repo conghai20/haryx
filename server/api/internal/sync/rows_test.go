@@ -24,7 +24,7 @@ func TestRowLifecycle(t *testing.T) {
 	if created.Kind != "settings" || created.Key != "" || created.Body != "YWdlLWE=" || created.Version != 1 || created.UpdatedAt.Before(before) {
 		t.Fatalf("created %+v", created)
 	}
-	if !strings.Contains(rec.Body.String(), `"updated_at":"`) {
+	if !strings.Contains(rec.Body.String(), `"updatedAt":"`) {
 		t.Fatalf("field names: %s", rec.Body)
 	}
 	e.expect(e.do(userA, "POST", "/api/v1/sync/rows", row("settings", "", "b3RoZXI=")), http.StatusConflict, "exists")

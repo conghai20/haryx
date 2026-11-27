@@ -1,6 +1,6 @@
 # HaryX on WeCoAp SSO, a HaryX API in Vietnam, and the web platform: plan
 
-Status: **approved** (2026-11-26), not started. Prerequisites P1, P3 and P4 are on the owner. Supersedes the backend half of
+Status: **built** (2026-11-27): tasks 1–21 done on `feat/haryx-account`, awaiting the owner's review. Open: Apple sign-in (owner), the first `release-platform.sh` run, and manual runs of both apps. Prerequisites P1, P3 and P4 are done. Supersedes the backend half of
 `haryx-account-plan.md` (Supabase Auth, PostgREST, Storage, Edge Function). The sync engine,
 encryption and merge rules from that plan stay as built.
 

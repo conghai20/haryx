@@ -41,7 +41,8 @@ export async function mapError(res: Response): Promise<ApiError> {
 export function createApi(deps: ApiDeps) {
   const base = deps.baseUrl ?? "/api/v1";
   const doFetch = deps.fetch ?? fetch;
-  return async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  /** `as: "bytes"` reads the body as raw bytes (a profile file) instead of JSON. */
+  return async function request<T>(path: string, init: RequestInit = {}, as: "json" | "bytes" = "json"): Promise<T> {
     let res: Response;
     try {
       const headers = new Headers(init.headers);
@@ -56,6 +57,7 @@ export function createApi(deps: ApiDeps) {
       if (err.kind === "unauthorized") deps.onUnauthorized?.();
       throw err;
     }
-    return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+    if (res.status === 204) return undefined as T;
+    return (as === "bytes" ? new Uint8Array(await res.arrayBuffer()) : await res.json()) as T;
   };
 }

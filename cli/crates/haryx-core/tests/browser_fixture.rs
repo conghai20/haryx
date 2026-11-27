@@ -15,11 +15,16 @@ use base64::engine::general_purpose::STANDARD;
 use haryx_core::contracts::UsageSync;
 use haryx_core::sync::Document;
 use haryx_core::sync::crypto::SyncKey;
+use haryx_core::sync::remote::Row;
 use haryx_core::sync::sources::label;
+use haryx_core::sync::usage;
 use serde_json::{Value, json};
 
 const PASSPHRASE: &str = "correct horse battery staple";
 const PROFILE_NAME: &str = "work";
+const PROFILE_FILE: &str = "{\"profile\":\"work\",\"settings\":{}}";
+/// A second machine whose usage row overlaps the contract's: the web sums them.
+const OTHER_MACHINE: &str = "4c1f7a2e-0b9d-4e3a-9f6b-2d8e1a7c5b30";
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,6 +39,8 @@ struct Fixture {
     check: String,
     row_keys: Vec<RowKey>,
     rows: Vec<FixtureRow>,
+    /// Keys of the `usage` rows `sync::usage::read_all` trusts, in its order: the web must agree.
+    usage_trusted: Vec<String>,
     profile: Profile,
 }
 
@@ -53,7 +60,7 @@ struct FixtureRow {
     /// The exact plaintext the body opens to.
     plain: String,
     /// The plaintext is a `Document` naming this row (false: moved here by the server, or a body
-    /// that is not a `Document`, such as a usage row).
+    /// sealed bare instead of as a `Document`, which no reader trusts).
     names_itself: bool,
 }
 
@@ -70,6 +77,28 @@ struct Profile {
 fn fixture_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../../apps/platform/src/lib/fixtures/sync-fixture.json")
+}
+
+fn usage_body() -> UsageSync {
+    serde_json::from_str(&usage_plain()).unwrap()
+}
+
+/// The contract's body as another machine wrote it: same day, account and model, other counts.
+fn other_machine_usage() -> UsageSync {
+    let mut body = usage_body();
+    body.machine_id = OTHER_MACHINE.to_owned();
+    body.days.truncate(1);
+    let day = &mut body.days[0];
+    (day.replies, day.input, day.output) = (30, 900, 100_000);
+    (day.cache_read, day.cache_write5m, day.cache_write1h) = (2_000_000, 0, 50_000);
+    body.quota[0].at += 1_800;
+    body.quota[0].five_hour_pct = Some(57.0);
+    body.quota[0].seven_day_pct = Some(12.5);
+    body
+}
+
+fn usage_values(body: &UsageSync) -> Value {
+    serde_json::to_value(body).unwrap()
 }
 
 fn usage_plain() -> String {
@@ -185,9 +214,62 @@ fn generate() -> Fixture {
         document("account", &account_key, 2, account),
         false,
     );
+    // Usage rows as `sync::usage::push` writes them: a Document whose values are the body.
+    let ours = usage_body();
+    push(
+        "usage",
+        &usage_key,
+        4,
+        document("usage", &usage_key, 4, usage_values(&ours)),
+        true,
+    );
+    let theirs = other_machine_usage();
+    let theirs_key = key.row_key(&usage::label(&theirs.machine_id, &theirs.month));
+    push(
+        "usage",
+        &theirs_key,
+        1,
+        document("usage", &theirs_key, 1, usage_values(&theirs)),
+        true,
+    );
+    // Names its row, but the body's machine and month derive another key: not trusted.
+    let october = key.row_key(&usage::label(&ours.machine_id, "2026-10"));
+    push(
+        "usage",
+        &october,
+        1,
+        document("usage", &october, 1, usage_values(&theirs)),
+        true,
+    );
+    // A usage-share row (`usage_share::row`): the same kind, keyed per account, not a usage body.
+    let share_key = key.row_key(&label("usage", "you@example.com", "org-1111"));
+    let share = json!({"email": "you@example.com", "org": "org-1111", "fetchedBy": OTHER_MACHINE});
+    push(
+        "usage",
+        &share_key,
+        7,
+        document("usage", &share_key, 7, share),
+        true,
+    );
+    let prefs = json!({
+        "theme": "system",
+        "mascotStyles": {"you@example.com|org-1111": {"species": "cat", "hue": 0.55}},
+    });
+    push(
+        "app-prefs",
+        "",
+        5,
+        document("app-prefs", "", 5, prefs),
+        true,
+    );
+    let entry =
+        json!({"name": PROFILE_NAME, "bytes": PROFILE_FILE.len(), "pushedAt": 1_795_600_800});
+    let index = Value::Object([(key.row_key(&profile_label), entry)].into_iter().collect());
+    push("profiles", "", 2, document("profiles", "", 2, index), true);
 
-    let file = "{\"profile\":\"work\",\"settings\":{}}";
+    let file = PROFILE_FILE;
     let framed = format!("haryx-profile:{PROFILE_NAME}\n{file}");
+    let usage_trusted = trusted_usage(&key, &rows);
     Fixture {
         passphrase: PASSPHRASE.to_owned(),
         secret: key.to_secret(),
@@ -196,6 +278,7 @@ fn generate() -> Fixture {
         check: key.check(),
         row_keys,
         rows,
+        usage_trusted,
         profile: Profile {
             name: PROFILE_NAME.to_owned(),
             object_key: key.row_key(&profile_label),
@@ -203,6 +286,24 @@ fn generate() -> Fixture {
             plain: file.to_owned(),
         },
     }
+}
+
+/// The keys of the usage rows `read_all` trusts, in the order it returns them.
+fn trusted_usage(key: &SyncKey, rows: &[FixtureRow]) -> Vec<String> {
+    let rows: Vec<Row> = rows
+        .iter()
+        .map(|r| Row {
+            kind: r.kind.clone(),
+            key: r.key.clone(),
+            body: r.body.clone(),
+            version: r.version,
+            updated_at: 0,
+        })
+        .collect();
+    usage::read_all(key, &rows)
+        .iter()
+        .map(|body| key.row_key(&usage::label(&body.machine_id, &body.month)))
+        .collect()
 }
 
 fn verify(fx: &Fixture) {
@@ -233,6 +334,12 @@ fn verify(fx: &Fixture) {
     }
     let usage = fx.rows.iter().find(|r| r.kind == "usage").unwrap();
     assert_eq!(usage.plain, usage_plain());
+    assert_eq!(trusted_usage(&key, &fx.rows), fx.usage_trusted);
+    assert_eq!(
+        fx.usage_trusted.len(),
+        2,
+        "both machines' rows, nothing else"
+    );
 
     assert_eq!(
         key.row_key(&format!("profile:{}", fx.profile.name)),

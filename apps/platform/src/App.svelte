@@ -2,17 +2,19 @@
   import { onMount } from "svelte";
   import { auth } from "./lib/auth.svelte";
   import State from "./components/State.svelte";
-  import Placeholder from "./views/Placeholder.svelte";
+  import Accounts from "./views/Accounts.svelte";
+  import Usage from "./views/Usage.svelte";
+  import Profiles from "./views/Profiles.svelte";
   import Privacy from "./views/Privacy.svelte";
   import Machines from "./views/Machines.svelte";
   import SignedOut from "./views/SignedOut.svelte";
 
   const sections = [
-    { id: "machines", label: "Machines", blurb: "Where HaryX is signed in.", task: "task 17" },
-    { id: "accounts", label: "Accounts", blurb: "Your Claude accounts across machines.", task: "task 19" },
-    { id: "usage", label: "Usage", blurb: "Per account, per day, all machines.", task: "task 19" },
-    { id: "profiles", label: "Profiles", blurb: "Synced profile files.", task: "task 19" },
-    { id: "privacy", label: "Privacy center", blurb: "", task: "" },
+    { id: "machines", label: "Machines", blurb: "Where HaryX is signed in." },
+    { id: "accounts", label: "Accounts", blurb: "Your Claude accounts across machines." },
+    { id: "usage", label: "Usage", blurb: "Per account, per day, all machines." },
+    { id: "profiles", label: "Profiles", blurb: "Synced profile files." },
+    { id: "privacy", label: "Privacy center", blurb: "" },
   ] as const;
 
   type Id = (typeof sections)[number]["id"];
@@ -57,8 +59,12 @@
         <Privacy />
       {:else if active.id === "machines"}
         <Machines />
+      {:else if active.id === "accounts"}
+        <Accounts />
+      {:else if active.id === "usage"}
+        <Usage />
       {:else}
-        <Placeholder title={active.label} blurb={active.blurb} task={active.task} />
+        <Profiles />
       {/if}
     </main>
   </div>

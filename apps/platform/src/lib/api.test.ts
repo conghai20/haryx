@@ -18,6 +18,10 @@ describe("api client", () => {
     expect(url).toBe("/api/v1/machines");
     expect(new Headers(init.headers).get("Authorization")).toBe("Bearer tok");
   });
+  it("reads raw bytes when asked", async () => {
+    const { request } = make(new Response(new Uint8Array([0, 1, 255]), { status: 200 }));
+    expect(await request<Uint8Array>("/profiles/ab", {}, "bytes")).toEqual(new Uint8Array([0, 1, 255]));
+  });
   it("returns undefined on 204", async () => {
     expect(await make(reply(204)).request("/x", { method: "DELETE" })).toBeUndefined();
   });

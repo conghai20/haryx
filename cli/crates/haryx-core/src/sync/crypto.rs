@@ -23,6 +23,12 @@ pub const MIN_PASSPHRASE_LEN: usize = 12;
 const HMAC_CONTEXT: &[u8] = b"haryx-sync-row-key-v1";
 /// The row-key label the keyring check is derived from; no row is ever named by it.
 const CHECK_LABEL: &str = "keyring-check";
+/// The scrypt work factor (`log_n`) every keyring is wrapped at. The web app unwraps the same
+/// keyring in the browser: Phase 0 measured 0.6–1.5 s there at 18, 12.7 s in Safari at 20, and
+/// both Chrome and Safari refuse 21. age would otherwise tune it per machine with no ceiling.
+const WRAP_LOG_N: u8 = 18;
+/// The heaviest keyring `unwrap` opens: older ones age tuned to 19 or 20 still open.
+const MAX_UNWRAP_LOG_N: u8 = 20;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Keyring {
@@ -60,7 +66,8 @@ impl SyncKey {
     /// The `keyring` row: the key encrypted with `passphrase` (age scrypt), and its check.
     pub fn wrap(&self, passphrase: &str) -> Result<String, SyncError> {
         check_passphrase(passphrase)?;
-        let recipient = age::scrypt::Recipient::new(SecretString::from(passphrase.to_owned()));
+        let mut recipient = age::scrypt::Recipient::new(SecretString::from(passphrase.to_owned()));
+        recipient.set_work_factor(WRAP_LOG_N);
         let cipher = age::encrypt(&recipient, self.to_secret().as_bytes())
             .map_err(|e| SyncError::Local(format!("could not wrap the sync key: {e}")))?;
         let ring = Keyring {
@@ -70,15 +77,24 @@ impl SyncKey {
         serde_json::to_string(&ring).map_err(|e| SyncError::Local(e.to_string()))
     }
 
-    /// The key from a `keyring` row. A wrong passphrase is [`SyncError::WrongPassphrase`].
+    /// The key from a `keyring` row. A wrong passphrase is [`SyncError::WrongPassphrase`]; a row
+    /// wrapped above [`MAX_UNWRAP_LOG_N`] is refused before any scrypt work is done.
     pub fn unwrap(body: &str, passphrase: &str) -> Result<Self, SyncError> {
         let unreadable = || SyncError::Server("the keyring row is not one this HaryX reads".into());
         let ring: Keyring = serde_json::from_str(body).map_err(|_| unreadable())?;
         let cipher = STANDARD
             .decode(ring.wrapped.trim())
             .map_err(|_| unreadable())?;
-        let identity = age::scrypt::Identity::new(SecretString::from(passphrase.to_owned()));
-        let plain = age::decrypt(&identity, &cipher).map_err(|_| SyncError::WrongPassphrase)?;
+        let mut identity = age::scrypt::Identity::new(SecretString::from(passphrase.to_owned()));
+        identity.set_max_work_factor(MAX_UNWRAP_LOG_N);
+        let plain = age::decrypt(&identity, &cipher).map_err(|e| match e {
+            age::DecryptError::ExcessiveWork { required, .. } => SyncError::Local(format!(
+                "Your sync keyring was locked with a scrypt work factor of {required}, more than \
+                 HaryX opens (up to {MAX_UNWRAP_LOG_N}). On a machine where sync is still \
+                 unlocked, update HaryX and run 'haryx sync passphrase' to lock it again."
+            )),
+            _ => SyncError::WrongPassphrase,
+        })?;
         let text = String::from_utf8(plain).map_err(|_| SyncError::WrongPassphrase)?;
         let key = Self::from_secret(&text)?;
         if key.check() != ring.check {
@@ -171,6 +187,59 @@ mod tests {
             SyncKey::unwrap(&wrapped, "wrong horse battery"),
             Err(SyncError::WrongPassphrase)
         ));
+    }
+
+    /// The scrypt `log_n` in a keyring row's age header.
+    fn header_log_n(body: &str) -> u8 {
+        let ring: Keyring = serde_json::from_str(body).unwrap();
+        let cipher = STANDARD.decode(ring.wrapped).unwrap();
+        let text = String::from_utf8_lossy(&cipher);
+        let line = text.lines().find(|l| l.starts_with("-> scrypt ")).unwrap();
+        line.rsplit(' ').next().unwrap().parse().unwrap()
+    }
+
+    /// A keyring row whose header claims `log_n`, wrapped at 2 so no test pays for real scrypt
+    /// work. age checks the work factor before deriving anything, so the claim is all it reads.
+    fn keyring_claiming(key: &SyncKey, log_n: u8) -> String {
+        let mut recipient = age::scrypt::Recipient::new(SecretString::from(PASS.to_owned()));
+        recipient.set_work_factor(2);
+        let cipher = age::encrypt(&recipient, key.to_secret().as_bytes()).unwrap();
+        let mut text = cipher;
+        let at = text.windows(10).position(|w| w == b"-> scrypt ").unwrap();
+        let end = at + text[at..].iter().position(|&b| b == b'\n').unwrap();
+        assert_eq!(&text[end - 2..end], b" 2");
+        text.splice(end - 1..end, log_n.to_string().into_bytes());
+        serde_json::to_string(&Keyring {
+            wrapped: STANDARD.encode(text),
+            check: key.check(),
+        })
+        .unwrap()
+    }
+
+    #[test]
+    fn wrap_pins_the_work_factor_at_18() {
+        let wrapped = SyncKey::generate().wrap(PASS).unwrap();
+        assert_eq!(header_log_n(&wrapped), 18);
+    }
+
+    #[test]
+    fn a_keyring_above_20_is_refused_and_one_at_or_below_still_opens() {
+        let key = SyncKey::generate();
+        let cheap = keyring_claiming(&key, 2);
+        assert_eq!(header_log_n(&cheap), 2);
+        let back = SyncKey::unwrap(&cheap, PASS).unwrap();
+        assert_eq!(back.to_secret(), key.to_secret());
+
+        let heavy = keyring_claiming(&key, 21);
+        assert_eq!(header_log_n(&heavy), 21);
+        match SyncKey::unwrap(&heavy, PASS) {
+            Err(SyncError::Local(msg)) => {
+                assert!(msg.contains("21"), "{msg}");
+                assert!(msg.contains("haryx sync passphrase"), "{msg}");
+            }
+            Err(other) => panic!("expected the work-factor refusal, got {other}"),
+            Ok(_) => panic!("a log_n 21 keyring was opened"),
+        }
     }
 
     #[test]

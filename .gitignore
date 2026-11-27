@@ -13,4 +13,5 @@ packaging/pypi/dist/
 
 # deploy/: secrets and local backups never go in git
 deploy/.env
+deploy/.env.e2e
 deploy/backups/

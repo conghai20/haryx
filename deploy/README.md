@@ -37,6 +37,10 @@ out with the user's own token, through Keycloak's account API (plan A7).
 
 - **Login**: *Verify email* on.
 - **Security defenses → Brute force detection**: *Lockout temporarily*, defaults.
+- **Delete account** (plan A10, for every WeCoAp product): **Authentication → Required actions →
+  Delete Account** enabled, then **Realm settings → User registration → Default roles → Assign
+  role → filter by clients → `account`**: `delete-account`. The account page then shows *Delete
+  account*. HaryX links there and has no delete of its own.
 - **Email**: host `mail.wecoap.com`, port `587`, from `no-reply@wecoap.com`, from display name
   `WeCoAp`, reply to and envelope from `no-reply@wecoap.com`, *Enable StartTLS* on, *Enable SSL*
   off, *Authentication* on with the `no-reply@wecoap.com` mailbox. **Test connection.** If another

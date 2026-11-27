@@ -78,7 +78,9 @@ Defaults this plan takes (change any before approval):
 7. **Export / delete account** (Privacy center or the CLI).
    - Export downloads one JSON file: the Keycloak profile, consents and their history, machines,
      and the ciphertext rows.
-   - Delete removes the HaryX data first and then the Keycloak user.
+   - Delete account opens the WeCoAp account page (`https://sso.wecoap.com/realms/wecoap/account/`),
+     where WeCoAp SSO deletes the WeCoAp ID. HaryX has no delete endpoint of its own (A10). To
+     erase HaryX data and keep the WeCoAp ID, the user withdraws both consents.
 
 When something fails:
 - **SSO down:** "Can't reach WeCoAp sign-in". Local features keep working.
@@ -115,8 +117,9 @@ each other:
 - **The realm's Terms and Privacy are the WeCoAp umbrella.** Each product asks for its own purposes
   and stores them itself, as HaryX does with `sync` and `machines`. A product never adds realm-wide
   consent attributes for its own purposes.
-- **Realm-admin belongs to the owner alone.** Each product's service account gets only the
-  `realm-management` roles it needs, and can't touch other products' clients.
+- **Realm-admin belongs to the owner alone.** Products get no Keycloak admin access: no service
+  account and no secret (A7). A product acts on a user's account only with that user's own token,
+  through Keycloak's account API.
 - **One theme, branded per product if needed**: `wecoap` is the realm default, and a client can set
   its own login theme.
 - **Client ids are prefixed with the product** (`haryx-*`, `aronion-*`), so the admin console and
@@ -169,7 +172,7 @@ The HaryX setup:
 | `PUT /api/v1/machines/self` | Register or heartbeat `{machine_id,name,os,version}`; needs the `machines` consent | — |
 | `GET /api/v1/machines` · `PATCH /api/v1/machines/{id}` `{name}` | List, rename | — |
 | `DELETE /api/v1/machines/{id}/session` | Sign out, step 2. The web has already ended the machine's session with the user's own token (`DELETE /realms/wecoap/account/sessions/{sid}`); the API checks the `sid` is one of the caller's machines, drops the machine and puts the `sid` into `revoked_sessions` | — |
-| `GET /api/v1/me/export` · `DELETE /api/v1/me` | Data-subject access, and erasure of **HaryX data only**. The WeCoAp ID is shared with AR Onion, so deleting it stays on the WeCoAp account page, which the web links to | `delete-account` function |
+| `GET /api/v1/me/export` | Data-subject access. There is no `DELETE /api/v1/me`: deleting the account is WeCoAp SSO's, on its account page (A10) | `delete-account` function |
 | `GET /api/v1/health` | Liveness, no auth | `ping()` |
 
 - Sync and profile endpoints answer **403 `consent_required`** without the `sync` consent.
@@ -194,7 +197,8 @@ create table revoked_sessions (session_id text primary key, until timestamptz);
 ```
 
 `consent_events` survive the deletion of the data they cover, as proof of the withdrawal. They are
-deleted only with the account. Retention is stated in the privacy policy.
+deleted only with the account, by the cleanup of deleted WeCoAp IDs (A10, open). Retention is
+stated in the privacy policy.
 
 ### CLI (`cli/`)
 
@@ -255,8 +259,9 @@ The same changes on both, as `CLAUDE.md` requires:
   - Accounts: alias, email, priority, mascot, which machines are signed in.
   - Usage: per account per day, all machines combined, with 5h/7d readings.
   - Profiles: list, download.
-  - Privacy center: consents with their history, grant and withdraw, export, delete account, and a
-    link to the WeCoAp account console for password, linked identities and sessions.
+  - Privacy center: consents with their history, grant and withdraw, export, and a link to the
+    WeCoAp account console for password, linked identities, sessions and deleting the account
+    (A10).
 - **Every section's states**: loading (skeleton), empty, error, signed out, locked, consent
   missing, success.
 - **Trust boundary**:
@@ -307,7 +312,8 @@ I'm not a lawyer. This lists what the code and docs must provide, and the legal 
 - [ ] **Data-subject rights**:
   - Access and export: `/me/export`.
   - Correction: the Keycloak account console.
-  - Erasure: `/me` delete, and withdrawal per purpose.
+  - Erasure: the WeCoAp account page deletes the account (A10); withdrawal per purpose erases
+    HaryX data and keeps the account.
   - Restriction: withdrawal.
   - Each one reachable from the web and the CLI.
 - [ ] **Data residency**: all storage and backups in Vietnam, and mail through the self-hosted
@@ -429,13 +435,27 @@ Unlock time by scrypt work factor (`log_n`):
   reset the password of any user in the shared realm, AR Onion's included. Tested instead: the
   user's own `haryx-platform` token, with `manage-account`, lists their sessions and ends one CLI
   machine's offline session through the account API, while their other machines keep working.
-  So the web does step 1 of a sign-out itself, the API only revokes the `sid` (task 8), and
-  "delete account" in HaryX erases HaryX data; the WeCoAp ID is deleted on the WeCoAp account page.
+  So the web does step 1 of a sign-out itself, and the API only revokes the `sid` (task 8).
 - **A8, production realm by hand.** The owner configures the live realm in the admin console from
   `deploy/README.md`; scripts only ever run against a local Keycloak.
 - **A9, `trustEmail` off on every identity provider** (security review). With it on, Keycloak's
   first-broker-login links a social sign-in to an existing account with the same email without
   that account proving it owns the address.
+- **A10, deleting the account belongs to WeCoAp SSO** (owner, 2026-11-27). There is no
+  `DELETE /api/v1/me` and no `haryx account delete`. The web's Privacy center and the apps link to
+  the WeCoAp account page, whose *Delete account* needs the realm's *Delete Account* required
+  action and the `account` role `delete-account` in the default roles (`deploy/README.md`). That
+  deletes the WeCoAp ID for every WeCoAp product, AR Onion included. Erasing only HaryX data is
+  withdrawing both consents.
+  - **Open, before release: HaryX is never told that a WeCoAp ID was deleted.** The realm's only
+    event listener is `jboss-logging`, and HaryX has no admin access to read `DELETE_ACCOUNT`
+    events. Until something closes this, the deleted user's HaryX rows and `consent_events` stay
+    on the server, which Law 91 erasure does not allow. Two ways, the owner's choice:
+    1. **WeCoAp SSO tells the products**: an event listener in `wecoap-sso` that, on
+       `DELETE_ACCOUNT`, calls each product's signed webhook (`POST /api/v1/hooks/account-deleted`).
+       Immediate, and the same for AR Onion.
+    2. **HaryX expires inactive users**: a `last_seen` per user, and everything deleted after N
+       months with no request. N goes in the privacy policy. It works alone, but erasure is late.
 
 ## Tasks
 
@@ -457,7 +477,7 @@ Tags: dependency, then model. Each task is one commit in one area.
 | 5 | `server/api` skeleton: config, JWKS verification, revoked-session check, pgx, embedded migrations, health | independent · opus | A table test per claim: wrong `iss`, `aud`, `azp`, expired, revoked `sid`, `alg=none`, unknown `kid` |
 | 6 | Sync rows and profile files with today's versioned semantics and limits | depends 5 · opus | Ports of the pgTAP checks as Go integration tests against compose Postgres: user A never reads or writes user B; 409/412 paths; size and count caps |
 | 7 | Consents: grant, withdraw with deletion in one transaction, `consent_required` gating | depends 5, 6 · opus | Withdrawing sync leaves zero rows and profiles and one `withdraw` event; gated endpoints answer 403 |
-| 8 | Machines, remote sign-out (the web ends the session with the user's token, the API revokes the `sid`), export, delete of HaryX data | depends 5, 7 · opus | A `sid` that is not one of the caller's machines is refused; sign-out revokes only that `sid`; export holds every table; delete leaves no HaryX row for the user and makes no Keycloak call |
+| 8 | Machines, remote sign-out (the web ends the session with the user's token, the API revokes the `sid`), export | depends 5, 7 · opus | A `sid` that is not one of the caller's machines is refused; sign-out revokes only that `sid`; export holds every table |
 
 ### Phase 3: CLI
 

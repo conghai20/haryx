@@ -96,12 +96,12 @@ out with the user's own token, through Keycloak's account API (plan A7).
     *Sign in with Apple for Email Communication*, register `wecoap.com` and `no-reply@wecoap.com`,
     or mail never reaches private-relay addresses.
 
-### Test realm `haryx-test`, for the end-to-end test
+### Test realm `wecoap-test`, for the end-to-end test
 
 A second realm on the same Keycloak, so the E2E (plan task 13) signs in for real without touching
 `wecoap` or its users. By hand, like the rest:
 
-1. **Create realm** `haryx-test`. **Realm settings → Login**: *User registration* off, *Verify
+1. **Create realm** `wecoap-test`. **Realm settings → Login**: *User registration* off, *Verify
    email* **off** (no mail is sent; the users below are verified by hand). **Security defenses →
    Brute force detection**: **off**, so repeated scripted sign-ins never lock a user. Themes: leave
    the default; the script reads Keycloak's own login form.
@@ -116,7 +116,7 @@ A second realm on the same Keycloak, so the E2E (plan task 13) signs in for real
 5. Put the details in **`deploy/.env.e2e`** (never committed), not in chat:
 
    ```
-   HARYX_E2E_ISSUER=https://sso.wecoap.com/realms/haryx-test
+   HARYX_E2E_ISSUER=https://sso.wecoap.com/realms/wecoap-test
    HARYX_E2E_USER_A=e2e-a
    HARYX_E2E_PASSWORD_A=…
    HARYX_E2E_USER_B=e2e-b

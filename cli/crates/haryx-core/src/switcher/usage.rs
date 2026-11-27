@@ -8,7 +8,7 @@
 //! with no store lock held, and a failure only updates backoff fields, so the last good reading keeps
 //! being served. Collection never fails outward: a failure becomes a state.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::time::Duration;
 
 use log::{debug, warn};
@@ -224,6 +224,23 @@ impl Switcher {
 
     pub fn clear_poll_policy_inputs(&self) {
         self.with_state(|s| s.poll_inputs_override = None);
+    }
+
+    /// The share with this user's other machines, when the setting allows it. Never built under
+    /// `cfg(test)` (it would reach the real Keychain session): tests inject one.
+    pub(crate) fn usage_share(&self) -> Option<&crate::usage_share::UsageShare> {
+        if !self.usage_settings().share_between_machines {
+            return None;
+        }
+        self.usage_share
+            .get_or_init(|| {
+                if cfg!(test) {
+                    None
+                } else {
+                    Some(crate::usage_share::UsageShare::for_store(&self.backup_dir))
+                }
+            })
+            .as_ref()
     }
 
     fn usage_settings(&self) -> UsageSettings {
@@ -464,14 +481,40 @@ impl Switcher {
             .filter(|n| !sentinels.contains_key(*n) && fetch.is_none_or(|f| f.contains(*n)))
             .cloned()
             .collect();
-        let claims = match fetch {
-            None => store.reserve(&requested, &identities, true, true),
-            Some(_) => store.reserve(&requested, &identities, false, scheduled),
-        }
-        .unwrap_or_else(|err| {
-            debug!("usage reserve failed: {err}");
-            BTreeMap::new()
+        // On-demand callers respect stored plans; the auto engine passes its own set.
+        let respect_plans = fetch.is_none();
+        let repair_overslept = fetch.is_none() || scheduled;
+        let active: BTreeSet<String> = by_num
+            .iter()
+            .filter(|(_, info)| info.is_active)
+            .map(|(num, _)| num.clone())
+            .collect();
+        // Ask the other machines only when something here would be fetched.
+        let mut pass = self.usage_share().and_then(|share| {
+            if !store.any_eligible(&requested, &identities, respect_plans, repair_overslept) {
+                return None;
+            }
+            let pass = share.pull(store, &identities);
+            entries = store.entries(&identities, &models);
+            pass
         });
+        let mut claims = store
+            .reserve(&requested, &identities, respect_plans, repair_overslept)
+            .unwrap_or_else(|err| {
+                debug!("usage reserve failed: {err}");
+                BTreeMap::new()
+            });
+        if let Some(pass) = pass.as_mut() {
+            let lost = pass.claim(store, &claims, &identities, &active);
+            if !lost.is_empty() {
+                if let Err(err) = store.release(&lost, &identities) {
+                    debug!("usage release failed: {err}");
+                }
+                claims.retain(|num, _| !lost.contains_key(num));
+                entries = store.entries(&identities, &models);
+            }
+        }
+        let coordinated = pass.as_ref().is_some_and(|p| !p.degraded());
         let now = store.now();
         for (num, info) in &by_num {
             if sentinels.contains_key(num) || !info.is_active || claims.contains_key(num) {
@@ -487,6 +530,7 @@ impl Switcher {
             }
         }
 
+        let mut shared = BTreeSet::new();
         if !claims.is_empty() {
             let pre = entries.clone();
             let targets: Vec<&AccountInfo> = claims
@@ -494,13 +538,14 @@ impl Switcher {
                 .filter_map(|n| by_num.get(n).copied())
                 .collect();
             let records = self.run_usage_fetches(&targets, &pre);
-            let plans = self.plans_after_fetch(&records, &pre, &by_num);
+            let plans = self.plans_after_fetch(&records, &pre, &by_num, coordinated);
             let accepted = store
                 .record(&records, &identities, Some(&claims), Some(&plans))
                 .unwrap_or_else(|err| {
                     debug!("usage record failed: {err}");
                     Default::default()
                 });
+            shared.clone_from(&accepted);
             for num in &accepted {
                 if let Some(sentinel) = records.get(num).and_then(|r| r.sentinel.clone()) {
                     sentinels.insert(num.clone(), sentinel);
@@ -514,6 +559,10 @@ impl Switcher {
                     sentinels.insert(num.clone(), USAGE_RELOGIN_REQUIRED.to_owned());
                 }
             }
+        }
+        if let Some(pass) = pass.as_mut() {
+            pass.push(store, &shared, &identities, &active);
+            entries = store.entries(&identities, &models);
         }
         by_num
             .keys()
@@ -583,6 +632,7 @@ impl Switcher {
         records: &BTreeMap<String, FetchRecord>,
         pre: &BTreeMap<String, UsageEntry>,
         by_num: &BTreeMap<String, &AccountInfo>,
+        coordinated: bool,
     ) -> BTreeMap<String, PollPlan> {
         let now = self.usage_store.now();
         let (threshold, weekly_threshold, models) = self.poll_policy_inputs();
@@ -595,7 +645,9 @@ impl Switcher {
                     prev_interval_s: before.and_then(|b| b.poll_interval_s),
                     prev_usage: before.and_then(|b| b.last_good.as_ref()),
                     new_usage: rec.usage.as_ref(),
-                    is_active: by_num.get(num).is_some_and(|i| i.is_active),
+                    // Active on any machine sharing usage counts: the schedule is shared.
+                    is_active: by_num.get(num).is_some_and(|i| i.is_active)
+                        || before.is_some_and(|b| b.active_elsewhere(now)),
                     threshold,
                     weekly_threshold,
                     models: &models,
@@ -603,6 +655,14 @@ impl Switcher {
                     now,
                 };
                 let (next, interval) = poll_policy::plan_after_fetch_random(&input);
+                // Not coordinated with the machines this account's ledger saw: poll that much
+                // less often, so together they stay inside the one budget.
+                let peers = if coordinated {
+                    0
+                } else {
+                    before.map_or(0, |b| b.peers_seen)
+                };
+                let (next, interval) = poll_policy::spread_for_peers(next, interval, now, peers);
                 (num.clone(), (Some(next), Some(interval)))
             })
             .collect()

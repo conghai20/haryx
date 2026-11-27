@@ -6,7 +6,8 @@
 |---|---|---|
 | `apps/macos/` | HaryX macOS app (SwiftUI menu bar + dashboard) | shipping |
 | `cli/` | `haryx` Rust CLI, drop-in replacement for `cswap`; owns accounts and credentials on the device | in progress |
-| `server/` | HaryX server: sync, team view, API for web and mobile (Go) | future |
+| `server/supabase/` | HaryX account and encrypted sync: Supabase project (migrations, Edge Function, pgTAP) | built; hosted deploy pending |
+| `server/` (Go) | team view, API for web and mobile | future |
 | `apps/windows/` | HaryX Windows tray app (Tauri 2 + Svelte 5), plan in `docs/windows-app-plan.md` | built, untested on hardware |
 | `packages/mascots/` | mascot sprites exported from the macOS app for the Windows app | active |
 | `apps/web/` | web dashboard | future |
@@ -20,8 +21,11 @@
 Folders for future parts are created only when that work starts.
 
 ### Rules
-- **Credentials stay on the device.** The CLI owns accounts and tokens. The server only ever receives metadata
-  (usage, session status). Web and mobile can display and request; they never hold credentials.
+- **Credentials stay on the device.** The CLI owns accounts and tokens. Claude browser logins never leave the
+  machine. Sync carries API keys and setup tokens only end-to-end encrypted, to the same user's other
+  machines; the server stores ciphertext and opaque keys. Web and mobile can display and request; they never
+  hold credentials.
+- **The apps never hold a HaryX token or the sync key.** They run the CLI and read its JSON.
 - **Contracts first.** A new data shape lands in `packages/contracts/` before code uses it.
 - **One design-token source** generated for every platform.
 

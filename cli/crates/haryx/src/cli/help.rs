@@ -56,6 +56,11 @@ Sections:
 
 Commands:
   {prog} help             show this help
+  {prog} login            sign this machine in to your HaryX account
+  {prog} logout           sign this machine out of HaryX
+  {prog} whoami           show the HaryX account this machine uses
+  {prog} sync             sync settings and accounts between your machines
+  {prog} account delete   delete your HaryX account and everything synced
   {prog} upgrade          self-upgrade to latest
 
 Aliases: update=upgrade. Bare '{prog}' in a terminal opens the AI dashboard ('{ai} tui').")
@@ -88,6 +93,9 @@ Commands:
   {ai} threshold                  list the global default and overrides
   {ai} priority <num|email> <tier>  set priority (higher first; default 0)
   {ai} priority                   list account priorities
+  {ai} group <num|email> <name>   add an account to a group (it can be in several)
+  {ai} group <num|email> --remove <name>  take it out of that group
+  {ai} group                      list groups
   {ai} run <num|email> [-- ...]   run as an account, this terminal only
   {ai} run                        run the current dir's mapped account
   {ai} map <num|email> [path]     map a directory to an account
@@ -184,6 +192,18 @@ pub fn alias_epilog() -> String {
   {ai} alias user@example.com dev
   {ai} alias 2 --unset
   {ai} alias                         # list all aliases")
+}
+
+pub fn group_epilog() -> String {
+    p("Examples:
+  {ai} group 2 \"Client A\"         # add Account 2 to 'Client A'
+  {ai} group 2 Work                # ...and to 'Work': an account can be in several
+  {ai} group dev work              # 'work' joins an existing 'Work'
+  {ai} group 2 --remove \"Client A\" # leave one group, keep the others
+  {ai} group 2 --unset             # leave every group
+  {ai} group --rename Work Office  # rename a group on every account in it
+  {ai} group --delete \"Client A\"  # every account leaves it; the accounts stay
+  {ai} group                       # list groups and their accounts")
 }
 
 pub fn threshold_epilog() -> String {

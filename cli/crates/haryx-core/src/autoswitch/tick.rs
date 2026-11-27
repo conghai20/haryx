@@ -282,6 +282,8 @@ impl AutoSwitchEngine<'_> {
         {
             ordered = api_key_candidates;
         }
+        // Each qualifying account in the active account's group before any outside it.
+        let ordered = self.switcher.same_group_first(&current, ordered);
         if ordered.is_empty() {
             return Ok(self.nothing_qualifies(
                 trigger,

@@ -291,7 +291,8 @@ fn usage_settings() {
         load_usage_settings(dir.path()),
         UsageSettings {
             header_probe: true,
-            fable_probe: false
+            fable_probe: false,
+            share_between_machines: true,
         }
     );
 
@@ -307,7 +308,8 @@ fn usage_settings() {
         load_usage_settings(dir.path()),
         UsageSettings {
             header_probe: true,
-            fable_probe: true
+            fable_probe: true,
+            share_between_machines: true,
         }
     );
     assert!(unset_setting(dir.path(), "usage.fableProbe").unwrap());
@@ -341,7 +343,7 @@ fn history_settings_round_trip_and_fall_back() {
 #[test]
 fn registry_defaults_match_the_structs() {
     let keys: Vec<String> = SETTING_SPECS.iter().map(SettingSpec::dotted).collect();
-    assert_eq!(keys.len(), 18);
+    assert_eq!(keys.len(), 19);
     let defaults: Vec<(String, SettingValue)> = SETTING_SPECS
         .iter()
         .map(|spec| (spec.dotted(), spec.default()))
@@ -365,6 +367,7 @@ fn registry_defaults_match_the_structs() {
         ("updates.check", SettingValue::Bool(true)),
         ("usage.headerProbe", SettingValue::Bool(false)),
         ("usage.fableProbe", SettingValue::Bool(false)),
+        ("usage.shareBetweenMachines", SettingValue::Bool(true)),
         ("history.enabled", SettingValue::Bool(true)),
         ("history.import", SettingValue::Str("ask".into())),
         ("history.keepDays", SettingValue::Int(90)),

@@ -113,6 +113,33 @@ pub fn prune(dir: &Path, cutoff: i64) {
     );
 }
 
+/// How far back [`weekly_burn_per_s`] looks: recent enough to follow a change of habit, long
+/// enough to span a night.
+pub const BURN_WINDOW_S: i64 = 72 * 3600;
+/// A shorter record than this says nothing about a rate.
+pub const BURN_MIN_SPAN_S: i64 = 6 * 3600;
+
+/// The whole fleet's weekly use per second over the last [`BURN_WINDOW_S`], in % of one account's
+/// week: every rise of each account's weekly %, a fall counted as a reset (its new % is all new
+/// use). `None` when the readings span less than [`BURN_MIN_SPAN_S`] of that window.
+pub fn weekly_burn_per_s(readings: &[Reading], now: i64) -> Option<f64> {
+    let since = now - BURN_WINDOW_S;
+    let weekly: Vec<&Reading> = readings.iter().filter(|r| r.seven_day.is_some()).collect();
+    let first = weekly.first()?.at;
+    let mut last: HashMap<i64, f64> = HashMap::new();
+    let mut used = 0.0;
+    for r in &weekly {
+        let pct = r.seven_day.unwrap_or_default();
+        if let Some(prev) = last.insert(r.account, pct)
+            && r.at >= since
+        {
+            used += if pct >= prev { pct - prev } else { pct };
+        }
+    }
+    let span = now - first.max(since);
+    (span >= BURN_MIN_SPAN_S).then(|| used / span as f64)
+}
+
 /// How many times each account reached its limit (a reading at 100% after one below it).
 pub fn exhaustions(readings: &[Reading], since: i64) -> HashMap<i64, u32> {
     let mut last_full: HashMap<i64, bool> = HashMap::new();
@@ -164,6 +191,37 @@ mod tests {
         ];
         assert_eq!(exhaustions(&readings, 0).get(&1), Some(&2));
         assert_eq!(exhaustions(&readings, 45).get(&1), Some(&1));
+    }
+
+    fn weekly(at: i64, account: i64, pct: f64) -> Reading {
+        Reading {
+            at,
+            account,
+            five_hour: None,
+            seven_day: Some(pct),
+        }
+    }
+
+    #[test]
+    fn burn_sums_rises_and_counts_a_reset_as_new_use() {
+        let h = 3600;
+        let now = 100 * h;
+        let readings = [
+            weekly(now - 10 * h, 1, 50.0),
+            weekly(now - 5 * h, 1, 60.0),
+            weekly(now - 4 * h, 2, 90.0),
+            weekly(now - 2 * h, 2, 5.0),
+        ];
+        let burn = weekly_burn_per_s(&readings, now).unwrap();
+        assert!((burn * 3600.0 - 1.5).abs() < 1e-9, "{burn}");
+    }
+
+    #[test]
+    fn burn_needs_a_long_enough_record() {
+        let h = 3600;
+        let readings = [weekly(97 * h, 1, 10.0), weekly(99 * h, 1, 20.0)];
+        assert_eq!(weekly_burn_per_s(&readings, 100 * h), None);
+        assert_eq!(weekly_burn_per_s(&[], 100 * h), None);
 
         let tmp = tempfile::TempDir::new().unwrap();
         let (a, b) = (row(100.0, 20.0), row(200.0, 30.0));

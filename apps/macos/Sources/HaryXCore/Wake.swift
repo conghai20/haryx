@@ -30,7 +30,10 @@ public struct WakeStatus: Decodable, Sendable, Hashable {
         if code == "woke" { return "Woke" }
         if code == "not-due" { return "Not due" }
         let parts = code.split(separator: ":", maxSplits: 1)
-        let reason = parts.count > 1 ? parts[1].replacingOccurrences(of: "-", with: " ") : ""
+        // "disabled" means the account is held out of rotation (Off), not that wake is off for it.
+        let reason = parts.count > 1
+            ? (parts[1] == "disabled" ? "account is off" : parts[1].replacingOccurrences(of: "-", with: " "))
+            : ""
         switch parts.first {
         case "skip": return "Skipped: \(reason)"
         case "failed": return "Failed: \(reason)"

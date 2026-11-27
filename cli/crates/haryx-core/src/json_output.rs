@@ -422,11 +422,15 @@ pub struct AccountRowInput<'a> {
     pub usage_entry: Option<Decision<'a>>,
     pub usage_fetched_at: Option<f64>,
     pub usage_age_s: Option<f64>,
+    /// The reading was taken by another of the user's machines (`crate::usage_share`).
+    pub usage_from_other_machine: bool,
     pub last_good_usage: Option<&'a Value>,
     pub last_error: Option<&'a str>,
     /// The live backoff only; a lapsed one is the caller's to withhold.
     pub backoff_until: Option<f64>,
     pub alias: &'a str,
+    /// The account's groups as stored, in order; empty when it has none.
+    pub groups: &'a [String],
     pub disabled: bool,
     pub policy: AccountPolicy,
     pub login_expires_at: Option<&'a str>,
@@ -450,6 +454,11 @@ pub fn account_row(input: &AccountRowInput<'_>) -> Value {
     if !input.alias.is_empty() {
         row.insert("alias".into(), input.alias.into());
     }
+    // `group` (the first group) predates `groups` and stays for older readers.
+    if let Some(first) = input.groups.first() {
+        row.insert("group".into(), first.as_str().into());
+        row.insert("groups".into(), json!(input.groups));
+    }
     if input.disabled {
         row.insert("disabled".into(), json!(true));
     }
@@ -461,6 +470,9 @@ pub fn account_row(input: &AccountRowInput<'_>) -> Value {
     }
     if let Some(plan) = input.subscription_plan.filter(|p| !p.is_null()) {
         row.insert("plan".into(), subscription_plan_fields(plan));
+    }
+    if input.usage_from_other_machine && input.usage_fetched_at.is_some() {
+        row.insert("usageFromOtherMachine".into(), json!(true));
     }
     if has_usage {
         row.extend(usage_freshness_fields(

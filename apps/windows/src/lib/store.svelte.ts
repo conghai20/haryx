@@ -3,9 +3,12 @@
 
 import { listen } from "@tauri-apps/api/event";
 import { api } from "./api";
+import { groupOrdered } from "./groups";
 import { stuckSessions } from "./handoff";
 import { SPECIES, identityKey, mood, resolve, type Mood, type Style } from "./mascot";
+import { describeError } from "./errors";
 import { ordered } from "./tide";
+import type { QuotaReport } from "./usage";
 import type { Account, AccountList, AutoEvent, ClaudeSetup, Mapping, MascotStyle, Prefs, SessionList, Snapshot, UpdateInfo } from "./types";
 
 const AUTO_LOG_MAX = 200;
@@ -24,20 +27,23 @@ class Store {
   update = $state<UpdateInfo | null>(null);
   /** `haryx ai doctor`: null until read. */
   claudeSetup = $state<ClaudeSetup | null>(null);
-  /** Default-profile sessions an auto-switch left on their old account: pid → that account. */
-  leftBehind = $state<Record<number, number>>({});
   /** Folders `haryx map` ties to an account, sorted by path. */
   mappings = $state<Mapping[]>([]);
   /** An account the dashboard should select (the flyout's Info); Accounts takes and clears it. */
   revealSlot = $state<number | null>(null);
   busy = $state<string | null>(null);
-  message = $state<{ text: string; error: boolean } | null>(null);
+  /** The banner: a success line clears itself; an error stays until it is dismissed or replaced. */
+  message = $state<{ text: string; error: boolean; detail?: string } | null>(null);
   now = $state(Date.now());
+  /** Each account's weekly readings over the last 7 days ([epoch s, %]), for its Week Tide. Kept only
+   *  while usage history is on; empty otherwise, and the tide draws its average instead. */
+  weekReadings = $state<Record<number, [number, number][]>>({});
 
   accounts = $derived<Account[]>(ordered(this.list?.accounts ?? []));
   active = $derived<Account | null>(this.accounts.find((a) => a.active) ?? null);
-  others = $derived<Account[]>(this.accounts.filter((a) => !a.active));
-  stuck = $derived(stuckSessions(this.sessions.sessions, this.accounts, this.leftBehind));
+  /** The other accounts clustered by group, the active account's first, as the CLI's automatic picks prefer it. */
+  others = $derived<Account[]>(groupOrdered(this.accounts.filter((a) => !a.active), this.active));
+  stuck = $derived(stuckSessions(this.sessions.sessions, this.accounts));
   /** Every account's mascot, by identity key: the same resolution the tray uses. */
   mascots = $derived<Record<string, Style>>(
     resolve(this.prefs?.mascotStyles ?? {}, this.accounts.map(identityKey)),
@@ -52,22 +58,20 @@ class Store {
     this.apply(await api.snapshot());
     void this.checkClaudeSetup();
     void this.loadMappings();
+    void this.loadWeekReadings();
     await listen<{ list: AccountList | null; error: string | null }>("accounts", (e) => {
       if (e.payload.list) this.list = e.payload.list;
       this.error = e.payload.error;
       this.now = Date.now();
       // Every haryx command refreshes the accounts, so a map or unmap made elsewhere shows up too.
       void this.loadMappings();
+      void this.loadWeekReadings();
     });
     await listen<SessionList>("sessions", (e) => {
       this.sessions = e.payload;
-      const alive = new Set(e.payload.sessions.map((s) => s.pid));
-      const kept = Object.entries(this.leftBehind).filter(([pid]) => alive.has(Number(pid)));
-      if (kept.length !== Object.keys(this.leftBehind).length) this.leftBehind = Object.fromEntries(kept);
     });
     await listen<AutoEvent>("auto-event", (e) => {
       this.autoLog = [...this.autoLog, e.payload].slice(-AUTO_LOG_MAX);
-      if (e.payload.kind === "switch") this.noteSwitch(e.payload.fromAccount ?? this.active?.number ?? null);
       if (e.payload.kind === "started") this.autoRunning = true;
       if (e.payload.kind === "stopped" || (e.payload.kind === "error" && e.payload.notificationTitle === "Auto-switch stopped"))
         this.autoRunning = false;
@@ -86,11 +90,26 @@ class Store {
     }
   }
 
+  /** `haryx ai usage quota --since 7d`: a file read. A failed read keeps the last readings. */
+  async loadWeekReadings() {
+    try {
+      const quota = await api.json<QuotaReport>(["ai", "usage", "quota", "--since", "7d", "--json"]);
+      const byAccount: Record<number, [number, number][]> = {};
+      for (const r of quota.readings) {
+        if (r.sevenDay == null) continue;
+        (byAccount[r.account] ??= []).push([r.at, r.sevenDay]);
+      }
+      this.weekReadings = byAccount;
+    } catch {
+      // An older haryx without `ai usage`: the tides draw averages.
+    }
+  }
+
   async loadMappings() {
     try {
       this.mappings = await api.mappings();
     } catch (e) {
-      this.flash(String(e), true);
+      this.fail(e, "Couldn't read folder mappings");
     }
   }
 
@@ -116,18 +135,23 @@ class Store {
     this.apply(await api.snapshot());
   }
 
-  /** On an auto-switch, remember which default-profile sessions still hold the old account. */
-  noteSwitch(from: number | null) {
-    if (from == null) return;
-    const left = this.sessions.sessions.filter((s) => s.profile === "default" && s.account === from);
-    if (left.length === 0) return;
-    this.leftBehind = { ...this.leftBehind, ...Object.fromEntries(left.map((s) => [s.pid, from])) };
+  /** Show a line in the banner. Success lines clear after a few seconds; errors stay until dismissed. */
+  flash(text: string, error = false, detail?: string) {
+    this.message = { text, error, detail };
+    if (this.#flashTimer) clearTimeout(this.#flashTimer);
+    this.#flashTimer = error ? null : setTimeout(() => (this.message = null), FLASH_MS);
   }
 
-  flash(text: string, error = false) {
-    this.message = { text, error };
+  /** Show what failed in plain words; the raw error goes in the banner's detail. */
+  fail(e: unknown, what?: string) {
+    const { text, detail } = describeError(e, what);
+    this.flash(text, true, detail);
+  }
+
+  dismiss() {
     if (this.#flashTimer) clearTimeout(this.#flashTimer);
-    this.#flashTimer = setTimeout(() => (this.message = null), FLASH_MS);
+    this.#flashTimer = null;
+    this.message = null;
   }
 
   /** Run a haryx command with a busy label; flash the CLI's last line or the given success text. */
@@ -140,10 +164,10 @@ class Store {
     try {
       const r = await api.haryx(args, opts.stdin, opts.passphrase);
       if (r.ok) this.flash(opts.success ?? (r.message || `${label}: done`));
-      else this.flash(r.message, true);
+      else this.fail(r.message, `${label} failed`);
       return r.ok;
     } catch (e) {
-      this.flash(String(e), true);
+      this.fail(e, `${label} failed`);
       return false;
     } finally {
       this.busy = null;
@@ -176,7 +200,7 @@ class Store {
       this.prefs = next;
       await this.reload();
     } catch (e) {
-      this.flash(String(e), true);
+      this.fail(e, "Couldn't save the setting");
     }
   }
 
@@ -186,7 +210,7 @@ class Store {
       else await api.autoStart();
       this.autoRunning = !this.autoRunning;
     } catch (e) {
-      this.flash(String(e), true);
+      this.fail(e, this.autoRunning ? "Couldn't stop auto-switch" : "Couldn't start auto-switch");
     }
   }
 }

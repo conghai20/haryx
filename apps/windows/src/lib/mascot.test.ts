@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fixture from "./mascot.fixture.json";
 import { CANVAS, SPECIES, identityKey, mood, phase, pixels, poseAt, resolve, stableHash, stillPose, type Mood } from "./mascot";
+import { resting } from "./handoff";
 import type { Account, MascotStyle } from "./types";
 
 const account = (extra: Partial<Account> = {}): Account => ({
@@ -65,6 +66,28 @@ describe("mood", () => {
     expect(mood(account(tired), true)).toBe("running");
     expect(mood(account({ usageStatus: "foreign_credential" }), true)).toBe("error");
     expect(mood(account({ usageStatus: "relogin_required", disabled: true }), true)).toBe("sleeping");
+  });
+
+  it("gets angry from 75% until it tires at 90%", () => {
+    const at = (five: number, seven = 0) => account({ usage: { fiveHour: { pct: five }, sevenDay: { pct: seven } } });
+    expect(mood(at(74), false)).toBe("idle");
+    expect(mood(at(10, 75), false)).toBe("angry");
+    expect(mood(at(89), false)).toBe("angry");
+    expect(mood(at(89), true)).toBe("running");
+    expect(mood(at(90), false)).toBe("tired");
+  });
+
+  it("stomps while angry", () => {
+    expect([0, 0.25, 0.5].map((s) => poseAt(s, "angry", 0).squat)).toEqual([true, false, true]);
+  });
+
+  it("sleeps at the limit, unless a sign-in problem needs attention", () => {
+    const full = { usage: { fiveHour: { pct: 40 }, sevenDay: { pct: 100 } } };
+    expect(mood(account(full), true)).toBe("sleeping");
+    expect(mood(account({ ...full, usageStatus: "relogin_required" }), false)).toBe("error");
+    expect(resting(account(full))).toBe(true);
+    expect(resting(account({ disabled: true }))).toBe(true);
+    expect(resting(account(tired))).toBe(false);
   });
 });
 

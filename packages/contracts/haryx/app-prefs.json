@@ -1,0 +1,13 @@
+{
+  "theme": "system",
+  "notifications.usage": true,
+  "notifications.switched": true,
+  "notifications.session": true,
+  "weeklySummary": true,
+  "menuBarMascot": false,
+  "mascotStyles": {
+    "you@example.com|": { "species": "cat", "hue": 0.55 }
+  },
+  "macos.menuBarPercent": true,
+  "windows.trayMascot": false
+}

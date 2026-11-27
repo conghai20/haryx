@@ -1,5 +1,6 @@
 //! Routes a parsed [`Command`] to its implementation.
 
+mod account;
 pub(crate) mod accounts;
 mod auto;
 mod config;
@@ -10,6 +11,7 @@ mod listing;
 mod profile;
 mod profile_view;
 mod sessions;
+mod sync;
 mod upgrade;
 mod usage;
 mod wake;
@@ -78,11 +80,14 @@ pub fn dispatch(command: Command, debug: bool) -> Result<(), CommandError> {
             accounts::import_usage(&path, hold_seconds, debug)
         }
         Command::Alias(setting) => accounts::alias(&setting, debug),
+        Command::Group(setting) => accounts::group(&setting, debug),
         Command::Threshold(setting) => accounts::threshold(&setting, debug),
         Command::Priority(setting) => accounts::priority(&setting, debug),
         Command::Swap { first, second } => accounts::swap(&first, &second, debug),
         Command::Move { account, slot } => accounts::move_account(&account, &slot, debug),
         Command::Login(opts) => accounts::login(&opts, debug),
+        Command::Account(action) => account::run(&action),
+        Command::Sync(action) => sync::run(&action, debug),
         Command::Profile(action) => profile::run(&action, debug),
         Command::Wake(action) => wake::run(&action, debug),
         Command::Desktop(action) => desktop::run(&action, debug),

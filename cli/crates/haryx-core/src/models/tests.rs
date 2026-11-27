@@ -15,6 +15,37 @@ fn valid_aliases_normalize() {
 }
 
 #[test]
+fn group_lists_normalize_dedupe_ignoring_case_and_cap() {
+    assert_eq!(
+        normalize_groups([" Work ", "Home", "work", "HOME", "Client A"]).unwrap(),
+        vec!["Work", "Home", "Client A"]
+    );
+    assert!(normalize_groups(std::iter::empty()).unwrap().is_empty());
+    assert!(normalize_groups(["ok", "  "]).is_err());
+    let names: Vec<String> = (0..=GROUPS_MAX).map(|i| format!("g{i}")).collect();
+    assert!(normalize_groups(names[..GROUPS_MAX].iter().map(String::as_str)).is_ok());
+    assert!(matches!(
+        normalize_groups(names.iter().map(String::as_str)),
+        Err(Error::Validation(_))
+    ));
+}
+
+#[test]
+fn group_names_keep_case_and_spaces_but_not_padding() {
+    assert_eq!(normalize_group("  Client A ").unwrap(), "Client A");
+    assert_eq!(
+        normalize_group(&"x".repeat(GROUP_MAX_CHARS)).unwrap().len(),
+        32
+    );
+    for bad in ["", "   ", "tab\there", &"x".repeat(GROUP_MAX_CHARS + 1)] {
+        assert!(
+            matches!(normalize_group(bad), Err(Error::Validation(_))),
+            "{bad:?}"
+        );
+    }
+}
+
+#[test]
 fn invalid_aliases_are_rejected() {
     for alias in ["123", "dev@work", "dev work", "", "dev/work", "-dev", "   "] {
         let err = normalize_alias(alias).unwrap_err();

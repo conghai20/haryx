@@ -4,13 +4,13 @@
 // and the cards always show the same mascot.
 
 import sheet from "../../../../packages/mascots/sprites.json";
-import { peakPct } from "./handoff";
+import { exhausted, peakPct } from "./handoff";
 import { needsRelogin } from "./tide";
 import type { Account, MascotStyle } from "./types";
 
 type Rgb = readonly [number, number, number];
 
-export type Mood = "idle" | "running" | "tired" | "sleeping" | "error";
+export type Mood = "idle" | "running" | "angry" | "tired" | "sleeping" | "error";
 
 export interface Pose {
   altLegs: boolean;
@@ -36,6 +36,13 @@ const PHASES = 13n;
 const SWEAT: Rgb = [0.45, 0.78, 1.0];
 const ALERT: Rgb = [1.0, 0.27, 0.23];
 const DUST: Rgb = [0.6, 0.6, 0.6];
+const ANGRY_PCT = 75;
+const TIRED_PCT = 90;
+/** The anger mark, big then small as it throbs: [x, dy] from its top row. */
+const ANGER_BIG: [number, number][] = [
+  [13, 0], [15, 0], [12, 1], [13, 1], [15, 1], [16, 1], [12, 3], [13, 3], [15, 3], [16, 3], [13, 4], [15, 4],
+];
+const ANGER_SMALL: [number, number][] = [[13, 1], [15, 1], [13, 3], [15, 3]];
 
 export const speciesTitle = (id: string) => id.charAt(0).toUpperCase() + id.slice(1);
 
@@ -76,12 +83,18 @@ export function resolve(saved: Record<string, MascotStyle>, keys: string[]): Rec
   return result;
 }
 
-/** macOS `mood(for:)`: held out → sleeping, signed out → error, running a session → running, ≥ 90% → tired. */
+/**
+ * macOS `Mood.of`: held out → sleeping, signed out → error, at its limit → sleeping, running a
+ * session → running, ≥ 90% → tired, ≥ 75% → angry.
+ */
 export function mood(a: Account, running: boolean): Mood {
   if (a.disabled) return "sleeping";
   if (needsRelogin(a)) return "error";
+  if (exhausted(a)) return "sleeping";
   if (running) return "running";
-  if ((peakPct(a) ?? 0) >= 90) return "tired";
+  const peak = peakPct(a) ?? 0;
+  if (peak >= TIRED_PCT) return "tired";
+  if (peak >= ANGRY_PCT) return "angry";
   return "idle";
 }
 
@@ -92,6 +105,8 @@ export function poseAt(seconds: number, m: Mood, phase: number): Pose {
   const tick = Math.floor(seconds * fps(m)) + phase;
   const base = { altLegs: false, squat: false, blink: false, mood: m };
   if (m === "running") return { ...base, altLegs: tick % 2 === 1, squat: tick % 2 === 0, overlayPhase: tick };
+  // Stomping, the mark throbbing in time.
+  if (m === "angry") return { ...base, squat: tick % 2 === 0, overlayPhase: tick };
   if (m === "sleeping")
     return { ...base, squat: Math.floor(tick / 4) % 2 === 1, blink: true, overlayPhase: Math.floor(tick / 3) };
   const half = Math.floor(tick / 2);
@@ -166,6 +181,12 @@ function overlay(grid: (Rgb | null)[][], pose: Pose, top: number, white: Rgb) {
       const y = Math.max(0, top - 4) + (p % 2);
       put(white, ...[0, 1, 2, 3].flatMap((dx): [number, number][] => [[13 + dx, y], [13 + dx, y + 3]]));
       put(white, [15, y + 1], [14, y + 2]);
+      break;
+    }
+    case "angry": {
+      // A throbbing anger mark.
+      const y = Math.max(0, top - 5);
+      put(ALERT, ...(p % 2 === 0 ? ANGER_BIG : ANGER_SMALL).map(([x, dy]): [number, number] => [x, y + dy]));
       break;
     }
     case "error":

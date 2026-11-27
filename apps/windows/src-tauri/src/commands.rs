@@ -42,6 +42,13 @@ pub const ALLOWED_VERBS: &[&str] = &[
     "add",
     "add-token",
     "ai",
+    // HaryX account and sync. The long-running `login` has its own command
+    // ([`account_login_start`]); passphrases and preferences go on stdin, never in argv.
+    "login",
+    "logout",
+    "whoami",
+    "account",
+    "sync",
 ];
 
 /// `auto --once` is allowed (a single tick); a looping `auto` is not.
@@ -158,6 +165,7 @@ pub fn set_prefs(
     prefs: Prefs,
 ) -> Result<(), String> {
     settings::save(&state.config_dir, &prefs).map_err(|e| e.to_string())?;
+    let old = state.prefs();
     let bundled = bundled_bin(&app);
     *state.cli.write().unwrap_or_else(|e| e.into_inner()) =
         state::locate_cli(&prefs, bundled.as_deref());
@@ -165,6 +173,7 @@ pub fn set_prefs(
     crate::autostart::apply(&app, &prefs);
     crate::tray::apply_theme(&app);
     let _ = app.emit("prefs", &prefs);
+    crate::sync::prefs_saved(&app, &old, &prefs);
     state.refresh_soon();
     Ok(())
 }
@@ -222,7 +231,14 @@ pub fn open_terminal(
         let dir = PathBuf::from(app_data).join(r"warp\Warp\data\launch_configurations");
         return terminals::open_warp(&job, &haryx, &folder, &dir);
     }
-    let argv = terminals::launch_argv(terminal, &job, &haryx, &folder, &state.terminals)?;
+    let argv = terminals::launch_argv(
+        terminal,
+        &job,
+        &haryx,
+        &folder,
+        &state.terminals,
+        prefs.shell,
+    )?;
     terminals::launch(&argv, &folder)
 }
 
@@ -242,6 +258,16 @@ pub fn mappings() -> Vec<crate::models::Mapping> {
         .and_then(|root| std::fs::read_to_string(root.join("mappings.json")).ok())
         .map(|text| crate::models::parse_mappings(&text))
         .unwrap_or_default()
+}
+
+/// Post a test toast, so a person can see notifications reach them (and fix Windows' settings if not).
+#[tauri::command]
+pub fn notify_test(app: AppHandle) {
+    crate::notify::show(
+        &app,
+        "HaryX notifications work",
+        "You'll hear from your mascots here.",
+    );
 }
 
 /// The CLI's log in the data folder (rotated copies sit next to it).
@@ -335,7 +361,8 @@ pub fn update_set(
     mode: Option<UpdateMode>,
     skip: Option<String>,
 ) -> Result<(), String> {
-    let mut prefs = state.prefs();
+    let old = state.prefs();
+    let mut prefs = old.clone();
     if let Some(mode) = mode {
         prefs.update_mode = mode;
     }
@@ -345,6 +372,7 @@ pub fn update_set(
     settings::save(&state.config_dir, &prefs).map_err(|e| e.to_string())?;
     *state.prefs.lock().unwrap_or_else(|e| e.into_inner()) = prefs.clone();
     let _ = app.emit("prefs", &prefs);
+    crate::sync::prefs_saved(&app, &old, &prefs);
     let update = state
         .update
         .lock()
@@ -391,6 +419,56 @@ pub fn login_open(logins: State<'_, Logins>, id: u64) -> Result<(), String> {
     updater::open_in_browser(&url)
 }
 
+/// Start the HaryX sign-in (`haryx login --provider <provider> --json`); its events arrive as
+/// `account-login`.
+#[tauri::command]
+pub fn account_login_start(
+    app: AppHandle,
+    login: State<'_, crate::account::AccountLogin>,
+    provider: String,
+) -> Result<(), String> {
+    login.start(&app, &provider)
+}
+
+#[tauri::command]
+pub fn account_login_cancel(login: State<'_, crate::account::AccountLogin>) {
+    login.cancel();
+}
+
+/// Open the sign-in page again. The UI names the run, never the URL.
+#[tauri::command]
+pub fn account_login_open(login: State<'_, crate::account::AccountLogin>) -> Result<(), String> {
+    updater::open_in_browser(&login.url().ok_or("no sign-in link yet")?)
+}
+
+/// Sync now (Sync now, or after unlocking); never alongside another sync.
+#[tauri::command]
+pub async fn sync_now(app: AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::sync::run(&app, false).unwrap_or(Value::Null)
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+/// Sync after a synced account setting changed here (a group added, removed, renamed or deleted),
+/// as the automatic sync does: only when sync is on and this PC is signed in and unlocked, and
+/// quietly skipped otherwise or while another sync runs (the 15-minute loop picks the change up).
+#[tauri::command]
+pub async fn sync_after_change(app: AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::sync::run(&app, true).unwrap_or(Value::Null)
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+/// Whether a sync is running, and the last one's outcome.
+#[tauri::command]
+pub fn sync_info(syncer: State<'_, crate::sync::Syncer>) -> Value {
+    syncer.info()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -411,5 +489,38 @@ mod tests {
         assert!(!is_allowed(&args(&["run", "2"])), "run needs a terminal");
         assert!(!is_allowed(&args(&["tui"])));
         assert!(!is_allowed(&[]));
+    }
+
+    #[test]
+    fn account_and_sync_verbs_are_allowed_and_nothing_else_new() {
+        for words in [
+            &["login", "--provider", "github", "--json"][..],
+            &["logout", "--json"],
+            &["whoami", "--json"],
+            &["account", "delete", "--yes", "--json"],
+            &["sync", "--json"],
+            &["sync", "status", "--json"],
+            &["sync", "unlock", "--passphrase-stdin", "--json"],
+            &["sync", "prefs", "set"],
+        ] {
+            assert!(is_allowed(&args(words)), "{words:?}");
+        }
+        for verb in [
+            "run",
+            "tui",
+            "watch",
+            "shell",
+            "cmd",
+            "powershell",
+            "server",
+            "logins",
+        ] {
+            assert!(!is_allowed(&args(&[verb])), "{verb}");
+        }
+        assert_eq!(
+            ALLOWED_VERBS.len(),
+            28,
+            "a new verb needs its own review and test"
+        );
     }
 }

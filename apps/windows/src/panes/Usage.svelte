@@ -1,18 +1,20 @@
 <script lang="ts">
-  // AI › Usage: quota over time, tokens (or API-price cost) per day by account, and the projects
-  // and sessions that used the most. From `haryx ai usage --json`; kept on this PC.
+  // Usage. First, will the week last: the CLI's rotation verdict and each account's Week Tide
+  // (WeekSection). Then where it went: tokens (or API-price cost) per day by account and the projects
+  // and sessions that used the most, from `haryx ai usage --json` once usage history is on. Kept on this PC.
   import { api } from "../lib/api";
   import { actions } from "../lib/actions";
+  import { describeError } from "../lib/errors";
+  import Icon from "../components/Icon.svelte";
+  import WeekSection from "../components/WeekSection.svelte";
   import { store } from "../lib/store.svelte";
   import { displayName } from "../lib/tide";
   import {
-    accountColor,
+    accountFill,
     money,
-    quotaLine,
     shortTokens,
     stackedBars,
     type HistoryStatus,
-    type QuotaReport,
     type UsageReport,
   } from "../lib/usage";
 
@@ -29,13 +31,12 @@
   let account = $state<number | null>(null);
   let showCost = $state(false);
   let loading = $state(false);
-  let error = $state<string | null>(null);
+  let error = $state<{ text: string; detail: string } | null>(null);
   let status = $state<HistoryStatus | null>(null);
   let byAccount = $state<UsageReport | null>(null);
   let byDay = $state<Record<number, UsageReport>>({});
   let projects = $state<UsageReport | null>(null);
   let sessions = $state<UsageReport | null>(null);
-  let quota = $state<QuotaReport | null>(null);
 
   function name(n: number): string {
     const a = store.accounts.find((x) => x.number === n);
@@ -59,10 +60,9 @@
         return;
       }
       const numbers = first.rows.map((r) => Number(r.key)).filter((n) => Number.isFinite(n));
-      const [p, s, q, ...days] = await Promise.all([
+      const [p, s, ...days] = await Promise.all([
         api.json<UsageReport>(["ai", "usage", "report", "--by", "project", ...base, "--json"]),
         api.json<UsageReport>(["ai", "usage", "report", "--by", "session", ...base, "--json"]),
-        api.json<QuotaReport>(["ai", "usage", "quota", ...base, "--json"]),
         ...numbers.map((n) =>
           api.json<UsageReport>(["ai", "usage", "report", "--by", "day", "--since", range, "--account", String(n), "--json"]),
         ),
@@ -71,7 +71,6 @@
       byAccount = first;
       projects = p;
       sessions = s;
-      quota = q;
       const perDay: Record<number, UsageReport> = {};
       numbers.forEach((n, i) => {
         const report = days[i];
@@ -80,20 +79,37 @@
       byDay = perDay;
       error = null;
     } catch (e) {
-      if (current()) error = String(e);
+      if (current()) error = describeError(e, "Couldn't read the usage history");
     } finally {
       if (current()) loading = false;
     }
   }
 
   async function choose(all: boolean) {
-    await api.haryx(["ai", "usage", "index", "--import", all ? "all" : "none", "--json"]);
-    await load();
+    if (await store.run("Starting your usage history", ["ai", "usage", "index", "--import", all ? "all" : "none", "--json"]))
+      await load();
   }
 
   async function keepDays(days: string) {
-    await api.haryx(["config", "set", "history.keepDays", days]);
-    await load();
+    if (await store.run("Saving", ["config", "set", "history.keepDays", days], { success: "Saved" })) await load();
+  }
+
+  async function turnOn() {
+    if (await store.run("Turning on usage history", ["config", "set", "history.enabled", "true"], { success: "Usage history is on" }))
+      await load();
+  }
+
+  /** One fixed colour per account, the same in every chart and table (`ACCOUNT_PALETTE`). */
+  function lineColor(n: number): string {
+    return accountFill(n);
+  }
+
+  /** Five evenly spaced y-axis figures for the per-day chart, top first. */
+  function axisTicks(max: number): { y: number; label: string }[] {
+    return [1, 0.75, 0.5, 0.25, 0].map((f) => ({
+      y: H - f * H,
+      label: showCost ? `$${shortTokens(max * f)}` : shortTokens(max * f),
+    }));
   }
 
   $effect(() => {
@@ -103,15 +119,13 @@
   });
 
   let bars = $derived(stackedBars(byDay, showCost, W, H));
-  let accountsInQuota = $derived([...new Set((quota?.readings ?? []).map((r) => r.account))].sort((a, b) => a - b));
-  let times = $derived((quota?.readings ?? []).map((r) => r.at));
-  let from = $derived(times.length ? Math.min(...times) : 0);
-  let to = $derived(times.length ? Math.max(...times) : 1);
 </script>
 
+<WeekSection />
+<hr class="divider" />
+<h2 class="section">Where it went</h2>
 {#if status?.needsChoice}
   <section class="choice">
-    <h2>Start your usage history</h2>
     <p class="secondary">
       HaryX can read your past Claude Code transcripts to show how each account, project and session used
       its quota. It reads token counts only, never the conversations, and keeps them on this PC.
@@ -122,7 +136,13 @@
     </div>
   </section>
 {:else if status && !status.enabled}
-  <p class="secondary">Usage history is off. Turn it on in Settings › haryx settings (history.enabled).</p>
+  <section class="choice">
+    <p class="secondary">
+      Which accounts, projects and sessions used your quota appears here once usage history is on. HaryX reads
+      token counts from Claude Code's transcripts on this PC; no conversation text is stored.
+    </p>
+    <div class="row"><button class="primary" onclick={turnOn}>Turn on usage history</button></div>
+  </section>
 {:else}
   <div class="row controls">
     <select aria-label="Range" bind:value={range}>
@@ -134,10 +154,19 @@
     </select>
     <label class="check"><input type="checkbox" bind:checked={showCost} /> Show API cost</label>
     <span class="spacer"></span>
-    {#if loading}<span class="caption secondary">Reading…</span>{/if}
-    <button class="plain" title="Read new transcript lines and refresh" onclick={load}>⟳</button>
+    {#if loading}<span class="caption secondary" role="status">Reading…</span>{/if}
+    <button class="plain icon-btn" aria-label="Refresh usage" title="Read new transcript lines and refresh" onclick={load}>
+      <Icon name="refresh" />
+    </button>
   </div>
-  {#if error}<div class="banner error">{error}</div>{/if}
+  {#if error}
+    <div class="banner error" role="alert" title={error.detail}>
+      <span>{error.text}</span>
+      <button class="mini" onclick={load}>Try again</button>
+    </div>
+  {:else if loading && !byAccount}
+    <p class="secondary" role="status">Reading your usage history…</p>
+  {/if}
 
   {#if byAccount}
     <div class="stats">
@@ -147,31 +176,18 @@
       <div><strong>{shortTokens(byAccount.total.output)}</strong><span class="caption secondary">Output tokens</span></div>
     </div>
 
-    <h2>Quota over time</h2>
-    {#if (quota?.readings ?? []).length === 0}
-      <p class="caption secondary">Readings appear here as HaryX reads usage.</p>
-    {:else}
-      <svg viewBox="0 0 {W} {H}" class="chart" role="img" aria-label="5-hour and weekly usage per account over time">
-        <line x1="0" x2={W} y1={H - (100 / 105) * H} y2={H - (100 / 105) * H} class="limit" />
-        {#each accountsInQuota as n (n)}
-          <polyline points={quotaLine(quota?.readings ?? [], n, "fiveHour", from, to, W, H)} stroke={accountColor(n)} fill="none" stroke-width="1.5" />
-          <polyline points={quotaLine(quota?.readings ?? [], n, "sevenDay", from, to, W, H)} stroke={accountColor(n)} fill="none" stroke-width="1.5" stroke-dasharray="4 3" />
-        {/each}
-      </svg>
-      <p class="caption tertiary legend">
-        Solid: 5-hour window · dashed: weekly ·
-        {#each accountsInQuota as n (n)}<span style="color: {accountColor(n)}">■ {name(n)}</span> {/each}
-      </p>
-    {/if}
-
     <h2>{showCost ? "API cost per day" : "Tokens per day"}</h2>
     {#if bars.bars.length === 0}
       <p class="caption secondary">No usage in this range.</p>
     {:else}
-      <svg viewBox="0 0 {W} {H + 16}" class="chart" role="img" aria-label="Usage per day by account">
+      <svg viewBox="-40 -4 {W + 40} {H + 20}" class="chart" role="img" aria-label="Usage per day by account">
+        {#each axisTicks(bars.max) as t (t.y)}
+          <line x1="0" x2={W} y1={t.y} y2={t.y} class="grid" />
+          <text x="-6" y={t.y + 3} class="axis">{t.label}</text>
+        {/each}
         {#each bars.bars as b (b.day)}
           {#each b.segments as s (s.account)}
-            <rect x={b.x} y={s.y} width={b.width} height={s.height} fill={accountColor(s.account)}>
+            <rect x={b.x} y={s.y} width={b.width} height={s.height} fill={lineColor(s.account)}>
               <title>{b.day} · {name(s.account)} · {showCost ? money(s.value) : shortTokens(s.value)}</title>
             </rect>
           {/each}
@@ -182,10 +198,16 @@
 
     <h2>By account</h2>
     <table>
+      <thead>
+        <tr class="caption tertiary">
+          <th>Account</th><th class="num">Tokens</th><th class="num">At API prices</th><th class="num">Share</th>
+        </tr>
+      </thead>
       <tbody>
         {#each byAccount.rows as r (r.key)}
+          {@const n = r.key && r.key !== "unknown" ? Number(r.key) : null}
           <tr>
-            <td class="truncate">{r.key && r.key !== "unknown" ? name(Number(r.key)) : "Unknown account"}{#if r.approximate} <span class="tertiary" title="Account worked out from the switch log, so approximate">~</span>{/if}</td>
+            <td class="truncate">{#if n != null}<span class="swatch" style:background={lineColor(n)}></span>{/if}{n != null ? name(n) : "Unknown account"}{#if r.approximate} <span class="tertiary" title="Account worked out from the switch log, so approximate">~</span>{/if}</td>
             <td class="num">{shortTokens(r.tokens)}</td>
             <td class="num">{money(r.cost)}</td>
             <td class="num secondary">{r.share}%</td>
@@ -198,13 +220,28 @@
       {#if t.report}
         <h2>{t.title}</h2>
         <table>
+          <thead>
+            <tr class="caption tertiary">
+              <th>{t.folder ? "Folder" : "Session and accounts"}</th>
+              <th class="num">{showCost ? "At API prices" : "Tokens"}</th>
+              <th class="act"><span class="visually-hidden">Open</span></th>
+            </tr>
+          </thead>
           <tbody>
             {#each t.report.rows.slice(0, 8) as r (r.key)}
               <tr>
                 <td class="truncate" title={r.key ?? ""}>{t.folder ? r.key : `${(r.key ?? "").slice(0, 8)}  ${r.accounts.map(name).join(", ")}`}</td>
                 <td class="num">{showCost ? money(r.cost) : shortTokens(r.tokens)}</td>
                 <td class="act">
-                  {#if t.folder && r.key}<button class="plain" title="Open a terminal here" onclick={() => actions.terminal({ kind: "shell" }, r.key)}>›_</button>{/if}
+                  {#if t.folder && r.key}
+                    {@const folder = r.key}
+                    <button
+                      class="plain icon-btn"
+                      aria-label="Open a terminal in {folder}"
+                      title="Open a terminal here"
+                      onclick={() => actions.terminal({ kind: "shell" }, folder)}><Icon name="terminal" /></button
+                    >
+                  {/if}
                 </td>
               </tr>
             {/each}
@@ -223,7 +260,13 @@
       </select>
       {#if store.prefs}
         <label class="check">
-          <input type="checkbox" checked={store.prefs.weeklySummary} onchange={(e) => store.savePrefs({ weeklySummary: e.currentTarget.checked })} />
+          <input
+            type="checkbox"
+            role="switch"
+            class="switch"
+            checked={store.prefs.weeklySummary}
+            onchange={(e) => store.savePrefs({ weeklySummary: e.currentTarget.checked })}
+          />
           Weekly summary notification
         </label>
       {/if}
@@ -237,6 +280,15 @@
 {/if}
 
 <style>
+  .divider {
+    border: none;
+    border-top: 1px solid var(--separator);
+    margin: 24px 0 0;
+  }
+  h2.section {
+    margin: 18px 0 10px;
+    font-size: 16px;
+  }
   .row {
     display: flex;
     align-items: center;
@@ -245,6 +297,11 @@
   }
   .spacer {
     flex: 1;
+  }
+  .check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
   .choice {
     max-width: 560px;
@@ -271,24 +328,58 @@
   }
   .chart {
     width: 100%;
-    max-width: 720px;
+    max-width: 960px;
     height: auto;
   }
-  .limit {
-    stroke: #d64545;
-    stroke-opacity: 0.5;
+  .grid {
+    stroke: var(--separator);
   }
-  .tick {
-    font-size: 9px;
-    text-anchor: middle;
+  .tick,
+  .axis {
+    font-size: 11px;
     fill: var(--label-2);
   }
-  .legend span {
+  .tick {
+    text-anchor: middle;
+  }
+  .axis {
+    text-anchor: end;
+  }
+  .swatch {
+    display: inline-block;
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
     margin-right: 6px;
+    vertical-align: 1px;
+  }
+  th {
+    text-align: left;
+    font-weight: 400;
+    padding: 4px 8px;
+  }
+  .icon-btn {
+    display: inline-flex;
+  }
+  .banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .banner span {
+    flex: 1;
+  }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
   table {
     width: 100%;
-    max-width: 720px;
     border-collapse: collapse;
     table-layout: fixed;
   }
@@ -298,7 +389,7 @@
   }
   .num {
     text-align: right;
-    width: 90px;
+    width: 110px;
   }
   .act {
     width: 36px;

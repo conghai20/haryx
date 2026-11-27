@@ -9,17 +9,20 @@ prompts and `--json` shapes, verified against `packages/contracts/`. Port from `
 `haryx ai profile`: list, save, export, import and apply a Claude Code setup (skills, hooks, MCPs, plugins)
 across machines through one file. Plan: [ai-profile-plan.md](ai-profile-plan.md).
 
-## Claude Desktop follows Use
-Pressing Use in the macOS app also moves Claude Desktop to that account, through a per-account Desktop data folder.
-Blocked on one sign-in test. Plan: [desktop-follow-plan.md](desktop-follow-plan.md).
-
 ## Continue a session on another account
-When an account runs out, end its stuck Claude Code session and resume the same conversation on
-another account in one click; offered after auto-switch. Plan: [session-handoff-plan.md](session-handoff-plan.md).
+When the account of a `haryx run` session runs out, end that stuck session and resume the same
+conversation on another account in one click, in its group first. A plain `claude` session needs
+none: it picks up a switched account by itself. Plan: [session-handoff-plan.md](session-handoff-plan.md).
 
 ## Usage history
 Tokens and API-price cost by account, project, session and model, quota % over time, and a weekly
 summary, from Claude Code's own transcripts, kept locally. Plan: [usage-history-plan.md](usage-history-plan.md).
+
+## HaryX account and sync
+Sign in with GitHub or Google (`haryx login`) and sync settings, app preferences, account metadata,
+and setup profiles between your machines, end-to-end encrypted with a passphrase. Each machine
+signs in to Claude itself.
+Backend: Supabase. Plan: [haryx-account-plan.md](haryx-account-plan.md).
 
 ## Distribution
 Homebrew (formula + cask), crates.io, Developer ID signed and notarized DMG on GitHub releases, and pip/npm wrapper
@@ -41,3 +44,7 @@ The Rust CLI targets macOS, Linux and Windows, but these parts are macOS/Linux-s
 
 All five are built (2026-11-24), together with the Windows tray app on top; see
 [windows-app-plan.md](windows-app-plan.md) for what changed from the plan and what is still open.
+
+Open Windows app gap: the account details panel has no per-account Wake toggle (macOS shows one
+under Usage). Wake is set per account in the Windows Wake pane until the panel reads the wake
+state too.

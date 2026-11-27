@@ -24,6 +24,7 @@
 //! trust, lease and backoff bounds, as upstream keeps them here.
 
 mod entry;
+mod peer;
 mod policy;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -36,6 +37,7 @@ pub use crate::poll_policy::SERVE_TTL_S;
 pub use entry::{
     Decision, FetchRecord, UsageEntry, due_candidate, plan_oversleeps_interval, with_sentinel,
 };
+pub use peer::{LOCAL_MACHINE, SharedState};
 
 use crate::error::Result;
 use crate::locking::{DEFAULT_LOCK_TIMEOUT, FileLock};
@@ -270,6 +272,30 @@ impl UsageStore {
 
     // -- writes ----------------------------------------------------------------------------------
 
+    /// Whether [`UsageStore::reserve`] with the same arguments would lease anything, without
+    /// leasing: the cheap check before asking the other machines.
+    pub fn any_eligible(
+        &self,
+        nums: &[String],
+        identities: &Identities,
+        respect_plans: bool,
+        repair_overslept: bool,
+    ) -> bool {
+        let now = self.now();
+        let rows = self.read_rows();
+        nums.iter().any(|num| {
+            let Some(identity) = identities.get(num) else {
+                return false;
+            };
+            match rows.get(num).and_then(Value::as_object) {
+                Some(row) if matches(rows.get(num), identity) => {
+                    row_eligible(row, now, respect_plans, repair_overslept)
+                }
+                _ => true,
+            }
+        })
+    }
+
     /// Lease the slots about to be fetched, returning their fencing ids.
     pub fn claim(
         &self,
@@ -466,6 +492,7 @@ impl UsageStore {
 
 fn stamp_claim(row: &mut Row, now: f64, claim_id: &str) {
     row.insert("lastAttemptAt".into(), number(now));
+    peer::note_request(row, now);
     row.insert("claimId".into(), json!(claim_id));
     row.insert("claimUntil".into(), number(now + CLAIM_TTL_S));
 }
@@ -516,6 +543,7 @@ fn apply_outcome(row: &mut Row, rec: &FetchRecord, plan: Option<&PollPlan>, now:
 fn apply_success(row: &mut Row, rec: &FetchRecord, plan: Option<&PollPlan>, now: f64) {
     row.insert("lastGood".into(), rec.usage.clone().unwrap_or(Value::Null));
     row.insert("fetchedAt".into(), number(now));
+    row.shift_remove("fetchedBy");
     // Replace the old, possibly due plan in the outcome transaction so no collector can slip into
     // a record→replan gap.
     if let Some((next_poll_at, interval)) = plan {
@@ -634,6 +662,10 @@ fn entry_of(row: &Row, now: f64, models: &[String]) -> UsageEntry {
         trust_extended,
         claim_until,
         held_until,
+        fetched_by_peer: str_field(row, "fetchedBy").is_some_and(|by| !by.is_empty()),
+        active_elsewhere_until: num(row.get("activeElsewhereUntil")),
+        requests_last_hour: peer::requests_in_window(row, now),
+        peers_seen: peer::peers_in_window(row, now),
     }
 }
 

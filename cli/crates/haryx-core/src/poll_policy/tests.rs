@@ -521,3 +521,19 @@ fn reset_helpers() {
     assert_eq!(parse_reset_ts(Some("garbage")), None);
     assert_eq!(parse_reset_ts(None), None);
 }
+
+#[test]
+fn spreading_for_peers_multiplies_the_wait_and_the_interval() {
+    use super::spread_for_peers;
+    assert_eq!(
+        spread_for_peers(1_300.0, 300.0, 1_000.0, 0),
+        (1_300.0, 300.0)
+    );
+    assert_eq!(
+        spread_for_peers(1_300.0, 300.0, 1_000.0, 1),
+        (1_600.0, 600.0)
+    );
+    let (next, interval) = spread_for_peers(2_000.0, 1_000.0, 1_000.0, 3);
+    assert_eq!(next, 1_000.0 + super::POST_429_MAX_INTERVAL_S);
+    assert_eq!(interval, super::POST_429_MAX_INTERVAL_S);
+}

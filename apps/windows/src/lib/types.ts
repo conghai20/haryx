@@ -21,18 +21,37 @@ export interface Account {
   usageStatus: string;
   usage?: { fiveHour?: UsageWindow | null; sevenDay?: UsageWindow | null } | null;
   alias?: string | null;
+  /** `haryx group`: the first group, absent when ungrouped. Older CLIs send only this. */
+  group?: string | null;
+  /** Every group the account is in, in the order added; absent when ungrouped. */
+  groups?: string[] | null;
   disabled?: boolean | null;
   threshold?: number | null;
   loginExpiresAt?: string | null;
   plan?: { label?: string | null; expired?: boolean | null } | null;
   usageAgeSeconds?: number | null;
+  /** The reading was taken by another of your machines (usage share through HaryX sync). */
+  usageFromOtherMachine?: boolean | null;
   usageError?: string | null;
+}
+
+/** `rotation` in `list --json`: will the week last, over the accounts auto-switch may use (macOS `Rotation`). */
+export interface Rotation {
+  accounts: number[];
+  unknown: number[];
+  headroomPct: number;
+  burnPctPerHour: number;
+  nextResetAt: string | null;
+  runsDryAt: string | null;
+  lasts: boolean;
 }
 
 export interface AccountList {
   schemaVersion: number;
   activeAccountNumber?: number | null;
   accounts: Account[];
+  /** Absent from older CLIs and while no account auto-switch may use has a weekly reading. */
+  rotation?: Rotation | null;
 }
 
 export interface Session {
@@ -67,6 +86,8 @@ export type TerminalId = "windows-terminal" | "pwsh" | "powershell" | "cmd" | "g
 export interface Prefs {
   refreshSeconds: number;
   terminal: TerminalId | null;
+  /** The shell a Windows Terminal tab runs; null picks the first installed, PowerShell 7 first. */
+  shell: TerminalId | null;
   claudeFolder: string | null;
   haryxPath: string | null;
   autoSwitchOnLaunch: boolean;
@@ -87,6 +108,8 @@ export interface Prefs {
   lastUpdateCheck: number | null;
   weeklySummary: boolean;
   lastWeeklySummary: number | null;
+  /** Sync with the HaryX account when signed in and unlocked. This PC only; never synced. */
+  syncEnabled: boolean;
 }
 
 /** The app's look; "system" follows Windows. */
@@ -186,4 +209,77 @@ export interface RunResult {
   status: number;
   stdout: string;
   message: string;
+}
+
+// HaryX account and sync (contracts: packages/contracts/haryx/whoami.json, login-events.json,
+// sync-status.json, sync-result.json).
+
+export interface HaryxUser {
+  id: string;
+  email: string;
+  provider: "github" | "google" | string;
+}
+
+/** `haryx whoami --json` and `haryx logout --json`. */
+export interface Whoami {
+  signedIn: boolean;
+  user: HaryxUser | null;
+}
+
+/** One `haryx login --json` line (backend `account::LoginEvent`); `cancelled` is the app's own. */
+export type AccountLoginEvent =
+  | { event: "browser"; url: string; opened: boolean }
+  | { event: "signed_in"; user: HaryxUser }
+  | { event: "error"; code: string; message: string }
+  | { event: "cancelled" };
+
+/** A Claude account sync knows of that has no login on this PC. */
+export interface OtherMachineAccount {
+  email: string;
+  organizationName?: string | null;
+  alias?: string | null;
+}
+
+/** A value a newer write replaced. `lost` is null when the losing side had it unset. */
+export interface Overwrite {
+  at: number;
+  kind: string;
+  label: string;
+  kept: "local" | "remote" | string;
+  lost: unknown;
+}
+
+/** `haryx sync status --json`: local only, no network. */
+export interface SyncStatus {
+  signedIn: boolean;
+  unlocked: boolean;
+  lastSyncAt: string | null;
+  otherMachineAccounts: OtherMachineAccount[];
+  overwritten: Overwrite[];
+}
+
+/** The `{"ok": false, "code", "message"}` failure every account and sync command can print. */
+export interface CliFailure {
+  ok: false;
+  code: string;
+  message: string;
+}
+
+/** `haryx sync --json`. */
+export type SyncResult =
+  | {
+      ok: true;
+      pushed: number;
+      pulled: number;
+      changed: string[];
+      overwritten: Overwrite[];
+      otherMachineAccounts: OtherMachineAccount[];
+      skipped: unknown[];
+    }
+  | CliFailure;
+
+/** The backend's sync state (`sync::Syncer::info`). */
+export interface SyncInfo {
+  running: boolean;
+  last: SyncResult | null;
 }

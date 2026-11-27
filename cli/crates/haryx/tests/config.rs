@@ -73,7 +73,7 @@ fn line_with<'a>(out: &'a str, needle: &str) -> &'a str {
     out.lines().find(|l| l.contains(needle)).unwrap()
 }
 
-const KEYS: [&str; 15] = [
+const KEYS: [&str; 16] = [
     "autoswitch.threshold",
     "autoswitch.weeklyThreshold",
     "autoswitch.intervalSeconds",
@@ -89,6 +89,7 @@ const KEYS: [&str; 15] = [
     "updates.check",
     "usage.headerProbe",
     "usage.fableProbe",
+    "usage.shareBetweenMachines",
 ];
 
 // ------------------------------------------------------------------------------------------------ list
@@ -100,7 +101,7 @@ fn lists_all_keys_as_defaults() {
     for key in KEYS {
         assert!(run.out.contains(key), "{key}");
     }
-    assert_eq!(run.out.matches("(default)").count(), 18);
+    assert_eq!(run.out.matches("(default)").count(), 19);
     assert_eq!(sb.ok(&["list"]).out, run.out);
     assert!(!sb.settings().exists(), "listing writes nothing");
 }
@@ -123,7 +124,7 @@ fn json_list() {
     assert_eq!(payload["schemaVersion"], 1);
     assert!(payload["path"].as_str().unwrap().ends_with("settings.json"));
     let settings = payload["settings"].as_array().unwrap();
-    assert_eq!(settings.len(), 18);
+    assert_eq!(settings.len(), 19);
     let by_key = |key: &str| settings.iter().find(|e| e["key"] == key).unwrap().clone();
     assert_eq!(
         by_key("autoswitch.threshold"),
@@ -317,7 +318,7 @@ fn corrupt_file_set_exits_1_and_leaves_the_file_untouched() {
     assert!(run.err.contains("not valid JSON"));
     assert_eq!(std::fs::read_to_string(sb.settings()).unwrap(), "{not json");
     // Reading still works: a corrupt file lists the defaults.
-    assert_eq!(sb.ok(&[]).out.matches("(default)").count(), 18);
+    assert_eq!(sb.ok(&[]).out.matches("(default)").count(), 19);
 }
 
 #[test]

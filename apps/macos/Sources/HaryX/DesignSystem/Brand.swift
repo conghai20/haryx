@@ -28,11 +28,13 @@ enum Brand {
     }
 
     /// Fill for a usage reading: cyan while on pace, warning ahead of pace or past 85%, red at the limit.
-    static func usageFill(_ window: UsageWindow?) -> Color {
+    /// The Three-Step Fill Rule. `off` (an account held out of rotation) trades cyan for grey, since
+    /// cyan means live; amber and red stay, because they are why an Off account is still tracked.
+    static func usageFill(_ window: UsageWindow?, off: Bool = false) -> Color {
         guard let pct = window?.pct else { return .secondary }
         if pct >= 100 { return limit }
         if pct >= 85 || window?.isAheadOfPace == true { return warn }
-        return cyan
+        return off ? .secondary : cyan
     }
 }
 
@@ -151,6 +153,8 @@ struct BrandLockup: View {
 struct TideStaff: View {
     let window: UsageWindow?
     var height: CGFloat = 6
+    /// An Off account's reading: grey where it would be cyan.
+    var off = false
     /// How far the pace tick reaches above and below the bar.
     private let overhang: CGFloat = 3
 
@@ -161,7 +165,7 @@ struct TideStaff: View {
             ZStack(alignment: .leading) {
                 ZStack(alignment: .leading) {
                     Rectangle().fill(.quaternary)
-                    Rectangle().fill(Brand.usageFill(window)).frame(width: geo.size.width * pct)
+                    Rectangle().fill(Brand.usageFill(window, off: off)).frame(width: geo.size.width * pct)
                 }
                 .frame(height: height)
                 .clipShape(.rect(cornerRadius: 1.5))
@@ -177,9 +181,13 @@ struct TideStaff: View {
     }
 }
 
-/// The weekly window under a 5-hour reading: "Week 79%", its reset, and a thin staff with the pace tick.
+/// The weekly window under a 5-hour reading: "Week 79%", its reset, and under them either a thin
+/// staff with the pace tick (the menu bar panel) or, given the week's readings, its Week Tide.
 struct WeekStaff: View {
     let window: UsageWindow?
+    var off = false
+    /// The week's readings: draws the Week Tide in place of the thin staff. Empty draws the average.
+    var readings: [(at: Date, pct: Double)]?
 
     var body: some View {
         let week = window?.withPace(windowSeconds: UsageWindow.sevenDaySeconds)
@@ -187,15 +195,63 @@ struct WeekStaff: View {
         VStack(alignment: .leading, spacing: 1) {
             HStack {
                 Text("Week \(week?.pct.map { "\(Int($0))%" } ?? "—")")
-                    .foregroundStyle(high ? AnyShapeStyle(Brand.usageFill(week)) : AnyShapeStyle(.secondary))
+                    .foregroundStyle(high ? AnyShapeStyle(Brand.usageFill(week, off: off)) : AnyShapeStyle(.secondary))
                 Spacer()
                 if let c = week?.countdown { Text("resets in \(c)").foregroundStyle(.secondary) }
             }
             .font(.caption.monospacedDigit())
-            TideStaff(window: week, height: 3)
+            if let readings {
+                WeekTideView(window: week, readings: readings, off: off).padding(.top, 2)
+            } else {
+                TideStaff(window: week, height: 3, off: off)
+            }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Weekly usage \(week?.pct.map { "\(Int($0)) percent" } ?? "unknown")\(week?.countdown.map { ", resets in \($0)" } ?? "")")
+    }
+}
+
+/// The Week Tide (DESIGN.md): the week so far as a filled curve over a quaternary track, coloured by
+/// the Three-Step Fill Rule, against a 1 pt diagonal that is the linear pace. Stretches with no
+/// readings are an estimated straight line, dashed and lighter. Nothing animates.
+struct WeekTideView: View {
+    let window: UsageWindow?
+    let readings: [(at: Date, pct: Double)]
+    var off = false
+    var height: CGFloat = 16
+
+    var body: some View {
+        let fill = Brand.usageFill(window, off: off)
+        Canvas { ctx, size in
+            let track = Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 1.5)
+            ctx.fill(track, with: .style(.quaternary))
+            ctx.clip(to: track)
+            var pace = Path()
+            pace.move(to: CGPoint(x: 0, y: size.height))
+            pace.addLine(to: CGPoint(x: size.width, y: 0))
+            ctx.stroke(pace, with: .style(.secondary), lineWidth: 1)
+            for segment in segments {
+                let points = segment.points.map { CGPoint(x: $0.x * size.width, y: (1 - $0.y) * size.height) }
+                guard let first = points.first, let last = points.last else { continue }
+                var line = Path()
+                line.addLines(points)
+                var area = line
+                area.addLine(to: CGPoint(x: last.x, y: size.height))
+                area.addLine(to: CGPoint(x: first.x, y: size.height))
+                area.closeSubpath()
+                ctx.fill(area, with: .color(fill.opacity(segment.estimated ? 0.14 : 0.32)))
+                ctx.stroke(line, with: .color(fill),
+                           style: StrokeStyle(lineWidth: 1.25, lineCap: .round, lineJoin: .round,
+                                              dash: segment.estimated ? [2, 2] : []))
+            }
+        }
+        .frame(height: height)
+        .accessibilityHidden(true)
+    }
+
+    private var segments: [WeekTide.Segment] {
+        guard let pct = window?.pct, let resetsAt = window?.resetsAt else { return [] }
+        return WeekTide.segments(readings: readings, resetsAt: resetsAt, pct: pct, now: Date())
     }
 }
 
@@ -213,18 +269,9 @@ extension UsageWindow {
     static let fiveHourSeconds: TimeInterval = 5 * 3600
     static let sevenDaySeconds: TimeInterval = 7 * 24 * 3600
 
-    /// Points ahead (+) or behind (−) the expected pace, when both are known.
     /// Ahead by at least ``UsageWindow/paceThreshold`` points, else the CLI's own verdict.
     var isAheadOfPace: Bool {
         if let d = paceDelta { return d >= Self.paceThreshold }
         return aheadOfPace == true
-    }
-
-    /// Points from the pace that count as off it: smaller drifts read "on pace".
-    static let paceThreshold = 5
-
-    var paceDelta: Int? {
-        guard let pct, let expectedPct else { return nil }
-        return Int((pct - expectedPct).rounded())
     }
 }

@@ -2,24 +2,46 @@ import Charts
 import HaryXCore
 import SwiftUI
 
-/// AI › Usage: quota over time, tokens (or API-price cost) per day by account, and the projects and
-/// sessions that used the most. From `haryx ai usage`; everything stays on this Mac.
+/// AI › Usage. First, will the week last: the CLI's rotation verdict and each account's Week Tide.
+/// Then where it went: tokens (or API-price cost) per day by account and the projects and sessions
+/// that used the most, from `haryx ai usage` once usage history is on. Everything stays on this Mac.
 struct UsagePane: View {
     @Environment(AppStore.self) private var store
 
     var body: some View {
         let model = store.usage
-        Group {
-            if let status = model.status, status.needsChoice {
-                ImportChoice(model: model)
-            } else if let status = model.status, !status.enabled {
-                ContentUnavailableView("Usage history is off", systemImage: "chart.bar.xaxis",
-                                       description: Text("Turn it on in AI Settings (history.enabled)."))
-            } else {
-                UsageContent(model: model)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                WeekSection()
+                Divider()
+                Text("Where it went").font(.title3.weight(.semibold))
+                if let status = model.status, status.needsChoice {
+                    ImportChoice(model: model)
+                } else if let status = model.status, !status.enabled {
+                    HistoryOff(model: model)
+                } else {
+                    UsageContent(model: model)
+                }
             }
+            .padding(20)
         }
         .task { model.reload() }
+    }
+}
+
+/// Usage history is off: the week above still works; the breakdown needs history.
+private struct HistoryOff: View {
+    @Environment(AppStore.self) private var store
+    let model: UsageModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Which accounts, projects and sessions used your quota appears here once usage history is on. HaryX reads token counts from Claude Code's transcripts on this Mac; no conversation text is stored.")
+                .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Button("Turn On Usage History") {
+                Task { await store.configSet("history.enabled", "true"); model.reload() }
+            }
+        }
     }
 }
 
@@ -28,13 +50,13 @@ private struct ImportChoice: View {
     let model: UsageModel
 
     var body: some View {
-        ContentUnavailableView {
-            Label("Start your usage history", systemImage: "chart.bar.xaxis")
-        } description: {
+        VStack(alignment: .leading, spacing: 8) {
             Text("HaryX can read your past Claude Code transcripts to show how each account, project and session used its quota. It reads token counts only, never the conversations, and keeps them on this Mac.")
-        } actions: {
-            Button("Read Past Transcripts") { model.choose(importAll: true) }.buttonStyle(.glassProminent)
-            Button("Start From Now") { model.choose(importAll: false) }
+                .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button("Read Past Transcripts") { model.choose(importAll: true) }.buttonStyle(.glassProminent)
+                Button("Start From Now") { model.choose(importAll: false) }
+            }
         }
     }
 }
@@ -45,7 +67,6 @@ private struct UsageContent: View {
     @AppStorage(Prefs.weeklySummary) private var weeklySummary = false
 
     var body: some View {
-        ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 controls
                 if let error = model.error {
@@ -53,21 +74,23 @@ private struct UsageContent: View {
                 }
                 if let report = model.byAccount {
                     totals(report)
-                    QuotaChart(readings: model.quota?.readings ?? [], name: name)
-                    DailyChart(byDay: model.byDay, showCost: model.showCost, name: name)
+                    DailyChart(byDay: model.byDay, showCost: model.showCost, name: name, colors: colors)
                     accountsTable(report)
                     if let projects = model.projects { topTable("Top projects", projects, folder: true) }
                     if let sessions = model.sessions { topTable("Top sessions", sessions, folder: false) }
                     footer(report)
                 } else if model.loading {
-                    ProgressView().frame(maxWidth: .infinity).padding(.top, 60)
+                    ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
                 }
             }
-            .padding(20)
-        }
     }
 
     private func name(_ n: Int) -> String { store.account(slot: n)?.displayName ?? "Account \(n)" }
+
+    @Environment(\.colorScheme) private var scheme
+
+    /// One fixed colour per account for every chart and table here (`UsageChartSupport.palette`).
+    private var colors: AccountColors { AccountColors(light: scheme == .light, name: name) }
 
     private var controls: some View {
         HStack {
@@ -113,7 +136,10 @@ private struct UsageContent: View {
             VStack(spacing: 6) {
                 ForEach(r.rows) { row in
                     HStack {
-                        Text(row.key.flatMap(Int.init).map(name) ?? "Unknown account").lineLimit(1)
+                        let slot = row.key.flatMap(Int.init)
+                        Circle().fill(slot.map(colors.color) ?? Color.secondary).frame(width: 8, height: 8)
+                            .accessibilityHidden(true)
+                        Text(slot.map(name) ?? "Unknown account").lineLimit(1).truncationMode(.middle)
                         if row.approximate {
                             Text("~").foregroundStyle(.secondary).help("Account worked out from the switch log, so approximate")
                         }
@@ -155,7 +181,7 @@ private struct UsageContent: View {
         guard let key = row.key, !key.isEmpty else { return "—" }
         if folder { return (key as NSString).abbreviatingWithTildeInPath }
         let who = row.accounts.map(name).joined(separator: ", ")
-        return "\(key.prefix(8))  \(who)"
+        return who.isEmpty ? String(key.prefix(8)) : "\(who) · \(key.prefix(8))"
     }
 
     private func footer(_ r: UsageHistory.Report) -> some View {
@@ -178,40 +204,18 @@ private struct UsageContent: View {
     }
 }
 
-/// 5-hour and weekly % per account over time.
-private struct QuotaChart: View {
-    let readings: [UsageHistory.Reading]
+/// The colour each account is drawn in, shared by the charts and the By account table.
+struct AccountColors {
+    let light: Bool
     let name: (Int) -> String
 
-    var body: some View {
-        GroupBox("Quota over time") {
-            if readings.isEmpty {
-                Text("Readings appear here as HaryX reads usage.").foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 80)
-            } else {
-                Chart {
-                    ForEach(readings) { r in
-                        if let five = r.fiveHour {
-                            LineMark(x: .value("Time", r.date), y: .value("%", five),
-                                     series: .value("Window", "\(name(r.account)) · 5h"))
-                                .foregroundStyle(by: .value("Account", name(r.account)))
-                                .lineStyle(StrokeStyle(lineWidth: 1.5))
-                        }
-                        if let seven = r.sevenDay {
-                            LineMark(x: .value("Time", r.date), y: .value("%", seven),
-                                     series: .value("Window", "\(name(r.account)) · 7d"))
-                                .foregroundStyle(by: .value("Account", name(r.account)))
-                                .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                        }
-                    }
-                    RuleMark(y: .value("Limit", 100)).foregroundStyle(.red.opacity(0.5))
-                }
-                .chartYScale(domain: 0...105)
-                .frame(height: 180)
-                Text("Solid: 5-hour window · dashed: weekly").font(.caption).foregroundStyle(.secondary)
-            }
-        }
+    func color(_ slot: Int) -> Color {
+        Color(hex: Int(UsageChartSupport.colorHex(account: slot, light: light).dropFirst(), radix: 16) ?? 0)
     }
+
+    /// The legend scale for a set of accounts, so a name keeps its colour in every chart.
+    func domain(_ slots: [Int]) -> [String] { slots.map(name) }
+    func range(_ slots: [Int]) -> [Color] { slots.map(color) }
 }
 
 /// Tokens (or cost) per day, stacked by account.
@@ -219,12 +223,13 @@ private struct DailyChart: View {
     let byDay: [Int: UsageHistory.Report]
     let showCost: Bool
     let name: (Int) -> String
+    let colors: AccountColors
 
     private struct Point: Identifiable {
         let day: Date
-        let account: String
+        let slot: Int
         let value: Double
-        var id: String { "\(account)-\(day.timeIntervalSince1970)" }
+        var id: String { "\(slot)-\(day.timeIntervalSince1970)" }
     }
 
     private var points: [Point] {
@@ -233,19 +238,32 @@ private struct DailyChart: View {
             report.rows.compactMap { row -> Point? in
                 guard let key = row.key, let day = try? Date(key, strategy: parse) else { return nil }
                 let value = showCost ? (row.cost ?? 0) : Double(row.tokens)
-                return Point(day: day, account: name(n), value: value)
+                return Point(day: day, slot: n, value: value)
             }
         }
     }
 
     var body: some View {
         GroupBox(showCost ? "API cost per day" : "Tokens per day") {
+            let points = points
             if points.isEmpty {
                 Text("No usage in this range.").foregroundStyle(.secondary).frame(maxWidth: .infinity, minHeight: 80)
             } else {
+                let slots = Array(Set(points.map(\.slot))).sorted()
                 Chart(points) { p in
                     BarMark(x: .value("Day", p.day, unit: .day), y: .value(showCost ? "USD" : "Tokens", p.value))
-                        .foregroundStyle(by: .value("Account", p.account))
+                        .foregroundStyle(by: .value("Account", name(p.slot)))
+                }
+                .chartForegroundStyleScale(domain: colors.domain(slots), range: colors.range(slots))
+                .chartYAxis {
+                    AxisMarks { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            if let v = value.as(Double.self) {
+                                Text(showCost ? "$" + UsageChartSupport.compact(v) : UsageChartSupport.compact(v))
+                            }
+                        }
+                    }
                 }
                 .frame(height: 180)
             }

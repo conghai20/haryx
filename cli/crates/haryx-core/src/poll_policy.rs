@@ -82,6 +82,17 @@ pub const POST_429_MAX_INTERVAL_S: f64 = 1800.0;
 /// within this margin of its own switch line; urgent-mode cadence keys on the same band.
 pub const ESCALATION_MARGIN_PCT: f64 = 15.0;
 
+/// Hard ceiling on usage fetches per account in a trailing [`LEDGER_WINDOW_S`], counting every
+/// machine that shares readings (`crate::usage_share`). Below the measured ~28-30 so clients HaryX
+/// cannot coordinate (Claude Code's own `/usage`, statusline tools) keep some headroom. Enforced by
+/// the usage store's request ledger whatever the plan says.
+pub const HOURLY_REQUEST_CAP: usize = 24;
+pub const LEDGER_WINDOW_S: f64 = 3600.0;
+
+/// How long a machine's "this account is active here" mark lasts in the shared row; every push
+/// renews it, so a machine that stopped using the account drops out within this.
+pub const ACTIVE_MARK_TTL_S: f64 = 900.0;
+
 /// Never schedule a poll later than a known window reset (+ slack).
 pub const RESET_SLACK_S: f64 = 60.0;
 
@@ -241,6 +252,22 @@ pub fn plan_after_fetch(p: &PlanInput<'_>, rng: &mut dyn FnMut() -> f64) -> (f64
         next_poll = next_poll.min(reset + RESET_SLACK_S);
     }
     (next_poll, interval)
+}
+
+/// Stretch a plan for `peers` other machines polling the same account without coordination:
+/// the interval and the wait both grow by `1 + peers`, so their combined rate stays what one
+/// machine alone would spend. No peers leaves the plan as it is.
+pub fn spread_for_peers(next_poll_at: f64, interval_s: f64, now: f64, peers: usize) -> (f64, f64) {
+    if peers == 0 {
+        return (next_poll_at, interval_s);
+    }
+    let factor = 1.0 + peers as f64;
+    let wait = (next_poll_at - now).max(0.0);
+    let ceiling = POST_429_MAX_INTERVAL_S.max(wait);
+    (
+        now + (wait * factor).min(ceiling),
+        (interval_s * factor).min(POST_429_MAX_INTERVAL_S.max(interval_s)),
+    )
 }
 
 /// [`plan_after_fetch`] with the process RNG.

@@ -33,7 +33,7 @@ struct SessionsPane: View {
             Section("Start Claude as an account in a new terminal") {
                 ForEach(store.accounts) { a in
                     HStack {
-                        Text("\(a.number). \(a.displayName)")
+                        Text("\(a.number). \(a.displayName)").lineLimit(1).truncationMode(.middle)
                         Spacer()
                         Menu {
                             TerminalMenuItems { store.runClaude(as: a, app: $0) }
@@ -47,6 +47,7 @@ struct SessionsPane: View {
             }
         }
         .formStyle(.grouped)
+        .paneFrame()
     }
 
     private func row(_ row: Row) -> some View {
@@ -59,7 +60,7 @@ struct SessionsPane: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(account?.displayName ?? "no active account").fontWeight(.medium).lineLimit(1)
+                    Text(account?.displayName ?? "no active account").fontWeight(.medium).lineLimit(1).truncationMode(.middle)
                     if s.configDir != nil, account != nil { BadgeText("own profile") }
                     if stuck { Text("out of quota").font(.caption.weight(.semibold)).foregroundStyle(Brand.warn) }
                 }

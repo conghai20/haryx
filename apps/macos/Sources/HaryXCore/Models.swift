@@ -6,6 +6,9 @@ public struct AccountList: Decodable, Sendable {
     public let schemaVersion: Int
     public let activeAccountNumber: Int?
     public let accounts: [Account]
+    /// Will the week last (`crate::rotation` in the CLI); absent from older CLIs and when no account
+    /// auto-switch may use has a weekly reading.
+    public let rotation: Rotation?
 }
 
 public struct Account: Decodable, Sendable, Identifiable, Hashable {
@@ -17,11 +20,17 @@ public struct Account: Decodable, Sendable, Identifiable, Hashable {
     public let usageStatus: String
     public let usage: Usage?
     public let alias: String?
+    /// `haryx group`: the first group, nil when ungrouped. Older CLIs send only this.
+    public let group: String?
+    /// Every group the account is in, in the order added (`groups` in `list --json`).
+    let groups: [String]?
     public let disabled: Bool?
     public let threshold: Double?
     public let loginExpiresAt: Date?
     public let plan: Plan?
     public let usageAgeSeconds: Double?
+    /// The reading was taken by another of your machines (usage share through HaryX sync).
+    public let usageFromOtherMachine: Bool?
     public let usageError: String?
 
     public var id: Int { number }
@@ -43,6 +52,13 @@ public struct Account: Decodable, Sendable, Identifiable, Hashable {
     public var peakPct: Double? {
         [usage?.fiveHour?.pct, usage?.sevenDay?.pct].compactMap { $0 }.max()
     }
+
+    /// At 100% of a quota: nothing left until it resets.
+    public var isExhausted: Bool { (peakPct ?? 0) >= 100 }
+
+    /// Out of use for now, held out of rotation or at its limit: dimmed, with a sleeping mascot. An
+    /// account at its limit stays in rotation and wakes when its quota resets.
+    public var isResting: Bool { isDisabled || isExhausted }
 
     public var statusNote: String? {
         switch usageStatus {

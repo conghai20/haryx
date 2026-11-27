@@ -48,6 +48,53 @@ pub fn normalize_alias(name: &str) -> Result<String> {
     Ok(normalized)
 }
 
+// ---------------------------------------------------------------------------------------------- group
+
+/// Longest group name, in characters.
+pub const GROUP_MAX_CHARS: usize = 32;
+
+/// Trim and validate a group name. Unlike an alias it keeps its case and may hold spaces: it is a
+/// label, never an identifier. Two names that differ only in case are the same group.
+pub fn normalize_group(name: &str) -> Result<String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err(invalid("group cannot be empty".to_owned()));
+    }
+    if trimmed.chars().count() > GROUP_MAX_CHARS {
+        return Err(invalid(format!(
+            "group '{trimmed}' is longer than {GROUP_MAX_CHARS} characters"
+        )));
+    }
+    if trimmed.chars().any(char::is_control) {
+        return Err(invalid(
+            "group cannot contain control characters".to_owned(),
+        ));
+    }
+    Ok(trimmed.to_owned())
+}
+
+/// Most groups one account can be in.
+pub const GROUPS_MAX: usize = 16;
+
+/// Normalize a list of group names: each through [`normalize_group`], duplicates (ignoring case)
+/// dropped keeping the first, order kept. More than [`GROUPS_MAX`] distinct names is an error.
+pub fn normalize_groups<'a>(names: impl IntoIterator<Item = &'a str>) -> Result<Vec<String>> {
+    let mut out: Vec<String> = Vec::new();
+    for name in names {
+        let group = normalize_group(name)?;
+        if !out.iter().any(|g| g.to_lowercase() == group.to_lowercase()) {
+            out.push(group);
+        }
+    }
+    if out.len() > GROUPS_MAX {
+        return Err(invalid(format!(
+            "an account can be in at most {GROUPS_MAX} groups, got {}",
+            out.len()
+        )));
+    }
+    Ok(out)
+}
+
 fn invalid(message: String) -> Error {
     Error::Validation(message)
 }

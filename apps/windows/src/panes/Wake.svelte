@@ -1,9 +1,12 @@
 <script lang="ts">
-  // `haryx ai wake`: the scheduled task, quiet hours and weekly cap, a per-account opt-in, and the
-  // recent wake events. Every change reloads `ai wake status --json`.
+  // `haryx ai wake`: the background check (a scheduled task), quiet hours and weekly cap, a
+  // per-account opt-in, and the recent wake events. Every change saves at once and reloads
+  // `ai wake status --json`.
   import { onMount } from "svelte";
   import { api } from "../lib/api";
+  import { describeError } from "../lib/errors";
   import { store } from "../lib/store.svelte";
+  import { relativeTime, wakeResultText } from "../lib/text";
   import { displayName } from "../lib/tide";
 
   interface WakeAccount {
@@ -33,7 +36,7 @@
   const QUIET_RE = /^(\d{1,2}:\d{2})-(\d{1,2}:\d{2})$/;
 
   let wake = $state<WakeStatus | null>(null);
-  let loadError = $state<string | null>(null);
+  let loadError = $state<{ text: string; detail: string } | null>(null);
   let quietOn = $state(false);
   let quietStart = $state("01:00");
   let quietEnd = $state("06:00");
@@ -41,6 +44,8 @@
 
   let onCount = $derived(wake?.accounts.filter((a) => a.on).length ?? 0);
   let allOn = $derived(!!wake && wake.accounts.length > 0 && onCount === wake.accounts.length);
+  /** Some but not all on: the All accounts box shows a mixed state. */
+  let someOn = $derived(onCount > 0 && !allOn);
   let events = $derived([...(wake?.events ?? [])].sort((a, b) => b.at - a.at).slice(0, EVENTS_SHOWN));
 
   async function load() {
@@ -56,7 +61,7 @@
         quietEnd = (m[2] ?? "06:00").padStart(5, "0");
       }
     } catch (e) {
-      loadError = String(e);
+      loadError = describeError(e, "Couldn't read wake status");
     }
   }
 
@@ -68,12 +73,17 @@
   const setOn = (ref: string, on: boolean) => change(on ? "Wake on" : "Wake off", [on ? "on" : "off", ref]);
   const setTask = (install: boolean) =>
     change(install ? "Installing the scheduled task" : "Removing the scheduled task", [install ? "install" : "uninstall"]);
-  const saveSettings = () =>
-    change(
-      "Wake settings",
-      ["config", ...(quietOn ? ["--quiet", `${quietStart}-${quietEnd}`] : ["--no-quiet"]), "--weekly-cap", String(cap)],
+  /** Saves quiet hours and the weekly cap as soon as either changes; nothing when they match what is stored. */
+  function saveSettings() {
+    if (!wake || (quietOn && (!quietStart || !quietEnd))) return;
+    const quiet = quietOn ? `${quietStart}-${quietEnd}` : null;
+    if (quiet === (wake.quietHours ?? null) && cap === Math.round(wake.weeklyCapPct)) return;
+    void change(
+      "Saving wake settings",
+      ["config", ...(quiet ? ["--quiet", quiet] : ["--no-quiet"]), "--weekly-cap", String(cap)],
       "Wake settings saved",
     );
+  }
 
   function nameOf(row: WakeAccount): string {
     const a = store.accounts.find((x) => x.number === row.number);
@@ -85,21 +95,27 @@
     return row ? nameOf(row) : ref ? `Account ${ref}` : "—";
   }
 
+  const time = (iso: string | null | undefined) => (iso ? new Date(iso).getTime() : NaN);
+
   function when(iso: string | null | undefined): string {
-    if (!iso) return "—";
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
+    const t = time(iso);
+    return Number.isNaN(t) ? "—" : new Date(t).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
   }
 
-  function result(r: string | null | undefined): string {
-    if (!r) return "—";
-    if (r === "woke") return "Woke";
-    if (r === "not-due") return "Not due";
-    const [kind, why] = r.split(":", 2);
-    const reason = (why ?? "").replaceAll("-", " ");
-    if (kind === "skip") return `Skipped: ${reason}`;
-    if (kind === "failed") return `Failed: ${reason}`;
-    return r;
+  /** "Woke 2 hr ago · next in 34 min", relative; the result follows it. */
+  function statusLine(row: WakeAccount): string {
+    const last = Number.isNaN(time(row.lastWakeAt)) ? "No wake yet" : `Woke ${relativeTime(time(row.lastWakeAt), store.now)}`;
+    const next = Number.isNaN(time(row.nextDue)) ? "" : ` · next ${relativeTime(time(row.nextDue), store.now)}`;
+    return last + next;
+  }
+
+  const absoluteLine = (row: WakeAccount) => `Last wake ${when(row.lastWakeAt)} · Next due ${when(row.nextDue)}`;
+
+  /** The All accounts box: mixed when some are on. One click sends a single `wake on|off all`: on from
+      off or mixed (as macOS), off when all are on. */
+  function mixed(node: HTMLInputElement, value: boolean) {
+    node.indeterminate = value;
+    return { update: (v: boolean) => (node.indeterminate = v) };
   }
 
   onMount(load);
@@ -108,113 +124,131 @@
 {#if wake}
   <section aria-labelledby="wake-task">
     <div class="row">
-      <div>
-        <h2 id="wake-task">Scheduled task</h2>
-        <p class="caption">
-          When an opted-in account's 5-hour window resets, one 1-token request starts the next window. Checks with
-          nothing due read local files only.
-        </p>
-      </div>
+      <h2 id="wake-task">Background check</h2>
       <span class="spacer"></span>
-      {#if wake.agentInstalled}<span class="badge live">Every minute</span>{:else}<span class="badge">Off</span>{/if}
+      <span class="caption">{wake.agentInstalled ? "Every minute" : "Off"}</span>
       <button disabled={!!store.busy} onclick={() => setTask(!wake?.agentInstalled)}>
         {wake.agentInstalled ? "Remove" : "Install"}
       </button>
     </div>
+    <p class="caption">
+      When an opted-in account's 5-hour window resets, one 1-token request starts the next window. Checks with nothing
+      due read local files only.
+    </p>
   </section>
-
-  <div class="hairline"></div>
 
   <section aria-labelledby="wake-settings" class="settings">
     <h2 id="wake-settings">Settings</h2>
-    <label class="line"><input type="checkbox" bind:checked={quietOn} /> Quiet hours</label>
+    <div class="line between">
+      <label for="quiet">Quiet hours</label>
+      <input
+        id="quiet"
+        type="checkbox"
+        role="switch"
+        class="switch"
+        bind:checked={quietOn}
+        disabled={!!store.busy}
+        onchange={saveSettings}
+      />
+    </div>
     {#if quietOn}
       <div class="line indent">
-        <label>From <input type="time" bind:value={quietStart} required /></label>
-        <label>Until <input type="time" bind:value={quietEnd} required /></label>
+        <label>From <input type="time" bind:value={quietStart} required onchange={saveSettings} /></label>
+        <label>Until <input type="time" bind:value={quietEnd} required onchange={saveSettings} /></label>
       </div>
     {/if}
-    <label class="line">
-      Skip at weekly use
-      <input type="range" min="50" max="100" step="5" bind:value={cap} aria-valuetext="{cap}%" />
-      <span class="pct">{cap}%</span>
-    </label>
-    <div><button class="primary" disabled={!!store.busy || (quietOn && (!quietStart || !quietEnd))} onclick={saveSettings}>Save</button></div>
+    <div class="line between">
+      <label for="cap">Skip at weekly use</label>
+      <span class="line">
+        <input
+          id="cap"
+          type="range"
+          min="50"
+          max="100"
+          step="5"
+          bind:value={cap}
+          aria-valuetext="{cap}%"
+          onchange={saveSettings}
+        />
+        <span class="pct">{cap}%</span>
+      </span>
+    </div>
   </section>
 
-  <div class="hairline"></div>
-
   <section aria-labelledby="wake-accounts">
-    <div class="row">
-      <h2 id="wake-accounts">Accounts</h2>
-      <span class="caption">{onCount} of {wake.accounts.length} on</span>
-      <span class="spacer"></span>
-      <label class="line">
-        <input
-          type="checkbox"
-          checked={allOn}
-          disabled={wake.accounts.length === 0 || !!store.busy}
-          onchange={(e) => setOn("all", e.currentTarget.checked)}
-        />
-        All accounts
-      </label>
-    </div>
+    <h2 id="wake-accounts">Accounts</h2>
     {#if wake.accounts.length === 0}
       <p class="secondary">No accounts yet.</p>
     {:else}
-      <table>
-        <thead class="caption tertiary">
-          <tr><th>Wake</th><th>Account</th><th>Last wake</th><th>Next due</th><th>Last result</th></tr>
-        </thead>
-        <tbody>
-          {#each wake.accounts as row (row.number)}
-            <tr>
-              <td>
-                <input
-                  type="checkbox"
-                  checked={row.on}
-                  disabled={!!store.busy}
-                  aria-label="Wake {nameOf(row)}"
-                  onchange={(e) => setOn(String(row.number), e.currentTarget.checked)}
-                />
-              </td>
-              <td class="truncate" title={row.email}>{nameOf(row)}</td>
-              <td class="secondary">{when(row.lastWakeAt)}</td>
-              <td class="secondary">{when(row.nextDue)}</td>
-              <td class:secondary={!row.lastResult?.startsWith("failed")} class:fail={row.lastResult?.startsWith("failed")}>
-                {result(row.lastResult)}
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+      <ul class="accounts">
+        <li class="all">
+          <div class="who">
+            <label for="wake-all"><strong>All accounts</strong></label>
+            <span class="caption">{onCount} of {wake.accounts.length} on</span>
+          </div>
+          <input
+            id="wake-all"
+            type="checkbox"
+            role="switch"
+            class="switch"
+            checked={allOn}
+            use:mixed={someOn}
+            aria-checked={someOn ? "mixed" : allOn}
+            disabled={!!store.busy}
+            onchange={() => setOn("all", !allOn)}
+          />
+        </li>
+        {#each wake.accounts as row (row.number)}
+          {@const failed = row.lastResult?.startsWith("failed") ?? false}
+          <li>
+            <div class="who" title={absoluteLine(row)}>
+              <label for="wake-{row.number}" class="truncate">{nameOf(row)}</label>
+              <span class="caption">
+                {statusLine(row)}{#if row.lastResult}
+                  · <span class:fail={failed}>{wakeResultText(row.lastResult)}</span>{/if}
+              </span>
+            </div>
+            <input
+              id="wake-{row.number}"
+              type="checkbox"
+              role="switch"
+              class="switch"
+              checked={row.on}
+              disabled={!!store.busy}
+              aria-label="Wake {nameOf(row)}"
+              onchange={(e) => setOn(String(row.number), e.currentTarget.checked)}
+            />
+          </li>
+        {/each}
+      </ul>
       {#if onCount > 0 && !wake.agentInstalled}
-        <p class="caption">The scheduled task is off, so opted-in accounts are not checked. Install it above.</p>
+        <p class="caption">The background check is off, so opted-in accounts are not checked. Install it above.</p>
       {/if}
     {/if}
   </section>
-
-  <div class="hairline"></div>
 
   <section aria-labelledby="wake-events">
     <h2 id="wake-events">Recent events</h2>
     {#if events.length === 0}
       <p class="secondary">No wakes yet.</p>
     {:else}
-      <ul>
+      <ul class="events">
         {#each events as ev, i (`${ev.at}-${i}`)}
+          {@const at = ev.at * 1000}
           <li>
-            <span class="tertiary">{new Date(ev.at * 1000).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })}</span>
+            <span class="tertiary" title={new Date(at).toLocaleString()}>{relativeTime(at, store.now)}</span>
             <span class="truncate">{eventName(ev.account)}</span>
-            <span class="secondary">{result(ev.result)}</span>
+            <span class:secondary={!ev.result.startsWith("failed")} class:fail={ev.result.startsWith("failed")}
+              >{wakeResultText(ev.result)}</span
+            >
           </li>
         {/each}
       </ul>
     {/if}
   </section>
 {:else if loadError}
-  <div class="banner error" role="alert">
-    Could not read wake status: {loadError}. Update haryx (Tools, Upgrade) if this version has no wake command.
+  <div class="banner error" role="alert" title={loadError.detail}>
+    {loadError.text} If this haryx has no wake command, upgrade it in Backup & maintenance.
   </div>
   <p><button onclick={load}>Try again</button></p>
 {:else}
@@ -222,8 +256,11 @@
 {/if}
 
 <style>
+  section {
+    margin-bottom: 20px;
+  }
   h2 {
-    margin: 0 0 4px;
+    margin: 0 0 6px;
     font-size: 13px;
     font-weight: 600;
   }
@@ -248,44 +285,44 @@
     align-items: center;
     gap: 8px;
   }
+  .between {
+    justify-content: space-between;
+  }
   .indent {
-    padding-left: 22px;
+    padding-left: 16px;
     gap: 16px;
   }
   .pct {
     width: 40px;
     text-align: right;
   }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 6px;
-    table-layout: fixed;
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
   }
-  th {
-    text-align: left;
-    font-weight: 400;
-  }
-  th:first-child,
-  td:first-child {
-    width: 44px;
-  }
-  td {
-    padding: 5px 0;
+  .accounts li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
     border-top: 1px solid var(--separator);
+  }
+  .who {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
   .fail {
     color: var(--red);
   }
-  ul {
-    list-style: none;
-    margin: 4px 0 0;
-    padding: 0;
-  }
-  li {
+  .events li {
     display: grid;
-    grid-template-columns: 130px 1fr auto;
+    grid-template-columns: 110px 1fr auto;
     gap: 10px;
-    padding: 4px 0;
+    padding: 5px 0;
+    border-top: 1px solid var(--separator);
   }
 </style>

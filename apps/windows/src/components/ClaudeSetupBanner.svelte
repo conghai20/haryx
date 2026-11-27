@@ -1,6 +1,7 @@
 <script lang="ts">
   // Shown while Claude Code is missing or has never signed in (`haryx ai doctor`): nothing in the AI
   // section works until it is fixed, so say what is wrong and offer the fix in one click. As macOS.
+  import Icon from "./Icon.svelte";
   import { actions } from "../lib/actions";
   import { store } from "../lib/store.svelte";
 
@@ -19,7 +20,7 @@
 
 {#if problem}
   <div class="setup" class:compact role="status">
-    <strong>⚠ {problem.message}</strong>
+    <strong class="warn-line"><Icon name="warning" size={14} />{problem.message}</strong>
     {#if !compact}
       <!-- The fix carries commands in backticks: odd segments are code. -->
       <p class="caption">
@@ -30,14 +31,19 @@
       {#if problem.code === "claude_missing"}
         <button class="primary" onclick={() => actions.terminal({ kind: "install-claude" })}>Install Claude Code</button>
       {:else if problem.code === "not_signed_in"}
-        <button class="primary" onclick={() => actions.terminal({ kind: "claude" })}>Open Claude to Sign In</button>
+        <button class="primary" onclick={() => actions.terminal({ kind: "claude" })}>Open Claude to sign in</button>
       {/if}
-      <button disabled={checking} onclick={checkAgain}>Check Again</button>
+      <button disabled={checking} onclick={checkAgain}>Check again</button>
     </div>
   </div>
 {/if}
 
 <style>
+  .warn-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
   .setup {
     grid-column: 1 / -1;
     display: flex;

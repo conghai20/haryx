@@ -2,7 +2,7 @@ import Foundation
 import HaryXCore
 import Observation
 
-/// The Usage section's data: `haryx ai usage … --json`, loaded on demand (plan:
+/// The Usage section's "where it went" data: `haryx ai usage … --json`, loaded on demand (plan:
 /// `docs/usage-history-plan.md`). The CLI indexes new transcript lines on every call.
 @MainActor @Observable
 final class UsageModel {
@@ -29,7 +29,6 @@ final class UsageModel {
     private(set) var byDay: [Int: UsageHistory.Report] = [:]
     private(set) var projects: UsageHistory.Report?
     private(set) var sessions: UsageHistory.Report?
-    private(set) var quota: UsageHistory.Quota?
     private(set) var loading = false
     private(set) var error: String?
 
@@ -66,21 +65,17 @@ final class UsageModel {
             }
             async let projects = Self.json(UsageHistory.Report.self, cli, ["ai", "usage", "report", "--by", "project"] + base)
             async let sessions = Self.json(UsageHistory.Report.self, cli, ["ai", "usage", "report", "--by", "session"] + base)
-            var quotaArgs = ["ai", "usage", "quota", "--since", range.rawValue]
-            if let account { quotaArgs += ["--account", String(account)] }
-            async let quota = Self.json(UsageHistory.Quota.self, cli, quotaArgs)
             var days: [Int: UsageHistory.Report] = [:]
             for n in first.rows.compactMap({ $0.key.flatMap(Int.init) }) {
                 days[n] = try await Self.json(UsageHistory.Report.self, cli,
                                               ["ai", "usage", "report", "--by", "day", "--since", range.rawValue, "--account", String(n)])
             }
-            let (p, s, q) = try await (projects, sessions, quota)
+            let (p, s) = try await (projects, sessions)
             guard current() else { return }
             byAccount = first
             byDay = days
             self.projects = p
             self.sessions = s
-            self.quota = q
             error = nil
         } catch is CancellationError {
         } catch {

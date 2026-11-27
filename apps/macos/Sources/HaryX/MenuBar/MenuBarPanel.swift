@@ -206,7 +206,18 @@ private struct NextInLine: View {
                 .font(.caption2.weight(.medium)).foregroundStyle(.tertiary)
                 .padding(.bottom, 2)
                 .accessibilityHidden(true)
-                ForEach(accounts) { a in
+                let grouped = AccountGroups.inUse(accounts)
+                ForEach(Array(accounts.enumerated()), id: \.element.number) { i, a in
+                    // The list keeps switch order, so the groups are named wherever the run changes.
+                    if grouped, i == 0 || a.groupLabel != accounts[i - 1].groupLabel {
+                        GridRow {
+                            Text(a.groupLabel)
+                                .font(.caption2.weight(.medium)).foregroundStyle(.secondary)
+                                .gridCellColumns(5)
+                                .padding(.top, i == 0 ? 0 : 4)
+                                .accessibilityAddTraits(.isHeader)
+                        }
+                    }
                     AccountRow(account: a) { band in rowBands[a.number] = band }
                 }
             }
@@ -277,7 +288,7 @@ struct AccountRow: View {
             if account.showsSignInRow { signInRow } else { usageRow }
         }
         .font(.callout.monospacedDigit())
-        .opacity(account.isDisabled ? 0.5 : 1)
+        .opacity(account.isResting ? 0.5 : 1)
         .contextMenu { AccountContextMenu(account: account) }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
@@ -373,8 +384,8 @@ struct AccountRow: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.mini)
             .font(.caption.weight(.semibold))
-            .disabled(store.busy != nil || account.isDisabled)
-            .help("Switch to \(account.displayName)")
+            .disabled(store.busy != nil || account.isResting)
+            .help(account.isExhausted ? "\(account.displayName) is at its limit" : "Switch to \(account.displayName)")
     }
 }
 
@@ -459,8 +470,18 @@ private struct QuickActions: View {
                     TerminalMenuItems { store.runClaude(as: nil, app: $0) }
                 }
                 Menu("Claude as…") {
-                    ForEach(store.accounts) { a in
-                        Button("\(a.number): \(a.displayName)") { store.runClaude(as: a) }
+                    if AccountGroups.inUse(store.accounts) {
+                        ForEach(AccountGroups.sections(store.accounts)) { section in
+                            Section(section.name ?? "Ungrouped") {
+                                ForEach(section.accounts) { a in
+                                    Button("\(a.number): \(a.displayName)") { store.runClaude(as: a) }
+                                }
+                            }
+                        }
+                    } else {
+                        ForEach(store.accounts) { a in
+                            Button("\(a.number): \(a.displayName)") { store.runClaude(as: a) }
+                        }
                     }
                 }
                 Button("Claude in Folder…") {

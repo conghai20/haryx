@@ -141,6 +141,19 @@ pub(super) struct Placement {
     pub(super) carried: JsonObject,
 }
 
+/// What [`Switcher::store_token_account`] stored.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TokenStored {
+    pub num: String,
+    pub email: String,
+    /// `token` or `API key`.
+    pub kind_label: &'static str,
+    /// An existing account with this email got the new token.
+    pub updated: bool,
+    /// `"3 → 5"` when the account moved slot.
+    pub moved_from: Option<String>,
+}
+
 impl Switcher {
     pub(super) fn prepare_store(&self) -> Result<()> {
         self.refuse_session_shell()?;
@@ -446,7 +459,43 @@ impl Switcher {
             Some(t) if !t.is_empty() => t.to_owned(),
             _ => prompt_secret("Token: ").unwrap_or_default(),
         };
-        let token = raw.trim().to_owned();
+        let Some(stored) = self.store_token_account(&raw, email, slot, assume_yes)? else {
+            return Ok(());
+        };
+        if stored.updated {
+            println!(
+                "{} for Account {} ({} {}).",
+                accent(&format!("Updated {}", stored.kind_label)),
+                stored.num,
+                stored.email,
+                muted("[personal]")
+            );
+            return Ok(());
+        }
+        if let Some(moved) = &stored.moved_from {
+            println!("{}", dimmed(&format!("Moved from slot {moved}")));
+        }
+        println!(
+            "{} Account {}: {} {} {}",
+            accent("Added"),
+            stored.num,
+            stored.email,
+            muted("[personal]"),
+            muted(&format!("(from {})", stored.kind_label))
+        );
+        Ok(())
+    }
+
+    /// Store a setup-token or API key as an account, printing nothing (sync uses it). `None` when
+    /// the placement was declined. An account with the same email is updated in place.
+    pub fn store_token_account(
+        &self,
+        token: &str,
+        email: Option<&str>,
+        slot: Option<i64>,
+        assume_yes: bool,
+    ) -> Result<Option<TokenStored>> {
+        let token = token.trim().to_owned();
         if token.is_empty() {
             return Err(Error::Validation("Token cannot be empty".into()));
         }
@@ -500,15 +549,16 @@ impl Switcher {
             seq.insert("lastUpdated".into(), json!(get_timestamp()));
             self.write_json(&self.sequence_file, &seq)?;
             info!("Updated {kind_label} for account {num}: {email}");
-            println!(
-                "{} for Account {num} ({email} {}).",
-                accent(&format!("Updated {kind_label}")),
-                muted("[personal]")
-            );
-            return Ok(());
+            return Ok(Some(TokenStored {
+                num,
+                email,
+                kind_label,
+                updated: true,
+                moved_from: None,
+            }));
         }
         let Some(placement) = self.place(slot, &email, "", assume_yes)? else {
-            return Ok(());
+            return Ok(None);
         };
         self.vacate(&placement)?;
         let num = placement.num.clone();
@@ -535,16 +585,17 @@ impl Switcher {
         data.insert("lastUpdated".into(), json!(get_timestamp()));
         self.write_json(&self.sequence_file, &data)?;
         info!("Added account {num} from {kind_label}: {email}");
-        if let (Some(from), Some(slot)) = (&placement.migrate_from, slot) {
-            println!("{}", dimmed(&format!("Moved from slot {from} → {slot}")));
-        }
-        println!(
-            "{} Account {num}: {email} {} {}",
-            accent("Added"),
-            muted("[personal]"),
-            muted(&format!("(from {kind_label})"))
-        );
-        Ok(())
+        let moved_from = match (&placement.migrate_from, slot) {
+            (Some(from), Some(slot)) => Some(format!("{from} → {slot}")),
+            _ => None,
+        };
+        Ok(Some(TokenStored {
+            num,
+            email,
+            kind_label,
+            updated: false,
+            moved_from,
+        }))
     }
 
     /// `remove`: forget a slot after confirmation (`assume_yes` skips it).

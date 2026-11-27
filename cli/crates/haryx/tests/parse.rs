@@ -2,8 +2,8 @@
 
 use clap::error::ErrorKind;
 use haryx::cli::{
-    AccountSetting, AutoOptions, AutoStrategy, Command, ConfigAction, ImportSource, Invocation,
-    RunOptions, SwitchStrategy, parse, translate_subcommand,
+    AccountAction, AccountSetting, AutoOptions, AutoStrategy, Command, ConfigAction, ImportSource,
+    Invocation, RunOptions, SwitchStrategy, parse, translate_subcommand,
 };
 
 fn args(argv: &[&str]) -> Vec<String> {
@@ -271,13 +271,21 @@ fn ai_section_parses_like_the_bare_commands() {
 }
 
 #[test]
-fn login_lives_only_in_the_ai_section() {
+fn claude_login_lives_in_the_ai_section_and_top_level_login_is_haryx() {
     assert!(matches!(
         ok(&["ai", "login", "3"]).command,
         Command::Login(_)
     ));
-    assert_usage_error(&["login", "3"], "did you mean 'haryx ai login'?");
-    assert_usage_error(&["login"], "did you mean 'haryx ai login'?");
+    assert!(matches!(
+        ok(&["login"]).command,
+        Command::Account(AccountAction::Login { .. })
+    ));
+    assert!(matches!(
+        ok(&["whoami", "--json"]).command,
+        Command::Account(AccountAction::Whoami { json: true })
+    ));
+    assert_usage_error(&["login", "3"], "use 'haryx ai login 3'");
+    assert_usage_error(&["ai", "whoami"], "");
 }
 
 #[test]

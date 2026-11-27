@@ -56,7 +56,7 @@ body {
   height: 100%;
   background: var(--bg);
   color: var(--label);
-  font: 12px/1.4 var(--font-body);
+  font: 13px/1.4 var(--font-body);
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   user-select: none;
@@ -107,7 +107,7 @@ button.plain:hover:not(:disabled) {
 button.mini {
   padding: 2px 10px;
   font-weight: 600;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 button:focus-visible,
@@ -135,7 +135,7 @@ select {
 }
 
 .caption {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--label-2);
 }
 
@@ -155,7 +155,7 @@ select {
 
 .badge {
   display: inline-block;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   padding: 2px 6px;
@@ -177,14 +177,65 @@ select {
   background: var(--cyan);
 }
 
+/* A neutral notice: grey, since cyan means live (DESIGN.md's Live Cyan Rule). */
 .banner {
   border-radius: var(--radius-banner);
   padding: 8px 10px;
-  background: color-mix(in srgb, var(--cyan) 12%, transparent);
+  background: var(--fill-strong);
 }
 
 .banner.error {
   background: color-mix(in srgb, var(--red) 12%, transparent);
+}
+
+/* A Fluent toggle switch: a checkbox with role="switch". Off is an outlined pill, on is filled. */
+input.switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--label-2);
+  border-radius: 999px;
+  background: transparent;
+  cursor: default;
+}
+input.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--label-2);
+  transition: transform 120ms ease-out;
+}
+input.switch:checked {
+  border-color: var(--cyan-ink);
+  background: var(--cyan-ink);
+}
+input.switch:checked::after {
+  background: white;
+  transform: translateX(20px);
+}
+/* Some but not all: the knob sits in the middle. */
+input.switch:indeterminate {
+  border-color: var(--cyan-ink);
+}
+input.switch:indeterminate::after {
+  background: var(--cyan-ink);
+  transform: translateX(10px);
+}
+input.switch:disabled {
+  opacity: 0.45;
+}
+
+/* Text the user can select (paths, emails), set against a theme-coloured highlight. */
+::selection {
+  background: color-mix(in srgb, var(--cyan) 30%, transparent);
 }
 
 .truncate {

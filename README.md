@@ -37,6 +37,8 @@ HaryX is an independent project. It is not made, endorsed or supported by Anthro
   terms prohibit tools that route traffic against subscription limits. Auto-switch is off unless you start
   it; it moves work between your own plans when the active one reaches the threshold you set. Don't use it
   to get more out of a plan than the plan allows.
+- **Sync stays between your machines.** Signing in to HaryX (optional) syncs your settings and account setup
+  between your own machines. Each machine signs in to Claude itself; a Claude browser login is never copied.
 - **Anthropic decides.** Anthropic may warn, throttle, suspend or close accounts it believes break its
   terms. Read the [Consumer Terms](https://www.anthropic.com/legal/consumer-terms), the
   [Usage Policy](https://www.anthropic.com/legal/aup) and Claude Code's
@@ -111,6 +113,21 @@ haryx ai auto                 # opt-in: move to another of your accounts at your
 haryx ai tui                  # interactive dashboard (bare `haryx` in a terminal)
 haryx ai help                 # every command
 ```
+
+### Sync between your machines (optional)
+
+```sh
+haryx login                 # GitHub sign-in in your browser
+haryx sync unlock           # the first machine sets a sync passphrase; the others enter it
+haryx sync                  # settings, app preferences, account settings, API-key and setup-token accounts
+haryx sync profile push work   # a saved setup profile (secrets redacted, no history)
+haryx account delete        # removes the HaryX account and everything synced
+```
+
+**What HaryX sends, and where.** Signed out: nothing new. Signed in: your sign-in email reaches Supabase (the
+service hosting HaryX accounts); everything synced is end-to-end encrypted with a key only your passphrase
+opens, under row names the server cannot read. Claude browser logins, conversations, usage history and
+folder paths never leave your machine. Accounts on another machine are listed so you can sign them in here.
 
 ### Move your Claude Code setup to another machine
 

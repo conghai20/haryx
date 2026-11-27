@@ -160,7 +160,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         settings::set_setting(dir.path(), "autoswitch.cooldownSeconds", "600").unwrap();
         let lines = list_lines(&settings::effective_settings(dir.path()));
-        assert_eq!(lines.len(), 18);
+        assert_eq!(lines.len(), 19);
         let key_w = "autoswitch.includeApiKeyAccounts".len();
         assert_eq!(
             lines[0],

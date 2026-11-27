@@ -20,6 +20,11 @@ final class AppStore {
 
     // cswap state
     private(set) var accounts: [Account] = []
+    /// Will the week last: the CLI's verdict over the accounts auto-switch may use.
+    private(set) var rotation: Rotation?
+    /// Each account's weekly readings over the last 7 days, for its Week Tide (kept only while
+    /// usage history is on; empty otherwise, and the tide draws its average instead).
+    private(set) var weekReadings: [Int: [(at: Date, pct: Double)]] = [:]
     private(set) var lastRefresh: Date?
     private(set) var refreshError: String?
     /// True while an accounts fetch runs; drives the spinning refresh icons.
@@ -34,7 +39,7 @@ final class AppStore {
     private(set) var wake: WakeStatus?
     /// Why wake status could not be read (an older haryx without `ai wake`), when it could not.
     private(set) var wakeError: String?
-    /// `haryx ai desktop status`; nil while "Claude Desktop follows Use" is off.
+    /// `haryx ai desktop status`; nil while "Claude Desktop per account" is off.
     private(set) var desktop: DesktopStatus?
     /// `haryx ai doctor`: nil until read, or with a cswap backend.
     private(set) var claudeSetup: ClaudeSetup?
@@ -51,8 +56,6 @@ final class AppStore {
     private(set) var sessions: [Int: [ClaudeProcess]] = [:]
     /// Live Claude processes on no known account (no active account, or a foreign CLAUDE_CONFIG_DIR).
     private(set) var unassignedSessions: [ClaudeProcess] = []
-    /// Default-profile sessions an auto-switch left on their old account: pid → that account.
-    var leftBehind: [Int32: Int] = [:]
     var panelVisible = false
     /// The dashboard window is on screen (not closed, minimized or fully covered).
     var dashboardVisible = false
@@ -65,6 +68,7 @@ final class AppStore {
     let usage = UsageModel()
     let styles = MascotStyles()
     let notifier = Notifier()
+    let accountSync = AccountSync()
 
     @ObservationIgnored private var loops: [Task<Void, Never>] = []
     @ObservationIgnored private var menuBarLoop: Task<Void, Never>?
@@ -82,6 +86,7 @@ final class AppStore {
         updates.cliProvider = { [weak self] in self?.cli }
         usage.cliProvider = { [weak self] in self?.cli }
         updates.onError = { [weak self] message in self?.flash(message, error: true) }
+        wireAccountSync()
     }
 
     // MARK: lifecycle
@@ -105,6 +110,7 @@ final class AppStore {
         })
         watchBackupDir()
         updates.start()
+        accountSync.start()
         usage.startWeeklySummary(notify: { [weak self] title, body in
             self?.notifier.post(Notice(key: "weekly:\(Date().timeIntervalSince1970)", category: .usage, title: title, body: body))
         }, name: { [weak self] n in self?.account(slot: n)?.displayName ?? "Account \(n)" })
@@ -116,6 +122,7 @@ final class AppStore {
     func shutdown() {
         auto.stop()
         updates.stop()
+        accountSync.stop()
         updates.installOnQuit()
         loops.forEach { $0.cancel() }
         menuBarLoop?.cancel()
@@ -134,11 +141,18 @@ final class AppStore {
     var active: Account? { accounts.first(where: \.active) }
 
     /// The other accounts in switch order: usable before signed-out before disabled, then the
-    /// most headroom first (the `best` strategy's reading).
+    /// accounts sharing a group with the active one first (as the CLI's automatic picks prefer them) and the other groups
+    /// by name with the ungrouped last, then the most headroom first (the `best` strategy's reading).
     var nextInLine: [Account] {
         func tier(_ a: Account) -> Int { a.isDisabled ? 2 : (a.needsRelogin ? 1 : 0) }
+        let active = self.active
+        func group(_ a: Account) -> (Int, String) {
+            if let active, a.sharesGroup(with: active) { return (0, "") }
+            return a.groupNames.isEmpty ? (2, "") : (1, a.groupKeys.min() ?? "")
+        }
         return accounts.filter { !$0.active }.sorted {
             if tier($0) != tier($1) { return tier($0) < tier($1) }
+            if group($0) != group($1) { return group($0) < group($1) }
             let l = $0.peakPct ?? 101, r = $1.peakPct ?? 101
             return l != r ? l < r : $0.number < $1.number
         }
@@ -151,13 +165,7 @@ final class AppStore {
 
     func isRunning(_ a: Account) -> Bool { !(sessions[a.number] ?? []).isEmpty }
 
-    func mood(for a: Account) -> Mood {
-        if a.isDisabled { return .sleeping }
-        if a.needsRelogin { return .error }
-        if isRunning(a) { return .running }
-        if (a.peakPct ?? 0) >= 90 { return .tired }
-        return .idle
-    }
+    func mood(for a: Account) -> Mood { Mood.of(a, running: isRunning(a)) }
 
     func phase(for a: Account) -> Int { Int(stableHash(a.identityKey) % 13) }
 
@@ -194,7 +202,10 @@ final class AppStore {
             guard let self else { return }
             self.loginSessions.removeAll { $0.id == finished.id }
             switch finished.state {
-            case .succeeded(let message): self.flash(message)
+            case .succeeded(let message):
+                self.flash(message)
+                // A new login here takes the synced alias, priority and so on.
+                Task { await self.accountSync.syncNow() }
             case .failed(let message): self.flash(message, error: true)
             case .cancelled, .running: break
             }
@@ -227,6 +238,8 @@ final class AppStore {
             let list = try await cli.json(AccountList.self, ["list", "--json"])
             let previous = accounts
             accounts = list.accounts
+            rotation = list.rotation
+            if let readings = await Self.loadWeekReadings(cli) { weekReadings = readings }
             lastRefresh = Date()
             refreshError = nil
             seenSequenceMTime = Self.sequenceMTime()
@@ -234,6 +247,17 @@ final class AppStore {
         } catch {
             refreshError = error.localizedDescription
         }
+    }
+
+    /// `haryx ai usage quota --since 7d`: a file read, cheap enough for every refresh. nil on a
+    /// cswap backend or a failed read, which keeps the last readings.
+    private static func loadWeekReadings(_ cli: CSwapCLI) async -> [Int: [(at: Date, pct: Double)]]? {
+        guard cli.flavor == .haryx,
+              let quota = try? await UsageModel.json(UsageHistory.Quota.self, cli,
+                                                     ["ai", "usage", "quota", "--since", "7d"])
+        else { return nil }
+        return Dictionary(grouping: quota.readings.compactMap { r in r.sevenDay.map { (r.account, (at: r.date, pct: $0)) } },
+                          by: \.0).mapValues { $0.map(\.1) }
     }
 
     /// Settings, mappings, priorities, unclaimed, version: cheap, refreshed on demand.
@@ -346,7 +370,6 @@ final class AppStore {
             sessionEnded(proc, slot: slot)
         }
         knownProcesses = current
-        if !leftBehind.isEmpty { pruneLeftBehind(alive: Set(current.keys)) }
         if bySlot != sessions { sessions = bySlot }
         let unassigned = current.values.filter { $0.1 == nil }.map(\.0)
         if Set(unassigned) != Set(unassignedSessions) { unassignedSessions = unassigned }
@@ -407,10 +430,7 @@ final class AppStore {
         if let title = event.notificationTitle {
             notifier.post(Notice(key: "auto:\(event.id)", category: .autoSwitch, title: title, body: event.summary))
         }
-        if event.kind == "switch" {
-            noteSwitch(from: event.fromAccount ?? active?.number)
-            Task { await refresh() }
-        }
+        if event.kind == "switch" { Task { await refresh() } }
     }
 
     // MARK: banner

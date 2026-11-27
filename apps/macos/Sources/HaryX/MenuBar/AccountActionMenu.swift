@@ -40,6 +40,8 @@ enum AccountActionMenu {
         forceItem.isEnabled = store.busy == nil
         menu.addItem(forceItem)
         menu.addItem(.separator())
+        menu.addItem(groupItem(for: account, store: store))
+        menu.addItem(.separator())
         let removeItem = ActionItem("Remove…", symbol: "trash") {
             guard confirmRemove(account) else { return }
             Task { await store.remove(account) }
@@ -47,6 +49,40 @@ enum AccountActionMenu {
         removeItem.isEnabled = store.busy == nil
         menu.addItem(removeItem)
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+    }
+
+    /// "Groups" with a submenu: every group in use, checked where the account is in it (choosing
+    /// one adds or removes it), New Group…, and Remove from All Groups. Matches the cards' Groups menu.
+    private static func groupItem(for account: Account, store: AppStore) -> NSMenuItem {
+        let title = account.groupNames.isEmpty ? "Groups" : "Groups: \(account.groupLabel)"
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
+        item.isEnabled = store.busy == nil
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+        let names = AccountGroups.names(store.accounts)
+        for name in names {
+            let member = account.isInGroup(name)
+            let pick = ActionItem(name, symbol: "folder") {
+                Task {
+                    if member { await store.removeFromGroup(account, name) } else { await store.addToGroup(account, name) }
+                }
+            }
+            pick.image = nil
+            pick.state = member ? .on : .off
+            sub.addItem(pick)
+        }
+        if !names.isEmpty { sub.addItem(.separator()) }
+        sub.addItem(ActionItem("New Group…", symbol: "folder.badge.plus") {
+            DashboardRouter.shared.newGroup([account.number])
+        })
+        if account.groupNames.count > 1 {
+            sub.addItem(ActionItem("Remove from All Groups", symbol: "folder.badge.minus") {
+                Task { await store.clearGroups(account) }
+            })
+        }
+        item.submenu = sub
+        return item
     }
 
     private static func confirmRemove(_ account: Account) -> Bool {

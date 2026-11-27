@@ -22,6 +22,7 @@ pub mod poll_policy;
 pub mod printer;
 
 // Core.
+pub mod account;
 pub mod autoswitch;
 pub mod claude_setup;
 pub mod credentials;
@@ -33,6 +34,7 @@ pub mod models;
 pub mod oauth;
 pub mod profile;
 pub mod release;
+pub mod rotation;
 pub mod running;
 pub mod self_update;
 pub mod service;
@@ -43,9 +45,11 @@ pub mod settings;
 pub mod snapshot;
 pub mod subscription;
 pub mod switcher;
+pub mod sync;
 pub mod transfer;
 pub mod update_check;
 pub mod usage_history;
+pub mod usage_share;
 pub mod usage_store;
 pub mod wake;
 

@@ -3,6 +3,7 @@
   // Lists them with that account's mascot, runs Claude in one, removes one, and maps a new folder.
   import { actions } from "../lib/actions";
   import { store } from "../lib/store.svelte";
+  import { tildePath } from "../lib/text";
   import { displayName } from "../lib/tide";
   import Mascot from "../components/Mascot.svelte";
 
@@ -27,7 +28,7 @@
         <li>
           {#if a}<Mascot account={a} size={28} />{:else}<span class="no-mascot"></span>{/if}
           <div class="grow">
-            <div class="mono truncate" title={m.path}>{m.path}</div>
+            <div class="mono truncate" title={m.path}>{tildePath(m.path)}</div>
             <div class="caption secondary">{a ? `Account ${a.number}: ${displayName(a)}` : `${m.email} (not managed)`}</div>
           </div>
           <button onclick={() => actions.terminal({ kind: "run-mapped" }, m.path)}>Run Claude</button>
@@ -37,8 +38,6 @@
     </ul>
   {/if}
 </section>
-
-<div class="hairline"></div>
 
 <section aria-labelledby="m-new">
   <h2 id="m-new">Map a folder</h2>
@@ -63,6 +62,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    margin-bottom: 24px;
   }
   section p {
     margin: 0;
@@ -97,7 +97,7 @@
     gap: 8px;
     flex-wrap: wrap;
   }
-  .danger {
+  .danger:not(:disabled) {
     color: var(--red);
   }
 </style>

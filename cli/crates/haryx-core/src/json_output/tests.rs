@@ -129,6 +129,8 @@ fn account_row_optional_fields() {
     let base = row(|_| {});
     for key in [
         "alias",
+        "group",
+        "groups",
         "loginExpiresAt",
         "disabled",
         "threshold",
@@ -138,6 +140,13 @@ fn account_row_optional_fields() {
         assert!(base.get(key).is_none(), "{key}");
     }
     assert_eq!(row(|r| r.alias = "dev")["alias"], "dev");
+    let groups = ["Client A".to_owned(), "Work".to_owned()];
+    let grouped = row(|r| r.groups = &groups);
+    assert_eq!(
+        grouped["group"], "Client A",
+        "first group, for older readers"
+    );
+    assert_eq!(grouped["groups"], json!(["Client A", "Work"]));
     assert_eq!(row(|r| r.disabled = true)["disabled"], true);
     assert_eq!(
         row(|r| r.login_expires_at = Some("2026-10-08T01:06:36Z"))["loginExpiresAt"],
@@ -311,4 +320,15 @@ fn plan_fields() {
     assert!(out.get("planDisplayName").is_none());
     assert_eq!(out["expired"], false);
     assert_eq!(out["fetchedAt"], "2027-01-15T08:00:00Z");
+}
+
+#[test]
+fn a_reading_from_another_machine_is_marked() {
+    let peer = row(|r| {
+        r.usage_from_other_machine = true;
+        r.usage_fetched_at = Some(1_000.0);
+    });
+    assert_eq!(peer["usageFromOtherMachine"], json!(true));
+    let own = row(|r| r.usage_fetched_at = Some(1_000.0));
+    assert!(own.get("usageFromOtherMachine").is_none());
 }

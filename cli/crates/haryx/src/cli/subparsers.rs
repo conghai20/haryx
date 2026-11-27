@@ -1,5 +1,5 @@
 //! The commands upstream `main()` dispatches before building its main parser, each with its own
-//! argparse parser: `run`, `auto`, `config`, `map`, `unmap`, `unclaimed`, `alias`, `threshold`,
+//! argparse parser: `run`, `auto`, `config`, `map`, `unmap`, `unclaimed`, `alias`, `group`, `threshold`,
 //! `priority`, `swap`, `move`, `doctor`.
 
 use clap::error::ErrorKind;
@@ -8,8 +8,8 @@ use haryx_core::PROG;
 
 use super::help::{self, p, sub_bin};
 use super::{
-    AccountSetting, AutoOptions, AutoStrategy, Command, ConfigAction, Error, Invocation,
-    LoginOptions, RunOptions,
+    AccountSetting, AutoOptions, AutoStrategy, Command, ConfigAction, Error, GroupCommand,
+    Invocation, LoginOptions, RunOptions,
 };
 
 /// Parse `rest` with the pre-dispatched parser named by `first`, or `None` when `first` is not one.
@@ -27,6 +27,7 @@ pub(super) fn parse(first: &str, rest: &[String]) -> Option<Result<Invocation, E
             invocation(a.debug, Command::Unclaimed { purge })
         }),
         "alias" => run_parser::<AliasArgs>(rest).and_then(AliasArgs::into_invocation),
+        "group" => run_parser::<GroupArgs>(rest).and_then(GroupArgs::into_invocation),
         "threshold" => run_parser::<ThresholdArgs>(rest).and_then(ThresholdArgs::into_invocation),
         "priority" => run_parser::<PriorityArgs>(rest).and_then(PriorityArgs::into_invocation),
         "swap" => run_parser::<SwapArgs>(rest).map(|a| {
@@ -623,6 +624,143 @@ impl AliasArgs {
 
 #[derive(Parser, Debug)]
 #[command(
+    name = "group",
+    bin_name = sub_bin("group"),
+    about = "Add an account to a group, take it out of one or all, rename or delete a group, or list groups. An account can \
+             be in several groups. Automatic switching (rotation, best, next-available, auto) \
+             prefers accounts sharing a group with the active account, and leaves those only \
+             when none of them can take over.",
+    after_help = help::group_epilog(),
+    help_template = help::HELP_TEMPLATE,
+    args_override_self = true,
+    infer_long_args = true,
+)]
+struct GroupArgs {
+    /// Account to group (number, email, or alias). Omit to list groups.
+    #[arg(value_name = "NUM|EMAIL|ALIAS")]
+    account: Option<String>,
+
+    /// Group to add the account to, keeping its other groups (up to 32 characters;
+    /// case-insensitive, so 'work' joins 'Work'; at most 16 groups per account).
+    #[arg(value_name = "NAME")]
+    group_name: Option<String>,
+
+    /// Take the account out of this one group, keeping its others
+    #[arg(long, value_name = "NAME")]
+    remove: Option<String>,
+
+    /// Take the account out of all its groups
+    #[arg(long)]
+    unset: bool,
+
+    /// Rename a group on every account in it (a NEW that names another group merges the two)
+    #[arg(long, num_args = 2, value_names = ["OLD", "NEW"])]
+    rename: Option<Vec<String>>,
+
+    /// Delete a group: every account in it leaves it (the accounts stay)
+    #[arg(long, value_name = "NAME")]
+    delete: Option<String>,
+
+    /// Enable debug logging
+    #[arg(long)]
+    debug: bool,
+}
+
+impl GroupArgs {
+    /// `--rename OLD NEW` and `--delete NAME`: they act on a group, not on one account.
+    fn whole_group_invocation(self) -> Result<Invocation, Error> {
+        if self.rename.is_some() && self.delete.is_some() {
+            return Err(usage_error::<Self>(
+                "--rename and --delete cannot be used together",
+            ));
+        }
+        if self.account.is_some()
+            || self.group_name.is_some()
+            || self.remove.is_some()
+            || self.unset
+        {
+            return Err(usage_error::<Self>(
+                "--rename and --delete act on a whole group: pass no account, NAME, --remove or --unset",
+            ));
+        }
+        let command = match (self.rename, self.delete) {
+            (Some(names), _) => match names.as_slice() {
+                [old, new] if !old.trim().is_empty() && !new.trim().is_empty() => {
+                    GroupCommand::Rename {
+                        old: old.clone(),
+                        new: new.clone(),
+                    }
+                }
+                _ => {
+                    return Err(usage_error::<Self>(
+                        "--rename needs OLD and NEW group names",
+                    ));
+                }
+            },
+            (None, Some(name)) if !name.trim().is_empty() => GroupCommand::Delete { group: name },
+            _ => return Err(usage_error::<Self>("--delete needs a group NAME")),
+        };
+        Ok(invocation(self.debug, Command::Group(command)))
+    }
+
+    fn into_invocation(self) -> Result<Invocation, Error> {
+        let given = |v: &Option<String>| v.as_deref().is_some_and(|n| !n.trim().is_empty());
+        if self.rename.is_some() || self.delete.is_some() {
+            return self.whole_group_invocation();
+        }
+        let has_name = given(&self.group_name);
+        let has_remove = self.remove.is_some();
+        if self.unset && has_remove {
+            return Err(usage_error::<Self>(
+                "--unset and --remove cannot be used together",
+            ));
+        }
+        if self.unset && has_name {
+            return Err(usage_error::<Self>("--unset does not take a NAME argument"));
+        }
+        if has_remove && has_name {
+            return Err(usage_error::<Self>(
+                "--remove takes the group NAME itself; do not also pass NAME",
+            ));
+        }
+        let command = match self.account {
+            None if self.unset => {
+                return Err(usage_error::<Self>(
+                    "NUM|EMAIL|ALIAS is required with --unset",
+                ));
+            }
+            None if has_remove => {
+                return Err(usage_error::<Self>(
+                    "NUM|EMAIL|ALIAS is required with --remove",
+                ));
+            }
+            None => GroupCommand::List,
+            Some(account) if self.unset => GroupCommand::Unset { account },
+            Some(account) if has_remove => {
+                if !given(&self.remove) {
+                    return Err(usage_error::<Self>("--remove needs a group NAME"));
+                }
+                GroupCommand::Remove {
+                    account,
+                    group: self.remove.unwrap_or_default(),
+                }
+            }
+            Some(_) if !has_name => {
+                return Err(usage_error::<Self>(
+                    "NAME is required (or pass --remove NAME to leave one group, --unset to leave all)",
+                ));
+            }
+            Some(account) => GroupCommand::Add {
+                account,
+                group: self.group_name.unwrap_or_default(),
+            },
+        };
+        Ok(invocation(self.debug, Command::Group(command)))
+    }
+}
+
+#[derive(Parser, Debug)]
+#[command(
     name = "threshold",
     bin_name = sub_bin("threshold"),
     about = "Set, remove, or list a per-account switch-away threshold. The per-account value \
@@ -728,6 +866,7 @@ mod tests {
         SwapArgs::command().debug_assert();
         MoveArgs::command().debug_assert();
         AliasArgs::command().debug_assert();
+        GroupArgs::command().debug_assert();
         ThresholdArgs::command().debug_assert();
         PriorityArgs::command().debug_assert();
     }

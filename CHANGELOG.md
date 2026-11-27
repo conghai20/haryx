@@ -11,6 +11,177 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+### Added
+
+- `haryx login`, `haryx logout` and `haryx whoami` (each with `--json`): sign this machine in to a
+  HaryX account with GitHub or Google (`--provider google`), for sync between machines
+  (coming). The browser opens and returns to a HaryX page that says who signed in, or why the
+  sign-in did not finish; `--no-browser` prints the link instead. The session is kept in the
+  Keychain on macOS and in a private sealed file elsewhere. Claude accounts are untouched: they are
+  still signed in with `haryx ai login`, and `haryx login 3` now says so.
+- `haryx sync`: sync between your machines, end-to-end encrypted with a sync passphrase (`sync unlock`;
+  `sync passphrase` changes it). Carries `haryx config` settings (except `history.import`), the apps'
+  preferences (`sync prefs get|set`), each Claude account's alias, group, priority, threshold and enabled state,
+  and API-key and setup-token accounts. Claude browser logins never leave the machine: accounts that
+  exist only elsewhere are listed by `sync status` to sign in here. `sync forget EMAIL`, `sync reset`.
+- Usage share between machines (`usage.shareBetweenMachines`, on by default; acts while signed in
+  to HaryX with sync unlocked): your machines spend one usage-endpoint budget per Claude account
+  instead of one each. Each account gets an encrypted `usage` sync row with the newest reading, the
+  shared poll plan, the failure state and a request ledger; a machine about to fetch first reads
+  it, adopts a fresher reading, takes a lease so only one machine fetches, and writes its result
+  back. A 429 on one machine parks the others for the same deadline, an account active on any
+  machine keeps the active cadence everywhere, and every account is capped at 24 fetches an hour
+  across machines. Without the share (signed out, offline), a machine that saw others poll an
+  account in the last hour polls it that much less often. `list --json` marks such readings with
+  `usageFromOtherMachine`; the macOS and Windows apps say "on another machine" next to the reading's
+  age. Needs the server migration `20261127000000_sync_rows_usage.sql`.
+- `haryx sync profile push|pull|list|remove`: setup profiles on the server, encrypted (secrets
+  redacted, no history; three at most).
+- `haryx account delete`: deletes the HaryX account and everything synced.
+- macOS and Windows apps: a HaryX Account pane (sign in, unlock, sync, change passphrase, sign out,
+  delete), automatic sync every 15 minutes and after a synced preference changes, and "On your other
+  machines" in Accounts.
+- macOS and Windows apps: HaryX sign-in lives in the dashboard sidebar's footer, a dropdown of the
+  ways to sign in (GitHub or Google). Signed in, the footer shows the account and
+  sync state, with Account & Sync and Sign Out in its menu.
+- Account groups: `haryx group <num|email|alias> <name>` adds an account to a group, and an account
+  can be in several (up to 16); `--remove <name>` takes it out of one, `--unset` out of all, and no
+  account lists the groups. `haryx group --rename <old> <new>` renames a group on every account in
+  it (a name of another group merges the two), and `haryx group --delete <name>` takes every
+  account out of it; the accounts stay. Names are up to 32 characters and match ignoring case. Automatic
+  switching (rotation, `best`, `next-available` and `haryx auto`) prefers accounts that share a
+  group with the active account, ungrouped accounts counting as a group of their own, and leaves
+  them only when none can take over, saying so in its warnings; `switch <num>` is unaffected. The
+  groups show in `list`, and in `list --json` as `groups` (with `group`, the first, for older
+  readers); they travel with export/import and sync. A machine on an older HaryX sees and edits only
+  an account's first group; its change joins the front of the list and keeps the others. Continuing
+  a stuck session on the best account (`haryx ai sessions continue --to best`, and the apps'
+  Continue on…) prefers the session's groups the same way.
+- macOS and Windows apps: groups. The Accounts pane shows a collapsible section per group, an
+  account in several groups showing in each; Next in line and "Claude as…" are grouped. A New Group
+  button (toolbar on macOS, footer on Windows) names a group and ticks its accounts in one go; a
+  card's right-click menu and the menu bar / tray flyout account menu have a Groups menu (tick a
+  group to add or remove it, New Group…, Remove from All Groups); and the details panel's Groups
+  field lists the account's groups, each with a remove button, and adds one. A group's section
+  header has Rename Group… and Delete Group… (its … button, and right-click on macOS); Delete asks
+  first and says how many accounts it changes. Group changes sync to your other machines within a second or
+  two (when sync is on), rather than at the next 15-minute sync. The Windows app gained
+  a card right-click menu for this. From the tray flyout, New Group… opens the dashboard on that
+  account rather than the dialog, as the flyout has no room for it.
+- macOS and Windows apps: the Accounts pane filters by group (a group, or Ungrouped) and by status
+  (On: in rotation, Off: held out of rotation). On macOS it is the toolbar's Filter menu; on
+  Windows, the Group and Status pickers above the cards. While a filter is on, the pane says how
+  many accounts it shows and offers Clear. Filters are per window and are not saved or synced.
+- macOS and Windows apps: the account in use has its own wider card above the others, with a
+  larger mascot and 5-hour figure and a cyan "In use" by its name; the grid below holds only the
+  accounts you can switch to. An Off account (held out of rotation) steps back: a lighter card, a
+  pause mark before its name, its usage as one line, and Turn On in place of Switch. Switch is now a
+  secondary button, so cyan stays on the live account. On macOS the Set Up/Open Desktop button on
+  the grid cards is an icon (its title in the tooltip), and Off accounts no longer show a wake note.
+- macOS and Windows apps: a click on empty space in the Accounts pane closes the account's details
+  panel, and the panel opens and closes with the cards moving alongside it instead of jumping
+  (instant with Reduce Motion). Cards keep one width: the panel changes how many fit in a row, not
+  how wide they are.
+
+- Will the week last: `haryx list --json` gains `rotation`, a verdict over the accounts auto-switch may
+  use (in rotation, not quarantined, subscription accounts, each up to its weekly switch line):
+  their room left, the fleet's burn rate (measured over the last 72 h of kept readings, else each
+  account's average since its reset), the next reset, and when the pool runs dry within the week.
+  `haryx list` ends with the same verdict in one line.
+- Apps (macOS and Windows alike), Usage: the page opens on that verdict ("The week lasts" or "Runs
+  dry Sat 10:28") and one row per account with its Week Tide, weekly %, pace and reset; a row opens
+  the account's details. It works with usage history off. The breakdown follows under "Where it
+  went", where the range and API cost controls now apply.
+- Apps, account cards: the weekly bar is now the Week Tide, the week so far as a curve against the
+  pace diagonal (stretches with no readings dashed). Cards are about 13 pt taller.
+
+### Changed
+
+- Apps, Usage charts: each account keeps one fixed colour in every chart and table, with deeper
+  versions on light backgrounds. No account colour is a reading colour any more (yellow and lime
+  left the palette), and the active account is no longer redrawn in cyan, which recoloured past
+  days after every switch.
+- Apps, account cards: long names are cut in the middle, so accounts on one domain stay told apart
+  (`Dep1pj.claude02` vs `Dep1pj.claude03`).
+- Apps, AI section (macOS and Windows alike):
+  - **Sidebar:** the AI panes now sit under three headings in sentence case:
+    - Monitor: Accounts, Usage, Sessions
+    - Automate: Auto-switch, Wake, Folder mappings
+    - Set up: Setup profiles, AI settings, Backup & maintenance
+
+    Windows renames Tools to Backup & maintenance, and uses drawn icons instead of text symbols.
+  - **Settings wording:** settings show plain labels with a caption; the `haryx config` key is in the
+    hover help. For example, `autoswitch.hysteresisPct` reads "Headroom margin (pts)".
+  - **Auto-switch rules:** these settings live in Auto-switch only, and are no longer repeated in AI
+    settings. On Windows, the rules are now typed controls that save as you change them, in place
+    of text fields with a Save button on each row.
+  - **Usage charts:**
+    - A line now breaks where readings are missing, instead of drawing a straight line across the
+      gap.
+    - Each account keeps one colour in every chart, the active account in cyan.
+    - Axis figures read 400M / 1.2B.
+    - When usage history is off, a button turns it on.
+  - **Continue on…** asks before it ends a session. On Windows it is a menu instead of a list that
+    acted as soon as you picked an account. Windows also asks before Unmap and Forget, and errors
+    stay on screen until dismissed.
+  - **Layout and saving:** settings panes keep their form at 720 pt, centred, and now scroll across
+    the whole window. Before, on macOS, only the form column scrolled. Wake saves as you change it.
+  - **Wake:**
+    - "All accounts" shows a mixed state when only some accounts are on.
+    - Wake times read as relative times ("Woke 2 hr ago · next in 34 min").
+    - An Off account's wake skip reads "Skipped: account is off".
+  - **Backup & maintenance:**
+    - "Replace accounts that already exist" replaces "--force".
+    - The CLI section is titled "HaryX CLI".
+    - Purge moves to its own "Erase" section at the end.
+  - **Windows catches up with macOS:**
+    - Shell picker, "Test: open a new shell" and "Send test notification"
+    - Export picks several accounts
+    - Switch and Refresh on Accounts
+    - Captions at 12 px
+- Apps: an Off account's card (held out of rotation) shows the same usage reading as other cards:
+  the 5-hour figure with its reset, its staff and pace, and the week with its reset. Before, it
+  showed only a one-line "5-hour N% · week N%". The card still steps back with a lighter fill, a
+  pause mark, a dimmed mascot and Turn On. "Off: held out of rotation" now sits on the note line,
+  so Off and On cards are the same height. The CLI already polled Off accounts and `haryx ai list`
+  already showed their usage, so it is unchanged.
+- Apps: every account card (Off ones included) tracks its weekly pace on a line under the week:
+  "N pts ahead of pace · runs out Sat 10:15" in amber when the week is 5 or more points ahead (the
+  run-out only when the CLI projects it will not last to the reset), else "N pts under pace" or
+  "on pace". It reads the CLI's weekly `expectedPct`, so the line stays empty for the first day
+  after a reset. The CLI already sent these fields; it is unchanged.
+- Apps: an Off account's usage bars (on its card and in the details panel) are grey where they
+  would be cyan, since cyan means live. Amber (ahead of pace, or 85% and over) and red (at the
+  limit) stay, so an Off account that is being used elsewhere still stands out.
+- macOS app: Use no longer quits and reopens a running Claude Desktop. Desktop opens on an account
+  only from its Open/Set Up Desktop button or the panel's Desktop line. The setting is renamed
+  "Claude Desktop per account", and the "Claude Desktop follows Use" roadmap item is dropped. macOS only: the Windows app has no Desktop launcher.
+- Both apps: the account details panel is reorganised. A header shows the account's mascot, name,
+  and state (in use, sessions running, out of rotation, sign-in needed), with Switch (⌘↩ on
+  macOS), Sign In Again when it is due, and Run Claude. Then come Usage, Live Claude sessions
+  (now on Windows too) and Switching (rotation, group, threshold). Mascot, alias, priority,
+  position, swap and the forced switch, renamed "Switch Without Saving Current Login…", sit under a
+  collapsed Advanced section. Settings save as soon as they change; text fields save on
+  Return or when you leave them, and no longer lose a half-typed edit when the selection
+  changes or the account list refreshes. The Windows panel has no per-account Wake toggle yet;
+  Wake is set in its Wake pane.
+
+### Removed
+
+- Apps, Usage: the "Quota over time" chart; the week rows replace it.
+
+### Fixed
+
+- Both apps: the account details panel's "Weekly pace" no longer says "On track" for an account
+  well ahead of pace (32% used against an expected 18%) while its week bar shows amber. It now uses
+  the cards' wording and threshold: "14 pts ahead", "N pts under" or "On pace", with the expected
+  percentage. The Windows panel gains the Weekly pace and Projected run-out lines macOS had.
+- A running Claude session started with plain `claude` picks up a switched account by itself, so
+  the apps no longer call it stuck after a switch, and macOS no longer notifies "N sessions stopped
+  on account A" after an auto-switch. Only a session started with `haryx run` (tied to its account)
+  is offered Continue on…. `haryx ai sessions continue` no longer restarts a session on the account
+  it already runs as.
+
 ## [0.1.6] - 2026-11-25
 
 ### Added

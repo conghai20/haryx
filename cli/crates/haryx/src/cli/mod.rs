@@ -18,23 +18,28 @@
 //! Added: `import --from-cswap`, which copies accounts from an existing cswap store.
 //!
 //! Sections: every command above lives under `haryx ai` (`haryx ai list`, `haryx ai login 3`). The
-//! upstream spellings without `ai` stay as undocumented aliases, except `login`, which is new and whose
-//! top-level name is kept for a future HaryX account sign-in. `haryx --help` lists the sections.
+//! upstream spellings without `ai` stay as undocumented aliases, except `login`: top-level `haryx
+//! login` (with `logout` and `whoami`) is the HaryX account itself ([`account_parser`]). `haryx
+//! --help` lists the sections.
 
+mod account_parser;
 mod desktop_parser;
 pub mod help;
 mod main_parser;
 mod profile_parser;
 mod sessions_parser;
 mod subparsers;
+mod sync_parser;
 mod usage_parser;
 pub use usage_parser::UsageAction;
 mod top;
 mod wake_parser;
 
+pub use account_parser::AccountAction;
 pub use clap::Error;
 pub use desktop_parser::DesktopAction;
 pub use profile_parser::{PartFlags, PluginsChoice, ProfileAction, SecretsChoice};
+pub use sync_parser::SyncAction;
 pub use wake_parser::WakeAction;
 
 /// One parsed invocation: the action plus the options every parser shares.
@@ -128,6 +133,8 @@ pub enum Command {
     Unclaimed { purge: Option<String> },
     /// `alias [NUM|EMAIL] [NAME] [--unset]`.
     Alias(AccountSetting),
+    /// `group [NUM|EMAIL|ALIAS] [NAME] [--remove NAME] [--unset]`.
+    Group(GroupCommand),
     /// `threshold [NUM|EMAIL] [PCT] [--unset]`. The value is validated in core.
     Threshold(AccountSetting),
     /// `priority [NUM|EMAIL|ALIAS] [TIER] [--unset]`. The value is validated in core.
@@ -148,6 +155,11 @@ pub enum Command {
     Sessions { json: bool },
     /// `ai usage [index|report|quota|summary] [--json]`.
     Usage { action: UsageAction, json: bool },
+    /// `login`, `logout`, `whoami`, `account delete` (top level): the HaryX account, not a Claude
+    /// account.
+    Account(AccountAction),
+    /// `sync [...]` (top level): encrypted sync between the account's machines.
+    Sync(SyncAction),
     /// `ai sessions continue SESSION [--to NUM|EMAIL|best] [--no-launch] [--json]`.
     SessionsContinue {
         session: String,
@@ -230,12 +242,29 @@ pub enum ConfigAction {
     Path,
 }
 
-/// The shape shared by `alias`, `threshold` and `priority`: list all, set one, or clear one.
+/// The shape shared by `alias`, `group`, `threshold` and `priority`: list all, set one, or clear one.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AccountSetting {
     List,
     Set { account: String, value: String },
     Unset { account: String },
+}
+
+/// `group`: an account can be in several groups, so a name is added or removed, not set.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GroupCommand {
+    /// No account: list groups and their accounts.
+    List,
+    /// `group ACCOUNT NAME`: add the account to NAME (already in it is fine).
+    Add { account: String, group: String },
+    /// `group ACCOUNT --remove NAME`: take it out of NAME only.
+    Remove { account: String, group: String },
+    /// `group ACCOUNT --unset`: take it out of every group.
+    Unset { account: String },
+    /// `group --rename OLD NEW`: rename a group on every account in it.
+    Rename { old: String, new: String },
+    /// `group --delete NAME`: every account in NAME leaves it.
+    Delete { group: String },
 }
 
 impl Command {
@@ -265,6 +294,7 @@ impl Command {
             Self::Unmap { .. } => "unmap",
             Self::Unclaimed { .. } => "unclaimed",
             Self::Alias(_) => "alias",
+            Self::Group(_) => "group",
             Self::Threshold(_) => "threshold",
             Self::Priority(_) => "priority",
             Self::Swap { .. } => "swap",
@@ -276,6 +306,11 @@ impl Command {
             Self::Sessions { .. } => "sessions",
             Self::SessionsContinue { .. } => "sessions continue",
             Self::Usage { .. } => "usage",
+            Self::Account(AccountAction::Login { .. }) => "login",
+            Self::Account(AccountAction::Logout { .. }) => "logout",
+            Self::Account(AccountAction::Whoami { .. }) => "whoami",
+            Self::Account(AccountAction::Delete { .. }) => "account delete",
+            Self::Sync(_) => "sync",
         }
     }
 }
@@ -330,11 +365,9 @@ pub fn translate_subcommand(argv: &[String]) -> Vec<String> {
 /// The section every account, usage and session command lives under: `haryx ai list`.
 pub const AI_SECTION: &str = "ai";
 
-/// Commands that work only inside the `ai` section: their top-level names are kept for HaryX itself
-/// (`haryx login` will sign in to a HaryX account).
-pub const AI_ONLY: &[&str] = &[
-    "login", "profile", "wake", "desktop", "sessions", "usage", "doctor",
-];
+/// Commands that work only inside the `ai` section: their top-level names are kept for HaryX itself.
+/// `login` left this list when `haryx login` became the HaryX account sign-in.
+pub const AI_ONLY: &[&str] = &["profile", "wake", "desktop", "sessions", "usage", "doctor"];
 
 /// Top-level help requests, answered with the section overview instead of the `ai` command list.
 const TOP_HELP: &[&str] = &["help", "--help", "-h"];
@@ -352,6 +385,10 @@ pub fn parse(argv: &[String], interactive: bool) -> Result<Invocation, Error> {
     match argv.split_first() {
         None if !interactive => Err(top::no_command()),
         Some((first, rest)) if first == AI_SECTION => parse_ai(rest, interactive),
+        Some((first, rest)) if account_parser::ACCOUNT_VERBS.contains(&first.as_str()) => {
+            account_parser::parse(first, rest)
+        }
+        Some((first, rest)) if first == "sync" => sync_parser::parse(rest),
         Some((first, _)) if AI_ONLY.contains(&first.as_str()) => Err(top::moved_to_ai(first)),
         Some((first, rest)) if rest.is_empty() && TOP_HELP.contains(&first.as_str()) => {
             Err(top::help())

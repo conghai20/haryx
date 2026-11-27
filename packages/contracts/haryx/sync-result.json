@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "pushed": 2,
+  "pulled": 1,
+  "changed": ["settings", "account"],
+  "overwritten": [
+    {
+      "at": 1795600800,
+      "kind": "settings",
+      "label": "autoswitch.threshold",
+      "kept": "remote",
+      "lost": 85.0
+    }
+  ],
+  "otherMachineAccounts": [
+    { "email": "work@example.com", "organizationName": "Acme", "alias": "work" }
+  ],
+  "skipped": []
+}

@@ -10,6 +10,7 @@
 mod accounts;
 mod add;
 mod grant;
+mod groups;
 mod listing;
 mod login;
 mod perform;
@@ -20,6 +21,7 @@ mod sequence;
 mod session_profile;
 mod storage;
 mod switch;
+mod synced;
 mod usage;
 mod usage_active;
 
@@ -55,6 +57,7 @@ use crate::session::{self, ProfileKeychain};
 use crate::usage_store::UsageStore;
 
 pub use add::{prompt, prompt_secret};
+pub use groups::{GroupAdded, GroupRenamed, groups_of, write_groups};
 pub use listing::{error_note, last_seen_note, sentinel_note};
 pub use login::{LoginOutcome, LoginRequest};
 pub use perform::{Provenance, SwitchOp};
@@ -94,6 +97,8 @@ pub struct Switcher {
     pub(crate) api: Api,
     /// Per-account usage table (`cache/usage.json`).
     pub(crate) usage_store: UsageStore,
+    /// The usage rows shared with this user's other machines; built on first use.
+    pub(crate) usage_share: std::sync::OnceLock<Option<crate::usage_share::UsageShare>>,
     /// Mutable per-process state of the collector (upstream's instance caches).
     pub(crate) state: Mutex<usage::CollectState>,
     debug: bool,
@@ -141,6 +146,7 @@ impl Switcher {
             session_retry_delay: session::STRICT_KEYCHAIN_RETRY_DELAY,
             api: Api::from_env(),
             usage_store,
+            usage_share: std::sync::OnceLock::new(),
             state: Mutex::new(usage::CollectState::default()),
             debug,
             #[cfg(test)]

@@ -38,6 +38,39 @@ func account(_ base: Account, five: Double?, seven: Double? = nil, active: Bool 
     #expect(list.accounts[1].peakPct == 88)
 }
 
+@Test func anAccountAtItsLimitRestsAndItsMascotSleeps() throws {
+    let list = try decodeFixture()
+    let full = try account(list.accounts[0], five: 100, seven: 40)
+    #expect(full.isExhausted && full.isResting && !full.isDisabled)
+    #expect(Mood.of(full, running: true) == .sleeping)
+    let tired = try account(list.accounts[0], five: 92)
+    #expect(!tired.isResting)
+    #expect(Mood.of(tired, running: false) == .tired)
+    #expect(Mood.of(tired, running: true) == .running)
+    #expect(list.accounts[2].isResting)
+    #expect(Mood.of(list.accounts[2], running: true) == .sleeping)
+}
+
+@Test func aMascotGetsAngryFrom75PercentUntilItTires() throws {
+    let base = try decodeFixture().accounts[0]
+    #expect(Mood.of(try account(base, five: 74), running: false) == .idle)
+    #expect(Mood.of(try account(base, five: 10, seven: 75), running: false) == .angry)
+    #expect(Mood.of(try account(base, five: 89), running: false) == .angry)
+    #expect(Mood.of(try account(base, five: 89), running: true) == .running)
+    #expect(Mood.of(try account(base, five: 90), running: false) == .tired)
+}
+
+@Test func anAngryMascotThrobsAnAngerMark() {
+    let palette = Palette(species: .critter, hue: nil)
+    let calm = PixelArt.pixels(.critter, palette: palette, pose: Pose(mood: .idle))
+    let big = PixelArt.pixels(.critter, palette: palette, pose: Pose(overlayPhase: 0, mood: .angry))
+    let small = PixelArt.pixels(.critter, palette: palette, pose: Pose(overlayPhase: 1, mood: .angry))
+    let marks = { (g: [[RGB?]]) in g.joined().filter { $0 == PixelArt.alert }.count }
+    #expect(marks(calm) == 0)
+    #expect(marks(big) == 12)
+    #expect(marks(small) == 4)
+}
+
 @Test(arguments: ["2026-11-25T11:00:00.497815+00:00", "2026-12-14T03:30:48Z", "2026-11-20T15:29:59.9+00:00"])
 func parsesCswapDates(_ raw: String) {
     #expect(CSwapJSON.parseDate(raw) != nil)
@@ -238,6 +271,7 @@ func profileFixture<T: Decodable>(_ type: T.Type, _ name: String) throws -> T {
     #expect(WakeStatus.resultText("woke") == "Woke")
     #expect(WakeStatus.resultText("not-due") == "Not due")
     #expect(WakeStatus.resultText("skip:weekly-cap") == "Skipped: weekly cap")
+    #expect(WakeStatus.resultText("skip:disabled") == "Skipped: account is off")
     #expect(WakeStatus.resultText("failed:http-401") == "Failed: http 401")
     #expect(WakeStatus.resultText("other") == "other")
 }
@@ -270,4 +304,12 @@ func profileFixture<T: Decodable>(_ type: T.Type, _ name: String) throws -> T {
     #expect(woken.windowReset(now: Date(timeIntervalSince1970: 6_000)) == nil)
     let off = WakeAccount(number: 4, on: false, lastWakeAt: now, nextDue: next, lastResult: "woke")
     #expect(off.windowReset(now: now) == nil)
+}
+
+/// A reading another machine took carries `usageFromOtherMachine`; older CLIs omit it.
+@Test func decodesUsageFromOtherMachine() throws {
+    let row = #"{"schemaVersion":1,"activeAccountNumber":1,"accounts":[{"number":1,"email":"a@x.com","active":true,"usageStatus":"ok","usageAgeSeconds":120,"usageFromOtherMachine":true},{"number":2,"email":"b@x.com","active":false,"usageStatus":"ok"}]}"#
+    let list = try CSwapJSON.decoder.decode(AccountList.self, from: Data(row.utf8))
+    #expect(list.accounts[0].usageFromOtherMachine == true)
+    #expect(list.accounts[1].usageFromOtherMachine == nil)
 }

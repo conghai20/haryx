@@ -33,7 +33,7 @@ pub(super) fn no_command() -> Error {
     )
 }
 
-/// `haryx login`: a usage error naming the `ai` form (exit code 2).
+/// `haryx profile`: a usage error naming the `ai` form (exit code 2).
 pub(super) fn moved_to_ai(sub: &str) -> Error {
     command().error(
         ErrorKind::InvalidSubcommand,
@@ -57,8 +57,8 @@ mod tests {
 
     #[test]
     fn moved_command_names_the_ai_form() {
-        let err = moved_to_ai("login");
+        let err = moved_to_ai("profile");
         assert_eq!(err.kind(), ErrorKind::InvalidSubcommand);
-        assert!(err.to_string().contains("haryx ai login"));
+        assert!(err.to_string().contains("haryx ai profile"));
     }
 }

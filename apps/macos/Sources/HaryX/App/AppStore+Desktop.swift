@@ -1,9 +1,9 @@
 import AppKit
 import HaryXCore
 
-/// Claude Desktop follows the Use button (plan: `docs/desktop-follow-plan.md`). Only a manual Use
-/// moves Desktop; auto-switch and AI Wake never call in here, and the panel's Desktop line shows
-/// when Desktop has been left on another account.
+/// Claude Desktop per account (plan: `docs/desktop-follow-plan.md`). Desktop opens on an account's
+/// folder only from its Open/Set Up button or the panel's Desktop line, never on a switch; the
+/// line shows when Desktop is on another account than the active one.
 extension AppStore {
     /// The setting is on and the backend has `haryx ai desktop`.
     var desktopFollows: Bool { Prefs.d.bool(forKey: Prefs.desktopFollows) && cli?.flavor == .haryx }
@@ -25,25 +25,6 @@ extension AppStore {
         let status = try? await cli.json(DesktopStatus.self, ["ai", "desktop", "status", "--json"])
         // Keep the previous folders when a read fails rather than blanking the line.
         setDesktop(status ?? desktop, run: DesktopLauncher.state)
-    }
-
-    /// After a manual Use: move a running Desktop to `account`. A Desktop that is not running is
-    /// left alone; the panel's line offers to open it.
-    func followDesktop(to account: Account) async {
-        guard desktopFollows else { return }
-        await reloadDesktop()
-        guard case .running(let current) = desktopRun, let desktop else { return }
-        switch ClaudeDesktop.target(for: account.number, in: desktop) {
-        case .ready(let folder):
-            guard !ClaudeDesktop.sameFolder(current, folder) else { return }
-            await launchDesktop(folder, as: account, setUp: false)
-        case .setUp:
-            flash("Claude Desktop stays as it is: \(account.displayName) is not signed in to Desktop yet. Use Set Up Claude Desktop in its account menu.")
-        case .mismatch:
-            flash(Self.mismatchMessage(account), error: true)
-        case .unavailable:
-            return
-        }
     }
 
     /// The Desktop line's button: open Desktop as the active account, setting up its folder first
@@ -88,8 +69,8 @@ extension AppStore {
         busy = "Opening Claude Desktop"
         defer { busy = nil }
         if desktopRun != .notRunning {
-            // Following Use must not outlive a switch made while the alert was up; setting up a
-            // non-active account was never tied to the active one.
+            // Opening as the active account must not outlive a switch made while the alert was up;
+            // opening a non-active account was never tied to the active one.
             let wasActive = active?.identityKey == account.identityKey
             guard confirmDesktopRelaunch(account) else { return }
             guard !wasActive || active?.identityKey == account.identityKey else {

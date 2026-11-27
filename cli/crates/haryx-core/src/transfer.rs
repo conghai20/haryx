@@ -18,9 +18,9 @@ use crate::fsutil::{WriteOptions, atomic_write_text};
 use crate::json_output::{SCHEMA_VERSION, usage_from_json};
 use crate::keychain::Security;
 use crate::models::pyfmt::json_dumps_pretty;
-use crate::models::{Platform, get_timestamp, normalize_alias};
+use crate::models::{Platform, get_timestamp, normalize_alias, normalize_group, normalize_groups};
 use crate::oauth::credential_fingerprint;
-use crate::switcher::{JsonObject, Switcher};
+use crate::switcher::{JsonObject, Switcher, groups_of, write_groups};
 use crate::usage_store::Identities;
 use crate::{AI_PROG, PROG, VERSION};
 
@@ -197,6 +197,12 @@ pub fn build_export(switcher: &Switcher, account: Option<&str>, full: bool) -> R
         if !alias.is_empty() {
             entry.insert("alias".into(), json!(alias));
         }
+        // `groups` is the list; `group` (its first entry) is for importers that predate it.
+        let groups = record.as_object().map(groups_of).unwrap_or_default();
+        if let Some(first) = groups.first() {
+            entry.insert("group".into(), json!(first));
+            entry.insert("groups".into(), json!(groups));
+        }
         payload.push(Value::Object(entry));
     }
     if payload.is_empty() {
@@ -301,6 +307,7 @@ struct Incoming {
     added: String,
     is_api_key: bool,
     alias: Option<String>,
+    groups: Vec<String>,
     creds_text: String,
     config_text: String,
 }
@@ -334,6 +341,7 @@ fn validate_account(raw: &Value) -> Result<(String, String)> {
         "uuid",
         "added",
         "alias",
+        "group",
     ] {
         if let Some(v) = obj.get(field).filter(|v| !v.is_null() && !v.is_string()) {
             return Err(transfer(format!(
@@ -345,7 +353,39 @@ fn validate_account(raw: &Value) -> Result<(String, String)> {
     if let Some(alias) = obj.get("alias").and_then(Value::as_str) {
         normalize_alias(alias).map_err(|e| transfer(format!("invalid alias for {email}: {e}")))?;
     }
+    if let Some(group) = obj
+        .get("group")
+        .and_then(Value::as_str)
+        .filter(|g| !g.is_empty())
+    {
+        normalize_group(group).map_err(|e| transfer(format!("invalid group for {email}: {e}")))?;
+    }
+    incoming_groups(obj).map_err(|e| transfer(format!("invalid groups for {email}: {e}")))?;
     Ok((email.to_owned(), number.to_string()))
+}
+
+/// An exported account's groups: `groups` when present (a list of names), else the single `group`
+/// of an export that predates it.
+fn incoming_groups(obj: &JsonObject) -> std::result::Result<Vec<String>, String> {
+    match obj.get("groups").filter(|v| !v.is_null()) {
+        Some(Value::Array(items)) => {
+            let names = items
+                .iter()
+                .map(|v| {
+                    v.as_str()
+                        .ok_or_else(|| format!("each group must be a string, got {}", type_name(v)))
+                })
+                .collect::<std::result::Result<Vec<&str>, String>>()?;
+            normalize_groups(names).map_err(|e| e.to_string())
+        }
+        Some(other) => Err(format!("must be a list, got {}", type_name(other))),
+        None => Ok(obj
+            .get("group")
+            .and_then(Value::as_str)
+            .and_then(|g| normalize_group(g).ok())
+            .into_iter()
+            .collect()),
+    }
 }
 
 fn type_name(v: &Value) -> &'static str {
@@ -456,6 +496,10 @@ fn normalize_accounts(switcher: &Switcher, accounts: &[Value]) -> Result<Vec<Inc
             org_uuid,
             is_api_key,
             alias,
+            groups: raw
+                .as_object()
+                .and_then(|obj| incoming_groups(obj).ok())
+                .unwrap_or_default(),
             creds_text,
         });
     }
@@ -622,6 +666,7 @@ fn import_one(
     if let Some(alias) = &entry.alias {
         record.insert("alias".into(), json!(alias));
     }
+    write_groups(&mut record, &entry.groups);
     data.entry("accounts")
         .or_insert_with(|| json!({}))
         .as_object_mut()

@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use log::debug;
 use serde_json::{Map, Value, json};
 
-use super::{AccountInfo, Switcher};
+use super::{AccountInfo, Switcher, groups};
 use crate::json_output::{
     AccountRowInput, SCHEMA_VERSION, USAGE_API_KEY, USAGE_FOREIGN_CREDENTIAL,
     USAGE_KEYCHAIN_UNAVAILABLE, USAGE_RELOGIN_REQUIRED, USAGE_TOKEN_EXPIRED, account_row,
@@ -424,6 +424,50 @@ impl Switcher {
         out
     }
 
+    /// The rotation verdict over the accounts auto-switch may land on (`crate::rotation`).
+    fn rotation(
+        &self,
+        infos: &[AccountInfo],
+        entries: &BTreeMap<String, UsageEntry>,
+        seq: &Map<String, Value>,
+        now: f64,
+    ) -> Option<crate::rotation::Rotation> {
+        let auto = settings::load_settings(&self.backup_dir);
+        let quarantined = quarantined_accounts(&self.backup_dir);
+        let inputs: Vec<crate::rotation::RotationInput> = infos
+            .iter()
+            .map(|info| {
+                let n = info.num();
+                let weekly = entries
+                    .get(&n)
+                    .and_then(|e| e.last_good.as_ref())
+                    .and_then(|u| u.get("seven_day"))
+                    .and_then(|w| {
+                        let pct = w.get("pct")?.as_f64()?;
+                        let at = poll_policy::parse_reset_ts(w.get("resets_at")?.as_str())?;
+                        Some((pct, at))
+                    });
+                let threshold = Self::policy_from_data(seq, &n)
+                    .threshold
+                    .unwrap_or(auto.threshold);
+                let eligible = self.switchable_in(seq, &n)
+                    && !Self::disabled_from_data(seq, &n)
+                    && !quarantined.contains(&n)
+                    && self.account_kind_for(&n).ok() != Some("api_key");
+                crate::rotation::RotationInput {
+                    number: info.number,
+                    eligible,
+                    weekly,
+                    line: crate::lines::window_line("7d", threshold, auto.weekly_threshold),
+                }
+            })
+            .collect();
+        let readings =
+            crate::usage_history::quota::read(&crate::usage_history::history_dir(&self.backup_dir));
+        let measured = crate::usage_history::quota::weekly_burn_per_s(&readings, now as i64);
+        crate::rotation::rotation(&inputs, measured, now)
+    }
+
     fn build_list_payload(
         &self,
         infos: &[AccountInfo],
@@ -453,10 +497,12 @@ impl Switcher {
                     usage_entry: entry.decision_value(),
                     usage_fetched_at: entry.fetched_at,
                     usage_age_s: entry.age_s,
+                    usage_from_other_machine: entry.fetched_by_peer,
                     last_good_usage: entry.last_good.as_ref(),
                     last_error: entry.last_error.as_deref(),
                     backoff_until: entry.backoff_until.filter(|_| entry.in_backoff(now)),
                     alias: &info.alias,
+                    groups: &groups::groups_of_slot(&seq, &n),
                     disabled: Self::disabled_from_data(&seq, &n),
                     policy: Self::policy_from_data(&seq, &n),
                     login_expires_at: login.as_deref(),
@@ -471,6 +517,9 @@ impl Switcher {
         let dups = self.duplicate_account_warnings(infos);
         if !dups.is_empty() {
             payload.insert("duplicateAccountWarnings".into(), json!(dups));
+        }
+        if let Some(rotation) = self.rotation(infos, entries, &seq, now) {
+            payload.insert("rotation".into(), rotation.to_json());
         }
         let lockstep = self.lockstep_usage_warnings(infos, entries);
         if !lockstep.is_empty() {
@@ -543,6 +592,11 @@ impl Switcher {
                 format!("{} ({})", accent(&info.alias), info.email)
             };
             let mut markers = String::new();
+            let account_groups = groups::groups_of_slot(&seq, &n);
+            if !account_groups.is_empty() {
+                let shown = account_groups.join(", ");
+                markers.push_str(&format!(" {}", muted(&format!("[{shown}]"))));
+            }
             if info.is_active {
                 markers.push_str(&format!(" {}", bold_accent("(active)")));
             }
@@ -562,6 +616,16 @@ impl Switcher {
             }
             if i + 1 < infos.len() {
                 println!();
+            }
+        }
+        let now = self.usage_store.now();
+        if let Some(rotation) = self.rotation(infos, entries, &seq, now) {
+            println!();
+            let line = rotation_line(&rotation, now);
+            if rotation.lasts() {
+                println!("{}", muted(&line));
+            } else {
+                println!("{}", yellowed(&line));
             }
         }
         let dups = self.duplicate_account_warnings(infos);
@@ -842,5 +906,89 @@ mod tests {
     fn scoped_window_at_limit_is_flagged() {
         let usage = json!({"scoped": [{"name": "Fable", "pct": 100.0}]});
         assert_eq!(format_usage_lines(&usage, None, &[]), ["Fable: 100%  (!)"]);
+    }
+}
+
+/// The accounts auto-switch has quarantined (`autoswitch_state.json`); empty when unreadable.
+fn quarantined_accounts(store_root: &std::path::Path) -> HashSet<String> {
+    std::fs::read_to_string(store_root.join(crate::autoswitch::STATE_FILENAME))
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+        .and_then(|state| {
+            state
+                .get("quarantine")
+                .and_then(Value::as_object)
+                .map(|q| q.keys().cloned().collect())
+        })
+        .unwrap_or_default()
+}
+
+fn clock_of(epoch_s: f64, now: f64) -> String {
+    let at = |s: f64| jiff::Timestamp::from_second(s as i64).ok();
+    match (at(epoch_s), at(now)) {
+        (Some(t), Some(n)) => oauth::reset_clock_string(t, n),
+        _ => String::new(),
+    }
+}
+
+/// "The week lasts: 3 accounts carry you past the next reset, Nov 28 05:00" or
+/// "Runs dry Nov 29 14:21, after the next reset, Nov 28 05:00".
+pub(crate) fn rotation_line(rotation: &crate::rotation::Rotation, now: f64) -> String {
+    let count = rotation.accounts.len();
+    let accounts = if count == 1 {
+        "1 account".to_owned()
+    } else {
+        format!("{count} accounts")
+    };
+    let next = rotation
+        .next_reset_at
+        .map(|t| clock_of(t, now))
+        .unwrap_or_default();
+    match rotation.runs_dry_at {
+        None => format!(
+            "The week lasts: {accounts} auto-switch can use carry you past the next reset, {next}"
+        ),
+        Some(dry) => {
+            let when = clock_of(dry, now);
+            match rotation.next_reset_at {
+                Some(reset) if dry < reset => {
+                    let hours = ((reset - dry) / 3600.0).round() as i64;
+                    format!(
+                        "Runs dry {when}, {hours} h before the next reset ({next}), across {accounts}"
+                    )
+                }
+                _ => format!("Runs dry {when}, across {accounts} auto-switch can use"),
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod rotation_line_tests {
+    use super::rotation_line;
+    use crate::rotation::Rotation;
+
+    fn verdict(runs_dry_at: Option<f64>) -> Rotation {
+        Rotation {
+            accounts: vec![1, 2],
+            unknown: vec![],
+            headroom_pct: 50.0,
+            burn_pct_per_hour: 1.0,
+            next_reset_at: Some(100_000.0),
+            runs_dry_at,
+        }
+    }
+
+    #[test]
+    fn says_the_week_lasts() {
+        let line = rotation_line(&verdict(None), 0.0);
+        assert!(line.starts_with("The week lasts: 2 accounts"), "{line}");
+    }
+
+    #[test]
+    fn says_how_long_before_the_reset_it_runs_dry() {
+        let line = rotation_line(&verdict(Some(100_000.0 - 14.0 * 3600.0)), 0.0);
+        assert!(line.starts_with("Runs dry"), "{line}");
+        assert!(line.contains("14 h before the next reset"), "{line}");
     }
 }

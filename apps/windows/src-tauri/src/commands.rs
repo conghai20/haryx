@@ -449,7 +449,16 @@ pub fn account_login_cancel(login: State<'_, crate::account::AccountLogin>) {
 /// Open the sign-in page again. The UI names the run, never the URL.
 #[tauri::command]
 pub fn account_login_open(login: State<'_, crate::account::AccountLogin>) -> Result<(), String> {
-    updater::open_in_browser(&login.url().ok_or("no sign-in link yet")?)
+    let url = login.url().ok_or("no sign-in link yet")?;
+    if !is_sign_in_link(&url) {
+        return Err("not a sign-in link".into());
+    }
+    updater::open_in_browser(&url)
+}
+
+/// A sign-in page HaryX may open: https, or a local test stack on 127.0.0.1.
+fn is_sign_in_link(url: &str) -> bool {
+    url.starts_with("https://") || url.starts_with("http://127.0.0.1:")
 }
 
 /// Sync now (Sync now, or after unlocking); never alongside another sync.
@@ -478,6 +487,29 @@ pub async fn sync_after_change(app: AppHandle) -> Result<Value, String> {
 #[tauri::command]
 pub fn sync_info(syncer: State<'_, crate::sync::Syncer>) -> Value {
     syncer.info()
+}
+
+#[cfg(test)]
+mod sign_in_link_tests {
+    use super::is_sign_in_link;
+
+    #[test]
+    fn only_https_or_a_local_stack_opens() {
+        assert!(is_sign_in_link(
+            "https://sso.wecoap.com/realms/wecoap/device?user_code=AB"
+        ));
+        assert!(is_sign_in_link(
+            "http://127.0.0.1:18084/realms/wecoap/device"
+        ));
+        for bad in [
+            "file:///C:/x",
+            "http://evil.example/",
+            "javascript:alert(1)",
+            "ms-settings:",
+        ] {
+            assert!(!is_sign_in_link(bad), "{bad}");
+        }
+    }
 }
 
 #[cfg(test)]

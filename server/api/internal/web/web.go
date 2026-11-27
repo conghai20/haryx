@@ -7,9 +7,10 @@ import (
 	"net/http"
 )
 
-// JSON writes v with status.
+// JSON writes v with status. Nothing the API answers may be cached: exports, rows, machines.
 func JSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		slog.Warn("write response", "err", err)

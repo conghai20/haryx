@@ -32,6 +32,8 @@ personal data goes through Cloudflare.
    KC_ADMIN_USER=… KC_ADMIN_PASSWORD=… node deploy/keycloak/configure-haryx.mjs
    ```
 
+   Try it locally first: `deploy/keycloak/test-local.sh` runs it twice against a throwaway
+   Keycloak 26.8.2 and signs in through every HaryX client (`APPLE_JAR=…` adds the Apple provider).
    It needs the realm prerequisites P1–P4 from the plan done first. The Apple provider also needs
    the extension jar mounted in `wecoap-sso/deploy/compose.yaml` (plan A6).
 

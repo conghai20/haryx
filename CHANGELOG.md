@@ -13,6 +13,11 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ### Changed
 
+- Auto-switch `best` strategy: when candidates are within `hysteresis_pct` of the one with the most
+  headroom, it now takes the one whose weekly window resets soonest, so quota that would reset
+  unused is spent first. A clearly roomier account still wins. CLI only: both apps run `haryx auto`
+  and pick up the change; their "Next in line" order stays a usage-% approximation.
+
 - Menu bar panel (macOS) and tray flyout (Windows): an unstarted 5-hour window reads "starts on
   first use" instead of a bare dash, and the week line turns amber when the week is the tighter
   limit (over 50% and above the 5-hour). "Next in line" names each group once (switch order inside

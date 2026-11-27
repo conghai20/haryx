@@ -4,6 +4,8 @@
   import State from "./components/State.svelte";
   import Placeholder from "./views/Placeholder.svelte";
   import Privacy from "./views/Privacy.svelte";
+  import Machines from "./views/Machines.svelte";
+  import SignedOut from "./views/SignedOut.svelte";
 
   const sections = [
     { id: "machines", label: "Machines", blurb: "Where HaryX is signed in.", task: "task 17" },
@@ -33,7 +35,7 @@
     {#if auth.status === "failed"}
       <State kind="error" title="Could not reach WeCoAp sign-in" onAction={() => auth.init()} />
     {:else}
-      <State kind="signedOut" onAction={auth.signIn} />
+      <SignedOut onSignIn={auth.signIn} />
     {/if}
   </main>
 {:else}
@@ -53,6 +55,8 @@
     <main>
       {#if active.id === "privacy"}
         <Privacy />
+      {:else if active.id === "machines"}
+        <Machines />
       {:else}
         <Placeholder title={active.label} blurb={active.blurb} task={active.task} />
       {/if}

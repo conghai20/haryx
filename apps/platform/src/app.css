@@ -1,7 +1,9 @@
 /* Tokens copied from the Windows app's app.css ("The Tide Table"); the web has no Fluent font stack
    guarantee, so system-ui leads. CSP allows 'self' styles only: no inline <style> beyond Svelte's
    extracted CSS file. */
+@font-face { font-family: "Space Grotesk"; src: url("@win/assets/fonts/SpaceGrotesk.ttf") format("truetype"); font-weight: 300 700; font-display: swap; }
 :root {
+  --font-display: "Space Grotesk", system-ui, sans-serif;
   color-scheme: light dark;
   --font-body: system-ui, "Segoe UI Variable Text", "Segoe UI", sans-serif;
   --cyan: light-dark(#0891b2, #22d3ee);
@@ -33,3 +35,5 @@ button:hover:not(:disabled), .btn:hover { background: var(--selected); }
 button.primary { background: var(--cyan); color: #fff; }
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+input[type="text"] { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--separator); border-radius: var(--radius-control); padding: .4rem .6rem; min-height: 40px; min-width: 0; }
+button.danger { color: var(--red); }

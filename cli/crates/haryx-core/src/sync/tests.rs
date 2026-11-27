@@ -547,3 +547,154 @@ fn a_replayed_old_row_is_not_taken() {
     let (b_settings, _) = sources::read_settings(b.sw.backup_dir()).unwrap();
     assert_eq!(b_settings.get("autoswitch.threshold"), Some(&json!(90.0)));
 }
+
+// --- usage (plan task 12) -----------------------------------------------------------------------
+
+/// One stored usage-history row at `hour`, with a project path and session id that must not sync.
+fn write_usage(m: &Machine, hour: i64, account: i64, model: &str, output: u64) {
+    let dir = m.sw.backup_dir().join("usage").join("days");
+    std::fs::create_dir_all(&dir).unwrap();
+    let day = jiff::Timestamp::from_second(hour)
+        .unwrap()
+        .strftime("%Y-%m-%d")
+        .to_string();
+    let row = json!({"hour": hour, "account": account, "project": "/Users/me/secret-project",
+        "session": "sess-abc-123", "model": model, "replies": 2, "input": 10, "output": output,
+        "cacheRead": 30, "cacheWrite5m": 4, "cacheWrite1h": 0});
+    let path = dir.join(format!("{day}.jsonl"));
+    let mut text = std::fs::read_to_string(&path).unwrap_or_default();
+    text.push_str(&format!("{row}\n"));
+    std::fs::write(path, text).unwrap();
+}
+
+fn usage_month(at: i64) -> String {
+    jiff::Timestamp::from_second(at)
+        .unwrap()
+        .to_zoned(jiff::tz::TimeZone::system())
+        .strftime("%Y-%m")
+        .to_string()
+}
+
+fn sync_key(m: &Machine) -> SyncKey {
+    load_key(&m.vault, USER, PROJECT).unwrap().unwrap()
+}
+
+#[test]
+fn each_machine_writes_only_its_own_usage_rows_and_reads_every_machines() {
+    let w = World::new();
+    let (a, b) = (Machine::new(sample()), Machine::new(sample()));
+    w.unlock(&a);
+    w.unlock(&b);
+    let now = 1_800_000_000; // mid-January 2027
+    write_usage(&a, now - 3 * 3_600, 1, "claude-opus-4-5", 500);
+    write_usage(&a, now - 3 * 3_600, 1, "claude-opus-4-5", 100);
+    write_usage(&b, now - 35 * 86_400, 2, "claude-sonnet-5", 70);
+    std::fs::write(
+        b.sw.backup_dir().join("usage").join("quota.jsonl"),
+        format!(
+            "{}\n",
+            json!({"at": now - 35 * 86_400, "account": 2, "fiveHour": 40.0, "sevenDay": null})
+        ),
+    )
+    .unwrap();
+
+    w.sync(&a);
+    w.sync(&b);
+    let rows = w.server.snapshot();
+    let (ida, idb) = (
+        crate::machine::machine_id(a.sw.backup_dir()),
+        crate::machine::machine_id(b.sw.backup_dir()),
+    );
+    assert_ne!(ida, idb);
+    for m in [&a, &b] {
+        let all = usage::read_all(&sync_key(m), &rows);
+        assert_eq!(all.len(), 2, "each machine reads both: {all:?}");
+        let mine = all.iter().find(|u| u.machine_id == ida).unwrap();
+        assert_eq!(mine.month, usage_month(now - 3 * 3_600));
+        assert_eq!(mine.days.len(), 1, "same day, account and model add up");
+        assert_eq!(mine.days[0].output, 600);
+        assert_eq!(mine.days[0].replies, 4);
+        assert_eq!(
+            mine.days[0].account.as_deref(),
+            Some("account1@example.com")
+        );
+        let theirs = all.iter().find(|u| u.machine_id == idb).unwrap();
+        assert_eq!(theirs.month, usage_month(now - 35 * 86_400));
+        assert_eq!(
+            theirs.days[0].account.as_deref(),
+            Some("account2@example.com")
+        );
+        assert_eq!(theirs.quota[0].five_hour_pct, Some(40.0));
+    }
+
+    // No project path, session id or file name in the plaintext.
+    let key = sync_key(&a);
+    for row in rows.iter().filter(|r| r.kind == KIND_USAGE) {
+        let Opened::Doc(doc) = open(&key, row) else {
+            panic!("a usage row did not open");
+        };
+        let plain = serde_json::to_string(&doc).unwrap();
+        for leak in ["secret-project", "sess-abc", ".jsonl", "/Users/"] {
+            assert!(!plain.contains(leak), "{leak} in {plain}");
+        }
+    }
+
+    // Nothing changed: nothing written, and B never touched A's row.
+    let versions = |rows: &[Row]| -> Vec<(String, i64)> {
+        rows.iter()
+            .filter(|r| r.kind == KIND_USAGE)
+            .map(|r| (r.key.clone(), r.version))
+            .collect()
+    };
+    let before = versions(&rows);
+    assert_eq!(w.sync(&a).pushed, 0);
+    assert_eq!(w.sync(&b).pushed, 0);
+    assert_eq!(versions(&w.server.snapshot()), before);
+
+    // New usage on A replaces only A's row.
+    write_usage(&a, now - 3_600, 1, "claude-opus-4-5", 1);
+    assert_eq!(w.sync(&a).pushed, 1);
+    let after = versions(&w.server.snapshot());
+    let changed: Vec<_> = after.iter().filter(|r| !before.contains(r)).collect();
+    assert_eq!(changed.len(), 1);
+    assert_eq!(
+        changed[0].0,
+        key.row_key(&usage::label(&ida, &usage_month(now)))
+    );
+}
+
+#[test]
+fn usage_rows_older_than_a_year_are_dropped_and_a_moved_row_is_not_read() {
+    let w = World::new();
+    let a = Machine::new(sample());
+    w.unlock(&a);
+    let key = sync_key(&a);
+    let id = crate::machine::machine_id(a.sw.backup_dir());
+    let old = crate::contracts::UsageSync {
+        schema: usage::SCHEMA,
+        machine_id: id.clone(),
+        month: "2025-06".into(),
+        updated_at: "2025-06-30T00:00:00Z".into(),
+        days: vec![],
+        quota: vec![],
+    };
+    let values: merge::Values = match serde_json::to_value(&old).unwrap() {
+        Value::Object(map) => map.into_iter().collect(),
+        _ => unreachable!(),
+    };
+    let ctx = a.ctx(&w.server, &w.objects);
+    let old_key = key.row_key(&usage::label(&id, "2025-06"));
+    write_row(&ctx, &key, KIND_USAGE, &old_key, values.clone(), 0, None).unwrap();
+    // The same body under another month's key: tampering, never read as that machine's.
+    let moved = key.row_key(&usage::label(&id, "2026-12"));
+    write_row(&ctx, &key, KIND_USAGE, &moved, values, 0, None).unwrap();
+    assert_eq!(usage::read_all(&key, &w.server.snapshot()).len(), 1);
+
+    w.sync(&a);
+    let left = w.server.snapshot();
+    assert!(
+        !left.iter().any(|r| r.key == old_key),
+        "a row past 13 months goes"
+    );
+    assert!(usage::read_all(&key, &left).is_empty());
+}

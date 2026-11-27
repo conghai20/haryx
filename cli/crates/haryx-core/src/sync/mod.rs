@@ -17,6 +17,7 @@ pub mod profiles;
 pub mod remote;
 pub mod sources;
 pub mod state;
+pub mod usage;
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -360,7 +361,8 @@ pub fn run(ctx: &Context<'_>) -> Result<Report, SyncError> {
             return Err(SyncError::KeyChanged);
         }
         match pass(ctx, &key, &mut state, &rows) {
-            Ok(Some(report)) => {
+            Ok(Some(mut report)) => {
+                report.pushed += usage::push(ctx, &key, &rows, &jiff::tz::TimeZone::system());
                 state.last_sync_at = Some(ctx.now);
                 state.other_machine_accounts = report.other_machine_accounts.clone();
                 state.record(report.overwritten.clone());

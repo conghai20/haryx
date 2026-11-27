@@ -11,6 +11,20 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+### Changed
+
+- Menu bar panel (macOS) and tray flyout (Windows): an unstarted 5-hour window reads "starts on
+  first use" instead of a bare dash, and the week line turns amber when the week is the tighter
+  limit (over 50% and above the 5-hour). "Next in line" names each group once (switch order inside
+  it), folds accounts held out of rotation into a "Held out (N)" line at the bottom, grows to 300 pt
+  before it scrolls (macOS showed two accounts), names rows by alias or email local part cut in the
+  middle, shows plan labels only when plans differ, and no longer dims an account at its limit. The
+  footer Switch goes to the account with most headroom rather than repeating the first row's Use.
+  Force Switch in the row menu is now "Switch Without Saving Current Login…" and asks first.
+  Auto-switch in the header is a switch; Windows can now turn it on and off from the flyout. macOS:
+  VoiceOver can open a row's account menu and Use it; the status lines share one mini glass button
+  style; a Use that cannot be used is grey; the wake note says "wake skipped: not switchable".
+
 ## [0.2.0] - 2026-11-27
 
 ### Added

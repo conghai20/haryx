@@ -5,6 +5,7 @@
 //   node test-haryx.mjs snapshot FILE    what configure-local.mjs owns, as stable JSON
 //   node test-haryx.mjs tamper           hand edits a rerun must undo
 //   node test-haryx.mjs check            sign-ins, tokens, device grant, remote sign-out
+//   node test-haryx.mjs approve URL      sign in as the test user and approve a device-grant link
 import crypto from "node:crypto";
 import { writeFileSync } from "node:fs";
 
@@ -209,9 +210,25 @@ async function run() {
     process.exit(failures.length ? 1 : 0);
 }
 
+// ---------- approve ----------
+// What a person does with `haryx login --no-browser`: open the link, sign in, accept.
+async function approve(url) {
+    if (!url?.startsWith(`${KC}/`)) throw new Error(`approve: not a link of ${KC}: ${url}`);
+    const jar = new Jar();
+    let res = await fetch(url, { redirect: "manual" });
+    jar.take(res);
+    res = await follow(await submitLogin(await follow(res, jar), jar), jar);
+    const page = await res.text();
+    const action = page.match(/action="([^"]+)"/)?.[1]?.replaceAll("&amp;", "&");
+    if (!action || !/accept/i.test(page)) throw new Error(`approve: no grant screen (HTTP ${res.status})`);
+    const accepted = await fetch(new URL(action, KC).href, { method: "POST", redirect: "manual", headers: { cookie: jar.header(), "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ accept: "Yes" }) });
+    if (accepted.status >= 400) throw new Error(`approve: HTTP ${accepted.status}`);
+}
+
 const [cmd, arg] = process.argv.slice(2);
 if (cmd === "setup") await setup();
 else if (cmd === "snapshot") await snapshot(arg);
 else if (cmd === "tamper") await tamper();
 else if (cmd === "check") await run();
-else throw new Error("usage: test-haryx.mjs setup | snapshot FILE | tamper | check");
+else if (cmd === "approve") await approve(arg);
+else throw new Error("usage: test-haryx.mjs setup | snapshot FILE | tamper | check | approve URL");

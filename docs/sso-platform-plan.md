@@ -209,7 +209,9 @@ loopback/PKCE pieces stay.
     other status is a network error.
 - **`--provider github|google|apple|email`**. With no flag, the WeCoAp page offers every method.
 - **Session** gains `sid` and the issuer, and still drops anything it doesn't need. Keycloak tokens
-  are larger than Supabase's, so Phase 0 measures them against the Keychain's 3,500-byte rule.
+  are larger than Supabase's. Phase 0 measured them: the full session is 2,396 bytes, over the
+  Keychain's 1,968-byte limit (`MAX_KEYCHAIN_JSON`), so the compact form (1,013 bytes) is what's
+  stored, as today.
 - **`sync/remote.rs`**: an `Api` implementation of the existing `Remote` trait replaces
   `Postgrest`. `profiles.rs` points at `/api/v1/profiles`.
 - **New verbs**:
@@ -335,6 +337,16 @@ Checked from outside, before HaryX registers anything:
 | P3 | The **bootstrap admin** from `.env` is meant for first start only. | Create a named permanent admin with OTP in `master`, delete the bootstrap one, and remove the bootstrap variables from `.env`. |
 | P4 | **No backup of the Keycloak database**: `wecoap-sso/deploy/compose.yaml` has no backup job, and every WeCoAp ID lives there. | Add the same nightly `pg_dump` job as HaryX's, 14 days kept, copied offsite in VN, and do one restore drill. |
 
+**Re-checked 2026-11-27**:
+
+- **P1 is done.** The sign-up form now carries `terms_of_use` and `privacy_consent`. One real
+  sign-up is still needed to see both consents required and logged as events.
+- The realm now has the **`github` and `google`** identity providers. They are realm-wide, so
+  AR Onion shares them. Task 2 therefore checks these two and doesn't create or overwrite them;
+  it adds only `apple` and the `haryx-*` clients.
+- **P2 is still open**: `/admin/master/console/` and `/realms/master/` both return 200.
+- P3 and P4 can't be seen from outside. The owner confirms them.
+
 Minor: the response carries two `Strict-Transport-Security` headers (Keycloak's realm header and
 aaPanel's). Browsers use the first one. Dropping one is tidier, but not required.
 
@@ -347,7 +359,8 @@ it is not used for experiments. Items 5 and 7 need the live host and run there, 
 1. A `haryx-cli` client with redirect `http://127.0.0.1/*` accepts
    `http://127.0.0.1:<random>/callback/<nonce>` and refuses `localhost`, `127.0.0.1.evil.com`
    and so on.
-2. Token sizes with `offline_access`: the stored session must fit under 3,500 bytes, or the access
+2. Token sizes with `offline_access`: the stored session must fit under `MAX_KEYCHAIN_JSON`
+   (1,968 bytes), or the access
    token is dropped from storage.
 3. The admin API deletes **one** offline session by id, and the next refresh then fails with
    `invalid_grant`, leaving other machines alone.
@@ -364,6 +377,52 @@ it is not used for experiments. Items 5 and 7 need the live host and run there, 
    and at an Apple private-relay address with SPF, DKIM and DMARC passing.
 
 Any result that contradicts this plan stops the build and amends the plan.
+
+### Phase 0 results (2026-11-27)
+
+Run with throwaway scripts against local Keycloak 26.8.2 containers, a keyring written by the
+CLI's own `SyncKey::wrap`, headless Chrome 153 and Safari 27.2. Items 5 and 7 are done only as
+far as they can be without the live realm and the Apple account.
+
+| # | Result |
+|---|---|
+| 1 | **Pass.** `http://127.0.0.1/*` accepts any port and path. It refuses `localhost`, `127.0.0.1.evil.com`, `127.0.0.1:p@evil.com`, `https://127.0.0.1`, `[::1]`, `127.0.0.2` and a smuggled query. A request without PKCE is refused. A full code flow to a random port with a `/callback/<nonce>` path returns tokens. |
+| 2 | **Pass, with the limit corrected.** Access token 1,374 bytes, offline refresh token 730 (`typ: Offline`), ID token 1,083. With a 63-character email: full session 2,396 bytes, compact 1,013. The real limit is `MAX_KEYCHAIN_JSON` = 1,968, not 3,500, so the access token isn't stored and each CLI run refreshes first (one extra request; the access token lives 5 minutes anyway). `aud` = `["haryx-api","account"]`, `azp` = `haryx-cli`. |
+| 3 | **Pass.** The token's `sid` is the offline session's id. `haryx-api-admin` deletes that one session (`DELETE /admin/realms/wecoap/sessions/{sid}?isOffline=true` → 204). That machine's refresh then fails with `invalid_grant` ("Offline user session not found"), while another machine keeps refreshing with the same `sid`. Revoking the refresh token (CLI sign-out) works the same way. The service account gets 403 on realm settings and on the client list. Its old access token still verifies by signature until it expires, which is why `revoked_sessions` stays. |
+| 4 | **Pass, with PKCE.** `haryx-cli` requires S256, and Keycloak applies that to the device grant too: `auth/device` without `code_challenge` is refused. With it: `authorization_pending` before approval, then offline tokens. Interval 5 s, expiry 600 s. |
+| 5 | **Partly done.** `apple-identity-provider` **1.17.0** (latest, built against 26.5.0, sha512 checked) loads on 26.8.2. The only warnings are Keycloak's "internal SPI" notices. With a test key, `kc_idp_hint=apple` redirects to `appleid.apple.com/auth/authorize` with `response_mode=form_post`, scope `openid name email`, and the broker endpoint as `redirect_uri`. **Still to do, by the owner**: the Services ID, the key and the private-relay sender registration on the Apple account, then one real sign-in. |
+| 6 | **Pass in both browsers, but the work factor must be pinned.** `age-encryption` 0.3.1 unwraps the CLI's keyring and opens an X25519 row. WebCrypto rebuilds the keyring check and a row key exactly, and a wrong passphrase is refused. Two findings change the plan (below). |
+| 7 | **Not run.** It needs the live realm's SMTP settings (task 2 against the live realm, after P2–P4). |
+
+Unlock time by scrypt work factor (`log_n`):
+
+| log_n | Memory | Rust (CLI) | Chrome 153 | Safari 27.2 |
+|---|---|---|---|---|
+| 18 | 256 MiB | ~0.5 s | 0.7 s | 0.6–1.5 s |
+| 19 | 512 MiB | ~1.0 s | — | — |
+| 20 | 1 GiB | — | 2.9 s | **12.7 s** |
+| 21 | 2 GiB | — | refused | refused |
+
+**Amendments from Phase 0** (they replace what the plan said before):
+
+- **A1, keyring work factor is pinned at 18.** The `age` crate tunes scrypt until wrapping takes
+  about a second on the writing machine, with no upper limit: it wrote 18 and 19 on the same Mac
+  minutes apart. `age-encryption` refuses anything above 20, and Safari needs 12.7 s at 20. So
+  `SyncKey::wrap` calls `set_work_factor(18)`, and `unwrap` refuses a keyring above 20 with a
+  clear message. This replaces "it must not lower the work factor": 18 is what this Mac already
+  picked by itself, and the 12-character minimum passphrase stays. New task 10a.
+- **A2, the web unlock runs scrypt in a Web Worker** with a progress state. `age-encryption`'s
+  scrypt is synchronous, so on the main thread the page freezes for the whole unlock. Task 18.
+- **A3, `haryx-api-admin` gets the `kc-admin-api` client scope as a default scope.** Keycloak
+  26.8.2 checks the Admin API audience. Without the scope, every admin call returns 401
+  ("Expected audience not available in the token"). Task 2.
+- **A4, the CLI's device grant sends PKCE**: `code_challenge` on `auth/device` and
+  `code_verifier` when polling. Task 9.
+- **A5, `whoami` treats a missing `identity_provider` claim as `email`.** Password sign-ins carry no
+  broker session note. Task 9.
+- **A6, the Apple extension is pinned to 1.17.0** with its sha512, mounted in
+  `wecoap-sso/deploy/compose.yaml`. Its "internal SPI" warnings make it part of the upgrade
+  rehearsal for every Keycloak bump.
 
 ## Tasks
 
@@ -393,6 +452,7 @@ Tags: dependency, then model. Each task is one commit in one area.
 |---|---|---|---|
 | 9 | OIDC sign-in: discovery, hints, device grant, revoke, session fields, new env vars | depends 4 · opus | `tiny_http` fake Keycloak; one test per status class (Lessons); stray-loopback and timeout tests kept |
 | 10 | `Api` remote and API-backed profiles; Postgrest and Storage code removed | depends 4, 6 · sonnet | The existing two-machine engine tests pass unchanged on `Memory`; a fake-API test of 409/412 → `None` |
+| 10a | `SyncKey::wrap` pins scrypt `log_n` = 18; `unwrap` refuses a keyring above 20 with a clear message (Phase 0, A1) | independent · opus | A unit test reads the wrapped header's `log_n` (18); a keyring at 21 is refused with the new message; the existing crypto tests pass |
 | 11 | Consent, export and machine verbs; heartbeat in `sync`; the remote sign-out message | depends 7, 8, 9 · sonnet | `cli/crates/haryx/tests/account.rs`; `sync` with no consent says what to run |
 | 12 | `usage` kind: per-machine monthly summaries | depends 10 · sonnet | Two-machine test: each machine writes only its own rows and reads both; no project paths in the plaintext before encryption |
 | 13 | E2E: port `cli-e2e.sh` to the local compose stack (two CLI machines, real Keycloak, real API) | depends 2, 11, 12 · sonnet | The script itself |

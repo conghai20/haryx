@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FIVE_HOUR_S, SEVEN_DAY_S, canRelogin, middleEllipsis, rotationDetail, rotationHeadline, weekTide, cardWeeklyPace, expectedPct, offersSignIn, ordered, paceLine, runOutLabel, shortName, tier, usageFetchedLabel, weeklyPace } from "./tide";
+import { FIVE_HOUR_S, SEVEN_DAY_S, canRelogin, middleEllipsis, rotationDetail, rotationHeadline, weekTide, cardWeeklyPace, expectedPct, offersSignIn, ordered, paceLine, plansVary, rowName, runOutLabel, shortName, tier, usageFetchedLabel, weekIsTighter, weeklyPace } from "./tide";
 import type { Account, Rotation } from "./types";
 
 const NOW = Date.parse("2026-11-24T12:00:00Z");
@@ -20,6 +20,11 @@ describe("pace", () => {
     expect(paceLine({ pct: 50, expectedPct: 60 }, NOW)).toEqual({ text: "10 pts under pace", warn: false });
     expect(paceLine({ pct: 62, expectedPct: 60 }, NOW)).toEqual({ text: "on pace", warn: false });
     expect(paceLine({ pct: 62 }, NOW)).toBeNull();
+  });
+
+  it("reads the pace over the window it is given", () => {
+    // 3.5 of 7 days left: half the week has passed, so 70% is 20 points ahead.
+    expect(paceLine({ pct: 70, resetsAt: inHours(84) }, NOW, SEVEN_DAY_S)).toEqual({ text: "20 pts ahead of pace", warn: true });
   });
 });
 
@@ -50,6 +55,32 @@ describe("accounts", () => {
   it("short name is the alias or the email's local part", () => {
     expect(shortName(acct(1, false, "work"))).toBe("work");
     expect(shortName(acct(2, false))).toBe("u2");
+  });
+
+  it("row name is the local part unless another account shares it (macOS AccountNames.rowName)", () => {
+    const a = { ...acct(1, false), email: "hieunguyen@gmail.com" };
+    const b = { ...acct(2, false), email: "dep1.pj02@corp.example" };
+    const c = { ...acct(3, false), email: "Dep1.PJ02@other.example" };
+    const d = acct(4, false, "work");
+    const all = [a, b, c, d];
+    expect(rowName(a, all)).toBe("hieunguyen");
+    expect(rowName(b, all)).toBe("dep1.pj02@corp.example");
+    expect(rowName(c, all)).toBe("Dep1.PJ02@other.example");
+    expect(rowName(d, all)).toBe("work");
+  });
+
+  it("the week is tighter only past the floor and above the 5-hour (macOS Usage.weekIsTighter)", () => {
+    expect(weekIsTighter({ fiveHour: { pct: 26 }, sevenDay: { pct: 75 } })).toBe(true);
+    expect(weekIsTighter({ fiveHour: null, sevenDay: { pct: 60 } })).toBe(true);
+    expect(weekIsTighter({ fiveHour: { pct: 90 }, sevenDay: { pct: 75 } })).toBe(false);
+    expect(weekIsTighter({ fiveHour: { pct: 0 }, sevenDay: { pct: 3 } })).toBe(false);
+    expect(weekIsTighter(null)).toBe(false);
+  });
+
+  it("plan labels show only when the accounts' plans differ", () => {
+    const team = (n: number) => ({ ...acct(n, false), plan: { label: "Team" } });
+    expect(plansVary([team(1), team(2)])).toBe(false);
+    expect(plansVary([team(1), { ...acct(3, false), plan: { label: "Pro" } }])).toBe(true);
   });
 
   it("token and API-key slots cannot sign in again", () => {

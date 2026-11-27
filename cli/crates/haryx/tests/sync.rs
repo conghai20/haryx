@@ -1,5 +1,5 @@
 //! `haryx sync` without a server: the shapes the apps read, and the errors before any network.
-//! The full two-machine flow against a real Supabase stack is `server/supabase/tests/cli-e2e.sh`.
+//! The full two-machine flow against a local Keycloak and API is `deploy/cli-e2e.sh`.
 
 // The fake `security` is a `#!/bin/sh` script.
 #![cfg(unix)]

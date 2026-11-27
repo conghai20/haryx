@@ -123,10 +123,20 @@ haryx sync                  # settings, app preferences, account settings, API-k
 haryx sync profile push work   # a saved setup profile (secrets redacted, no history)
 ```
 
-**What HaryX sends, and where.** Signed out: nothing new. Signed in: your sign-in email reaches Supabase (the
-service hosting HaryX accounts); everything synced is end-to-end encrypted with a key only your passphrase
-opens, under row names the server cannot read. Claude browser logins, conversations, usage history and
-folder paths never leave your machine. Accounts on another machine are listed so you can sign them in here.
+**What HaryX sends, and where.** Signed out: nothing new. Signed in, your HaryX account is your WeCoAp ID
+(`sso.wecoap.com`), and the HaryX API (`haryx.wecoap.com`) keeps your data; both run on servers in
+Vietnam. Sync needs your consent (`haryx account consent grant sync`). Everything synced is end-to-end
+encrypted with a key only your passphrase opens, under row names the server cannot read: settings, app
+preferences, account settings, API-key and setup-token accounts, setup profiles, and a monthly usage
+summary per machine (tokens by day, account and model, and 5h/7d readings; never a project path, a
+session id or conversation text). Showing your machines on HaryX web (name, OS, HaryX version, last seen)
+is a second, separate consent. Withdrawing a consent erases that data on the server; `haryx account
+export` downloads everything kept about you. Claude browser logins and conversations never leave your
+machine. Accounts on another machine are listed so you can sign them in here.
+
+**HaryX web** (`https://haryx.wecoap.com/platform/`) shows your machines and consents, and, once you
+enter your sync passphrase in the browser, your accounts, usage and profiles. The server never sees the
+passphrase or the key.
 
 ### Move your Claude Code setup to another machine
 

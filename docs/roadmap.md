@@ -19,10 +19,15 @@ Tokens and API-price cost by account, project, session and model, quota % over t
 summary, from Claude Code's own transcripts, kept locally. Plan: [usage-history-plan.md](usage-history-plan.md).
 
 ## HaryX account and sync
-Sign in with GitHub or Google (`haryx login`) and sync settings, app preferences, account metadata,
-and setup profiles between your machines, end-to-end encrypted with a passphrase. Each machine
-signs in to Claude itself.
-Backend: Supabase. Plan: [haryx-account-plan.md](haryx-account-plan.md).
+Sign in with a WeCoAp ID (GitHub, Google, Apple, or email and password; `haryx login`) and sync
+settings, app preferences, account metadata, setup profiles and a monthly usage summary between your
+machines, end-to-end encrypted with a passphrase. Each machine signs in to Claude itself. HaryX web
+shows machines and consents, and the synced data once unlocked in the browser.
+Backend: WeCoAp SSO (Keycloak) and the HaryX API in Vietnam. Plan:
+[sso-platform-plan.md](sso-platform-plan.md); the sync engine's design stays in
+[haryx-account-plan.md](haryx-account-plan.md).
+
+Open: Apple sign-in waits for the Apple Services ID and key (owner).
 
 ## Distribution
 Homebrew (formula + cask), crates.io, Developer ID signed and notarized DMG on GitHub releases, and pip/npm wrapper

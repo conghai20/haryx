@@ -12,7 +12,7 @@ use crate::switcher::test_support::{TestSwitcher, sample};
 
 const PASS: &str = "correct horse battery";
 const USER: &str = "user-1";
-const PROJECT: &str = "https://p.supabase.co";
+const PROJECT: &str = "https://sso.example.test/realms/t";
 
 struct Machine {
     sw: TestSwitcher,

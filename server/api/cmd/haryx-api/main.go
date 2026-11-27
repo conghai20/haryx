@@ -19,6 +19,7 @@ import (
 
 	"github.com/conghai20/haryx/server/api/internal/auth"
 	"github.com/conghai20/haryx/server/api/internal/db"
+	syncapi "github.com/conghai20/haryx/server/api/internal/sync"
 	"github.com/conghai20/haryx/server/api/internal/web"
 )
 
@@ -89,6 +90,10 @@ func routes(pool *pgxpool.Pool, store *db.Store, verifier *auth.Verifier) http.H
 	api.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		web.Error(w, http.StatusNotFound, "not_found")
 	})
+	data := syncapi.Routes(pool) // task 7 wraps this in the consent gate
+	api.Handle("/api/v1/sync/", data)
+	api.Handle("/api/v1/profiles", data)
+	api.Handle("/api/v1/profiles/", data)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", health(pool))

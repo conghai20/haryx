@@ -105,6 +105,8 @@ func (h *handler) insertRow(w http.ResponseWriter, r *http.Request, user string)
 		web.Error(w, http.StatusConflict, "exists")
 	case constraint == "sync_rows_limit":
 		web.Error(w, http.StatusUnprocessableEntity, "row_limit")
+	case constraint == "consent_required": // withdrawn while this request was in flight
+		web.Error(w, http.StatusForbidden, "consent_required")
 	default:
 		internalError(w, "insert sync row", err)
 	}

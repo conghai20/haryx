@@ -19,7 +19,7 @@ import (
 
 const userA, userB = "3f0c6a52-6a3e-4d2b-9a57-0b7d1d6f9e21", "0d5e8f8e-1111-4c2b-8a57-0b7d1d6f9e22"
 
-// env is a fresh schema with users A and B, and the routes as the API mounts them.
+// env is a fresh schema with users A and B, both with the sync consent, and the routes as the API mounts them.
 type env struct {
 	t    *testing.T
 	pool *pgxpool.Pool
@@ -46,6 +46,10 @@ func newEnv(t *testing.T) *env {
 	store := db.NewStore(pool)
 	for _, u := range []string{userA, userB} {
 		if err := store.TouchUser(ctx, u); err != nil {
+			t.Fatal(err)
+		}
+		// The consent gate is not mounted here, but the require_consent trigger still holds.
+		if _, err := pool.Exec(ctx, `insert into consents values ($1, 'sync', true, 'test', now())`, u); err != nil {
 			t.Fatal(err)
 		}
 	}

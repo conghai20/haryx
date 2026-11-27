@@ -24,6 +24,7 @@ done
 
 docker run --rm --network "$NET" -v "$PWD:/src" -w /src \
     -v haryx-go-mod:/go/pkg/mod -v haryx-go-build:/root/.cache/go-build \
+    -v "$PWD/../../packages/contracts:/contracts:ro" -e HARYX_CONTRACTS=/contracts \
     -e PGHOST="$PG" -e PGDATABASE=haryx -e PGUSER=haryx -e PGPASSWORD=test \
     "$GO_IMAGE" sh -c '
         set -e

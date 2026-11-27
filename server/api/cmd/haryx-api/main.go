@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/conghai20/haryx/server/api/internal/auth"
+	"github.com/conghai20/haryx/server/api/internal/consent"
 	"github.com/conghai20/haryx/server/api/internal/db"
 	syncapi "github.com/conghai20/haryx/server/api/internal/sync"
 	"github.com/conghai20/haryx/server/api/internal/web"
@@ -90,7 +91,11 @@ func routes(pool *pgxpool.Pool, store *db.Store, verifier *auth.Verifier) http.H
 	api.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		web.Error(w, http.StatusNotFound, "not_found")
 	})
-	data := syncapi.Routes(pool) // task 7 wraps this in the consent gate
+	consents := consent.Routes(pool)
+	api.Handle("/api/v1/consents", consents)
+	api.Handle("/api/v1/consents/", consents)
+	// Sync rows and profiles answer 403 consent_required without the sync consent.
+	data := consent.Require(pool, consent.Sync, syncapi.Routes(pool))
 	api.Handle("/api/v1/sync/", data)
 	api.Handle("/api/v1/profiles", data)
 	api.Handle("/api/v1/profiles/", data)

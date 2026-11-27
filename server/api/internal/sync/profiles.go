@@ -71,6 +71,8 @@ func (h *handler) putProfile(w http.ResponseWriter, r *http.Request, user string
 		web.JSON(w, http.StatusOK, profile)
 	case constraint == "profile_files_limit":
 		web.Error(w, http.StatusUnprocessableEntity, "profile_limit")
+	case constraint == "consent_required": // withdrawn while this request was in flight
+		web.Error(w, http.StatusForbidden, "consent_required")
 	default:
 		internalError(w, "put profile", err)
 	}

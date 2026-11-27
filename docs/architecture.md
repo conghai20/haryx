@@ -8,7 +8,7 @@
 | `cli/` | `haryx` Rust CLI, drop-in replacement for `cswap`; owns accounts and credentials on the device | in progress |
 | `server/api/` | HaryX API (Go): checks WeCoAp SSO tokens, keeps encrypted sync rows, profiles, consents and the machine registry in its own Postgres; plan in `docs/sso-platform-plan.md` | built; deployed at `haryx.wecoap.com` |
 | `apps/platform/` | HaryX web (Vite + Svelte 5) at `/platform/`: machines, privacy center, and accounts, usage and profiles unlocked in the browser | built |
-| `deploy/` | the API's Docker Compose, the `haryx.wecoap.com` nginx site, backups, and the local end-to-end run (`cli-e2e.sh`) | active |
+| `deploy/` | the server setup (compose, nginx site, realm steps, `cli-e2e.sh`, `release-platform.sh`): kept on the owner's machine, ignored by git because this repository is public | local only |
 | `apps/windows/` | HaryX Windows tray app (Tauri 2 + Svelte 5), plan in `docs/windows-app-plan.md` | built, untested on hardware |
 | `packages/mascots/` | mascot sprites exported from the macOS app for the Windows app | active |
 | `apps/ios/`, `apps/android/` | native mobile apps | future |

@@ -11,7 +11,6 @@ packaging/pypi/dist/
 # Impeccable scratch files
 .impeccable/tmp/
 
-# deploy/: secrets and local backups never go in git
-deploy/.env
-deploy/.env.e2e
-deploy/backups/
+# deploy/: the server setup (compose, nginx, realm steps, scripts) stays on the owner's machine
+# only; this repository is public.
+/deploy/

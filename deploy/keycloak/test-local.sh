@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Task 2's test: configure-haryx.mjs against a throwaway Keycloak 26.8.2 (the live version), run
+# Local realm for tests: configure-local.mjs against a throwaway Keycloak 26.8.2 (the live version), run
 # twice to prove it is idempotent, then real sign-ins against the result.
 #
 #   deploy/keycloak/test-local.sh
@@ -35,14 +35,13 @@ for _ in $(seq 1 90); do
 done
 
 export KC_URL="http://127.0.0.1:$PORT" KC_REALM=wecoap KC_ADMIN_USER=admin KC_ADMIN_PASSWORD=test-admin-password
-export HARYX_API_ADMIN_SECRET="test-$(openssl rand -hex 16)" HARYX_PLATFORM_URL=http://127.0.0.1:5173
-export SMTP_USER=no-reply@wecoap.com SMTP_PASSWORD=test-smtp-password
+export HARYX_PLATFORM_URL=http://127.0.0.1:5173
 
 node test-haryx.mjs setup
-node configure-haryx.mjs
+node configure-local.mjs
 node test-haryx.mjs snapshot "$WORK/first.json"
 node test-haryx.mjs tamper
-node configure-haryx.mjs
+node configure-local.mjs
 node test-haryx.mjs snapshot "$WORK/second.json"
 if diff -u "$WORK/first.json" "$WORK/second.json"; then
     echo "PASS a second run undoes hand edits and changes nothing else"
@@ -50,5 +49,5 @@ else
     echo "FAIL a second run changed the realm"
     exit 1
 fi
-node -e 'const s = require(process.argv[1]); console.log(JSON.stringify({ realm: s.realm.verifyEmail && s.realm.bruteForceProtected, smtp: s.realm.smtp?.host, secretMatches: s["haryx-api-admin"].secretMatches, saRoles: s.serviceAccountRoles, cliOptional: s["haryx-cli"].optionalScopes, webOptional: s["haryx-platform"].optionalScopes, adminDefault: s["haryx-api-admin"].defaultScopes, providers: s.providers.map(p => p.alias) }))' "$WORK/second.json"
+node -e 'const s = require(process.argv[1]); console.log(JSON.stringify({ realm: s.realm, clients: s.adminClients, webAccountScope: s["haryx-platform"].accountScope, cliAccountScope: s["haryx-cli"].accountScope, cliOptional: s["haryx-cli"].optionalScopes, webOptional: s["haryx-platform"].optionalScopes, providers: s.providers.map(p => p.alias + (p.trustEmail ? " TRUSTS EMAIL" : "")) }))' "$WORK/second.json"
 node test-haryx.mjs check

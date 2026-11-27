@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
 # Makes deploy/.env from .env.example, or completes an existing one. Rerunning never changes a
-# value already set: it only fills generated values that are missing and names hand-filled ones
-# that are still empty.
+# value already set: it only fills generated values that are missing.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 ENV_FILE=.env
-GENERATED=(HARYX_DB_PASSWORD HARYX_API_ADMIN_SECRET)
-HAND=(APPLE_SERVICES_ID APPLE_TEAM_ID APPLE_KEY_ID APPLE_P8_FILE SMTP_USER SMTP_PASSWORD)
+GENERATED=(HARYX_DB_PASSWORD)
 
 [ -f "$ENV_FILE" ] || { cp .env.example "$ENV_FILE"; chmod 600 "$ENV_FILE"; }
 
@@ -33,12 +31,3 @@ for name in "${GENERATED[@]}"; do
         echo "generated $name"
     fi
 done
-
-missing=()
-for name in "${HAND[@]}"; do
-    [ -n "$(value_of "$name")" ] || missing+=("$name")
-done
-if [ ${#missing[@]} -gt 0 ]; then
-    echo "still to fill in $PWD/$ENV_FILE (configure-haryx.mjs skips Apple or SMTP without them):"
-    printf '  %s\n' "${missing[@]}"
-fi

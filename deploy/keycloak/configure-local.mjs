@@ -1,22 +1,16 @@
-// Registers HaryX in the shared WeCoAp realm, through Keycloak's admin REST API. Idempotent: safe
-// to rerun after any change here. Written in the style of wecoap-sso/scripts/configure-realm.mjs,
-// which must have run first (consent attributes, locales, events).
+// Sets up HaryX's clients in a LOCAL Keycloak 26.8.2, for tests (task 13's end-to-end run, the
+// API's integration tests). Production is configured by hand from the checklist in
+// deploy/README.md ("Realm, by hand"); this script mirrors that checklist and must change with it.
+// It refuses any Keycloak that is not on this machine. Idempotent.
 //
-//   set -a; . deploy/.env; set +a
-//   KC_ADMIN_USER=… KC_ADMIN_PASSWORD=… node deploy/keycloak/configure-haryx.mjs
-//
-// The realm is shared with AR Onion (plan: "Keycloak realm wecoap"), so this script:
-//  - creates or updates only clients whose id starts with `haryx-`;
-//  - never touches the `github` and `google` identity providers, which the realm owner set up for
-//    every product; it only reports whether they are there;
-//  - sets realm-wide only what HaryX needs and every product benefits from: verify email, brute
-//    force detection, and SMTP through mail.wecoap.com.
+//   KC_URL=http://127.0.0.1:18083 KC_ADMIN_USER=admin KC_ADMIN_PASSWORD=… \
+//     node deploy/keycloak/configure-local.mjs        (test-local.sh does this for you)
 //
 // Clients:
 //  - haryx-cli        public, PKCE S256, loopback redirect, device grant, offline sessions
-//  - haryx-platform   public, PKCE S256, the /platform/ SPA, normal sessions only
-//  - haryx-api-admin  confidential service account for the API: view-users + manage-users, and the
-//                     kc-admin-api scope Keycloak 26.8.2 requires for Admin API calls (plan A3)
+//  - haryx-platform   public, PKCE S256, the /platform/ SPA, normal sessions only, and the
+//                     account roles that let a user end their own machines' sessions (plan A7)
+// No admin service account: HaryX holds no Keycloak secret.
 import { readFileSync } from "node:fs";
 
 const env = (name, fallback) => {
@@ -26,23 +20,20 @@ const env = (name, fallback) => {
 };
 const optional = name => process.env[name] || "";
 
-// The master admin password goes to KC_URL, and PLATFORM_URL becomes a redirect URI: https only,
-// except for a Keycloak or dev server on this machine.
-const secureUrl = (name, fallback) => {
+// Only a plain http://127.0.0.1:<port>: this script must never reach sso.wecoap.com.
+const localUrl = (name, fallback) => {
     const url = new URL(env(name, fallback));
-    const local = ["127.0.0.1", "localhost"].includes(url.hostname);
-    if (url.protocol !== "https:" && !local) throw new Error(`${name} must be https:// (got ${url.href})`);
-    if (url.username || url.password || url.search || url.hash) throw new Error(`${name} must be a plain origin (got ${url.href})`);
-    return url.href.replace(/\/$/, "");
+    if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !url.port || url.username || url.password || url.pathname !== "/") {
+        throw new Error(`${name} must be a local http://127.0.0.1:<port> (got ${url.href}); production is set up by hand`);
+    }
+    return url.origin;
 };
-const KC_URL = secureUrl("KC_URL", "https://sso.wecoap.com");
+const KC_URL = localUrl("KC_URL");
 const REALM = env("KC_REALM", "wecoap");
-const PLATFORM_URL = secureUrl("HARYX_PLATFORM_URL", "https://haryx.wecoap.com");
-const API_ADMIN_SECRET = env("HARYX_API_ADMIN_SECRET");
+const PLATFORM_URL = localUrl("HARYX_PLATFORM_URL", "http://127.0.0.1:5173");
 const API_AUDIENCE = "haryx-api";
-const ADMIN_ROLES = ["view-users", "manage-users"];
-const SMTP = { host: "mail.wecoap.com", port: "587", from: "no-reply@wecoap.com", fromDisplayName: "WeCoAp" };
-const SHARED_PROVIDERS = ["github", "google"];
+// What haryx-platform's token may do in the account API: the user's own account only.
+const ACCOUNT_ROLES = ["manage-account", "view-profile"];
 
 async function adminToken() {
     const res = await fetch(`${KC_URL}/realms/master/protocol/openid-connect/token`, {
@@ -78,25 +69,6 @@ const realmPatch = {};
 if (!realm.verifyEmail) realmPatch.verifyEmail = true;
 if (!realm.bruteForceProtected) realmPatch.bruteForceProtected = true;
 
-const smtpUser = optional("SMTP_USER");
-const smtpPassword = optional("SMTP_PASSWORD");
-const otherSmtp = realm.smtpServer?.host && realm.smtpServer.host !== SMTP.host;
-if (otherSmtp) {
-    done.push(`SMTP left as is: the realm sends through ${realm.smtpServer.host}, not ${SMTP.host}`);
-} else if (smtpUser && smtpPassword) {
-    realmPatch.smtpServer = {
-        ...SMTP,
-        replyTo: SMTP.from,
-        envelopeFrom: SMTP.from,
-        starttls: "true",
-        ssl: "false",
-        auth: "true",
-        user: smtpUser,
-        password: smtpPassword
-    };
-} else {
-    done.push(`SMTP skipped: SMTP_USER / SMTP_PASSWORD not set (realm keeps ${realm.smtpServer?.host || "no SMTP"})`);
-}
 if (Object.keys(realmPatch).length) await api("PUT", "", realmPatch);
 
 // ---------- client scopes ----------
@@ -184,33 +156,10 @@ const CLIENTS = [
         mappers: [audienceMapper, providerMapper],
         // The browser holds no long-lived session: no offline tokens.
         optionalScopes: { add: [], remove: ["offline_access"] }
-    },
-    {
-        rep: {
-            clientId: "haryx-api-admin",
-            name: "HaryX API (service account)",
-            protocol: "openid-connect",
-            publicClient: false,
-            clientAuthenticatorType: "client-secret",
-            secret: API_ADMIN_SECRET,
-            serviceAccountsEnabled: true,
-            standardFlowEnabled: false,
-            implicitFlowEnabled: false,
-            directAccessGrantsEnabled: false,
-            consentRequired: false,
-            fullScopeAllowed: false,
-            ...resetFields,
-            redirectUris: [],
-            webOrigins: [],
-            attributes: { ...resetAttributes, "oauth2.device.authorization.grant.enabled": "false" }
-        },
-        mappers: [],
-        defaultScopes: ["kc-admin-api"],
-        optionalScopes: { add: [], remove: [] }
     }
 ];
 
-async function upsertClient({ rep, mappers, defaultScopes = [], optionalScopes }) {
+async function upsertClient({ rep, mappers, optionalScopes }) {
     if (!rep.clientId.startsWith("haryx-")) throw new Error(`refusing to touch ${rep.clientId}: not a haryx- client`);
     let [client] = await api("GET", `/clients?clientId=${encodeURIComponent(rep.clientId)}`);
     if (!client) {
@@ -227,7 +176,6 @@ async function upsertClient({ rep, mappers, defaultScopes = [], optionalScopes }
         else await api("POST", `/clients/${client.id}/protocol-mappers/models`, mapper);
     }
 
-    for (const name of defaultScopes) await api("PUT", `/clients/${client.id}/default-client-scopes/${scopeId(name)}`);
     for (const name of optionalScopes.add) await api("PUT", `/clients/${client.id}/optional-client-scopes/${scopeId(name)}`);
     const optional = await api("GET", `/clients/${client.id}/optional-client-scopes`);
     for (const name of optionalScopes.remove) {
@@ -239,26 +187,18 @@ async function upsertClient({ rep, mappers, defaultScopes = [], optionalScopes }
 const clients = {};
 for (const spec of CLIENTS) clients[spec.rep.clientId] = await upsertClient(spec);
 
-// ---------- the API's service account: exactly view-users + manage-users ----------
-// fullScopeAllowed is off, so a role reaches the token only if it is both granted to the
-// service-account user and in the client's scope.
-const apiAdmin = clients["haryx-api-admin"];
-const serviceUser = await api("GET", `/clients/${apiAdmin.id}/service-account-user`);
-const [realmManagement] = await api("GET", "/clients?clientId=realm-management");
-const roles = (await api("GET", `/clients/${realmManagement.id}/roles`)).filter(r => ADMIN_ROLES.includes(r.name));
-if (roles.length !== ADMIN_ROLES.length) throw new Error(`realm-management is missing one of ${ADMIN_ROLES}`);
-await api("POST", `/users/${serviceUser.id}/role-mappings/clients/${realmManagement.id}`, roles);
-await api("POST", `/clients/${apiAdmin.id}/scope-mappings/clients/${realmManagement.id}`, roles);
-const extra = (await api("GET", `/users/${serviceUser.id}/role-mappings/clients/${realmManagement.id}`))
-    .filter(r => !ADMIN_ROLES.includes(r.name));
-if (extra.length) await api("DELETE", `/users/${serviceUser.id}/role-mappings/clients/${realmManagement.id}`, extra);
+// ---------- haryx-platform: the user's own account, through the account API (plan A7) ----------
+// fullScopeAllowed is off, so the account roles reach its token only through this scope mapping.
+const platform = clients["haryx-platform"];
+const [account] = await api("GET", "/clients?clientId=account");
+const accountRoles = (await api("GET", `/clients/${account.id}/roles`)).filter(r => ACCOUNT_ROLES.includes(r.name));
+if (accountRoles.length !== ACCOUNT_ROLES.length) throw new Error(`the account client is missing one of ${ACCOUNT_ROLES}`);
+await api("POST", `/clients/${platform.id}/scope-mappings/clients/${account.id}`, accountRoles);
+const extraScope = (await api("GET", `/clients/${platform.id}/scope-mappings/clients/${account.id}`)).filter(r => !ACCOUNT_ROLES.includes(r.name));
+if (extraScope.length) await api("DELETE", `/clients/${platform.id}/scope-mappings/clients/${account.id}`, extraScope);
 
 // ---------- identity providers ----------
 const providers = await api("GET", "/identity-provider/instances");
-for (const alias of SHARED_PROVIDERS) {
-    const found = providers.find(p => p.alias === alias);
-    done.push(`${alias}: ${found ? (found.enabled ? "present, left as is" : "present but DISABLED, left as is") : "MISSING (the realm owner adds it)"}`);
-}
 
 const apple = {
     servicesId: optional("APPLE_SERVICES_ID"),
@@ -292,5 +232,5 @@ if (Object.values(apple).every(Boolean)) {
     done.push(`apple skipped: APPLE_SERVICES_ID / APPLE_TEAM_ID / APPLE_KEY_ID / APPLE_P8_FILE not all set${present ? " (existing provider left as is)" : ""}`);
 }
 
-console.log(`realm ${REALM} at ${KC_URL}: clients ${Object.keys(clients).join(", ")}; verify email and brute force on`);
+console.log(`local realm ${REALM} at ${KC_URL}: clients ${Object.keys(clients).join(", ")}; verify email and brute force on`);
 for (const line of done) console.log(`  ${line}`);

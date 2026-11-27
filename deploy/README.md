@@ -5,7 +5,7 @@ What runs where (plan: `docs/sso-platform-plan.md`):
 | Piece | From | Where |
 |---|---|---|
 | WeCoAp SSO (Keycloak 26.8.2 + its Postgres) | `wecoap-sso/deploy/` | `sso.wecoap.com`, live |
-| HaryX realm clients, Apple, SMTP | `keycloak/configure-haryx.mjs` | realm `wecoap` |
+| HaryX realm clients, Apple, SMTP | by hand, in the admin console | realm `wecoap`: see "Realm, by hand" |
 | HaryX API + its Postgres + backups | `compose.yaml` | `127.0.0.1:18180`, aaPanel project `haryx` |
 | Site config | `nginx/` | aaPanel site `haryx.wecoap.com` |
 | Web platform | `apps/platform` → `release-platform.sh` | `/www/wwwroot/haryx.wecoap.com/platform/` |
@@ -16,8 +16,7 @@ personal data goes through Cloudflare.
 
 ## First deploy
 
-1. **Secrets**: `./gen-secrets.sh`, then fill what it names. Rerun it until it names nothing you
-   need (Apple and SMTP can wait; the script skips them).
+1. **Secrets**: `./gen-secrets.sh`. It generates the database password and keeps it on rerun.
 2. **Stack**: copy `compose.yaml`, `backup/` and `.env` to `/www/dk_project/haryx/`, then
    aaPanel → Docker → Compose → add `haryx`. `docker compose up -d`, then
    `curl -s http://127.0.0.1:18180/api/v1/health`.
@@ -25,17 +24,94 @@ personal data goes through Cloudflare.
    `/www/server/panel/vhost/nginx/`, and `nginx/haryx-headers.inc` to
    `/www/server/panel/vhost/nginx/haryx/`. `mkdir -p /www/server/nginx/proxy_cache_dir/haryx`,
    `nginx -t`, reload.
-4. **Realm**: from any machine that reaches `sso.wecoap.com`, with `deploy/.env` loaded:
+4. **Realm**: by hand, below. The realm prerequisites P1–P4 from the plan come first.
 
-   ```bash
-   set -a; . deploy/.env; set +a
-   KC_ADMIN_USER=… KC_ADMIN_PASSWORD=… node deploy/keycloak/configure-haryx.mjs
-   ```
+## Realm, by hand
 
-   Try it locally first: `deploy/keycloak/test-local.sh` runs it twice against a throwaway
-   Keycloak 26.8.2 and signs in through every HaryX client (`APPLE_JAR=…` adds the Apple provider).
-   It needs the realm prerequisites P1–P4 from the plan done first. The Apple provider also needs
-   the extension jar mounted in `wecoap-sso/deploy/compose.yaml` (plan A6).
+In the admin console of `https://sso.wecoap.com`, realm **`wecoap`** (Keycloak 26.8.2). The code
+depends on the names exactly as written: client ids, the audience `haryx-api`, the claim
+`identity_provider`. HaryX holds no Keycloak secret and no admin account: the web signs a machine
+out with the user's own token, through Keycloak's account API (plan A7).
+
+### Realm settings
+
+- **Login**: *Verify email* on.
+- **Security defenses → Brute force detection**: *Lockout temporarily*, defaults.
+- **Email**: host `mail.wecoap.com`, port `587`, from `no-reply@wecoap.com`, from display name
+  `WeCoAp`, reply to and envelope from `no-reply@wecoap.com`, *Enable StartTLS* on, *Enable SSL*
+  off, *Authentication* on with the `no-reply@wecoap.com` mailbox. **Test connection.** If another
+  WeCoAp product already set a different server, keep it and say so.
+
+### Client `haryx-cli` (the CLI, and through it both apps)
+
+1. **Clients → Create client**: OpenID Connect, client ID `haryx-cli`, name `HaryX`.
+2. **Capability config**: *Client authentication* off, *Authorization* off. Flows: *Standard
+   flow* on, *OAuth 2.0 Device Authorization Grant* on; *Direct access grants*, *Implicit flow*,
+   *Service accounts* and *CIBA* off. *PKCE Method* `S256`.
+3. **Login settings**: *Valid redirect URIs* `http://127.0.0.1/*` (literally that: any loopback
+   port). Everything else empty, *Web origins* included.
+4. **Client scopes** tab: `offline_access` stays **Optional**. Then open `haryx-cli-dedicated`:
+   - **Add mapper → By configuration → Audience**: name `audience haryx-api`, *Included Custom
+     Audience* `haryx-api`, *Add to access token* on, *Add to ID token* off.
+   - **Add mapper → By configuration → User Session Note**: name `identity_provider`, *User
+     Session Note* `identity_provider`, *Token Claim Name* `identity_provider`, type `String`,
+     *Add to ID token* and *Add to access token* on.
+   - **Scope** tab: *Full scope allowed* **off**.
+5. **Advanced → Advanced settings**: *Proof Key for Code Exchange Code Challenge Method* `S256`, if
+   step 2 did not already show it.
+
+### Client `haryx-platform` (the web, `/platform/`)
+
+1. **Create client**: OpenID Connect, client ID `haryx-platform`, name `HaryX on the web`.
+2. **Capability config**: *Client authentication* off. *Standard flow* on; every other flow off,
+   *Device Authorization Grant* included. *PKCE Method* `S256`.
+3. **Login settings**: *Root URL* `https://haryx.wecoap.com`, *Home URL* `/platform/`, *Valid
+   redirect URIs* `https://haryx.wecoap.com/platform/*`, *Valid post logout redirect URIs*
+   `https://haryx.wecoap.com/platform/*`, *Web origins* `https://haryx.wecoap.com`.
+4. **Client scopes** tab: **remove `offline_access`**. The browser never holds an offline token.
+5. `haryx-platform-dedicated`: the same two mappers as `haryx-cli`. **Scope** tab: *Full scope
+   allowed* **off**, then **Assign role → filter by clients → `account`**: `manage-account` and
+   `view-profile`. This is what lets the signed-in user end their own machines' sessions, and
+   nothing else: only their own account.
+
+### Identity providers
+
+- **`github`, `google`**: already there. Leave them, except *Trust email*: **off** on both. With it
+  on, a first sign-in links to any existing account with that email without that account proving
+  it owns the address.
+- **`apple`**: needs the extension in Keycloak first (plan A6): add
+  `apple-identity-provider-1.17.0.jar` from
+  `https://github.com/klausbetz/apple-identity-provider-keycloak/releases/tag/1.17.0` (check its
+  `.sha512`) next to the theme jar in `wecoap-sso/deploy/compose.yaml`, and restart Keycloak.
+  Then **Add provider → Apple**:
+  - *Client ID*: the Services ID. *Team ID*, *Key ID*: from the Sign in with Apple key.
+  - *Client Secret*: the body of the key's `.p8` (the lines between `BEGIN` and `END`).
+  - *Default scopes* `name email`. *Trust email* **off**.
+  - In Apple Developer: the Services ID's return URL is
+    `https://sso.wecoap.com/realms/wecoap/broker/apple/endpoint`, domain `sso.wecoap.com`. Under
+    *Sign in with Apple for Email Communication*, register `wecoap.com` and `no-reply@wecoap.com`,
+    or mail never reaches private-relay addresses.
+
+### The same, locally
+
+`deploy/keycloak/test-local.sh` sets these clients up in a throwaway Keycloak 26.8.2 with
+`configure-local.mjs`, runs it twice with a hand edit in between, and signs in through each
+client, including a sign-out of one machine from the web (`APPLE_JAR=…` adds Apple). The script
+refuses anything but `http://127.0.0.1:<port>`. Change it together with this checklist.
+
+### Check from outside (no admin needed)
+
+```bash
+B=https://sso.wecoap.com/realms/wecoap/protocol/openid-connect
+P='code_challenge=abcdefghijabcdefghijabcdefghijabcdefghij123&code_challenge_method=S256'
+# 200: loopback accepted.  400: localhost refused.
+curl -s -o /dev/null -w '%{http_code}\n' "$B/auth?client_id=haryx-cli&response_type=code&scope=openid%20offline_access&redirect_uri=http://127.0.0.1:5555/callback/x&$P"
+curl -s -o /dev/null -w '%{http_code}\n' "$B/auth?client_id=haryx-cli&response_type=code&scope=openid&redirect_uri=http://localhost:5555/callback/x&$P"
+# device grant answers with a user_code
+curl -s "$B/auth/device" -d client_id=haryx-cli -d 'scope=openid offline_access' -d code_challenge=abcdefghijabcdefghijabcdefghijabcdefghij123 -d code_challenge_method=S256
+# the platform refuses offline_access: the Location carries error=invalid_scope
+curl -s -o /dev/null -w '%{redirect_url}\n' "$B/auth?client_id=haryx-platform&response_type=code&scope=openid%20offline_access&redirect_uri=https://haryx.wecoap.com/platform/cb&$P"
+```
 
 ## DNS switch for haryx.wecoap.com
 

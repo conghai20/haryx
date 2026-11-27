@@ -131,9 +131,10 @@ The HaryX setup:
     checks this), device authorization grant on (for `--no-browser` over SSH), `offline_access`
     scope so a machine stays signed in past SSO idle limits.
   - `haryx-platform`: public, PKCE S256, redirect `https://haryx.wecoap.com/platform/*`, web
-    origin `https://haryx.wecoap.com`, normal (not offline) sessions.
-  - `haryx-api-admin`: confidential, service account only, with `realm-management` `view-users`
-    and `manage-users` (delete a session, delete a user). Its secret lives only in the API's env.
+    origin `https://haryx.wecoap.com`, normal (not offline) sessions. Its token carries the
+    `account` client's `manage-account` and `view-profile`, so the signed-in user can end their
+    own machines' sessions through Keycloak's account API (A7).
+  - **No admin service account** (A7). HaryX holds no Keycloak secret.
   - An **audience mapper** puts `haryx-api` in `aud` for both public clients, and an
     `identity_provider` mapper tells `whoami` which method was used.
 - **Identity providers**: `github` and `google` (built in), `apple` (community extension
@@ -141,9 +142,10 @@ The HaryX setup:
   mounted next to the theme jar in `wecoap-sso/deploy/compose.yaml`, which restarts Keycloak). Email +
   password with *Verify email* on, and brute-force detection on.
 - **SMTP**: `mail.wecoap.com:587`, STARTTLS, authenticated, from `no-reply@wecoap.com`, with
-  reply-to and envelope sender on `wecoap.com`. The password comes from env.
-- Defined by `deploy/keycloak/configure-haryx.mjs`, which is idempotent and written in the same
-  style as `configure-realm.mjs`. Client secrets for the identity providers come from env.
+  reply-to and envelope sender on `wecoap.com`.
+- **Production is set up by hand** by the owner, from the checklist in `deploy/README.md`
+  ("Realm, by hand"). `deploy/keycloak/configure-local.mjs` sets up the same clients in a local
+  Keycloak for tests, refuses anything but `127.0.0.1`, and changes with the checklist.
 
 ### HaryX API (`server/api/`, Go)
 
@@ -166,8 +168,8 @@ The HaryX setup:
 | `GET /api/v1/consents` · `PUT /api/v1/consents/{purpose}` `{version}` · `DELETE …` | Read, grant, withdraw `sync` / `machines`. Withdrawal deletes that purpose's data in the same transaction | — |
 | `PUT /api/v1/machines/self` | Register or heartbeat `{machine_id,name,os,version}`; needs the `machines` consent | — |
 | `GET /api/v1/machines` · `PATCH /api/v1/machines/{id}` `{name}` | List, rename | — |
-| `DELETE /api/v1/machines/{id}/session` | Sign out: Keycloak admin deletes the machine's offline session; its `sid` goes into `revoked_sessions` | — |
-| `GET /api/v1/me/export` · `DELETE /api/v1/me` | Data-subject access and erasure | `delete-account` function |
+| `DELETE /api/v1/machines/{id}/session` | Sign out, step 2. The web has already ended the machine's session with the user's own token (`DELETE /realms/wecoap/account/sessions/{sid}`); the API checks the `sid` is one of the caller's machines, drops the machine and puts the `sid` into `revoked_sessions` | — |
+| `GET /api/v1/me/export` · `DELETE /api/v1/me` | Data-subject access, and erasure of **HaryX data only**. The WeCoAp ID is shared with AR Onion, so deleting it stays on the WeCoAp account page, which the web links to | `delete-account` function |
 | `GET /api/v1/health` | Liveness, no auth | `ping()` |
 
 - Sync and profile endpoints answer **403 `consent_required`** without the `sync` consent.
@@ -284,8 +286,7 @@ aaPanel's site doing nginx and TLS):
   3. Flip the record to DNS-only.
   4. Check again that `dig` returns the VN server's IP, not Cloudflare's.
 - **`.env.example`** and **`gen-secrets.sh`**:
-  - Generated: the `haryx` DB password and the `haryx-api-admin` secret. The Keycloak admin
-    password is `wecoap-sso`'s.
+  - Generated: the `haryx` DB password. HaryX holds no Keycloak secret (A7).
   - Hand-filled, named when missing: the GitHub, Google and Apple client secrets, the Apple key
     (team id, key id, `.p8`), and the SMTP user and password for `no-reply@wecoap.com`.
 - **`release-platform.sh`**: builds `apps/platform` and copies `dist/` to the server.
@@ -413,9 +414,9 @@ Unlock time by scrypt work factor (`log_n`):
   picked by itself, and the 12-character minimum passphrase stays. New task 10a.
 - **A2, the web unlock runs scrypt in a Web Worker** with a progress state. `age-encryption`'s
   scrypt is synchronous, so on the main thread the page freezes for the whole unlock. Task 18.
-- **A3, `haryx-api-admin` gets the `kc-admin-api` client scope as a default scope.** Keycloak
-  26.8.2 checks the Admin API audience. Without the scope, every admin call returns 401
-  ("Expected audience not available in the token"). Task 2.
+- **A3, any Admin API client needs the `kc-admin-api` client scope.** Keycloak 26.8.2 checks the
+  Admin API audience; without the scope every admin call returns 401 ("Expected audience not
+  available in the token"). Moot for HaryX since A7, kept for whoever adds an admin client.
 - **A4, the CLI's device grant sends PKCE**: `code_challenge` on `auth/device` and
   `code_verifier` when polling. Task 9.
 - **A5, `whoami` treats a missing `identity_provider` claim as `email`.** Password sign-ins carry no
@@ -423,6 +424,18 @@ Unlock time by scrypt work factor (`log_n`):
 - **A6, the Apple extension is pinned to 1.17.0** with its sha512, mounted in
   `wecoap-sso/deploy/compose.yaml`. Its "internal SPI" warnings make it part of the upgrade
   rehearsal for every Keycloak bump.
+- **A7, no Keycloak admin access for HaryX** (owner, 2026-11-27, after the task 2 security
+  review). On 26.8.2 a `manage-users` service account can't make itself realm-admin, but it can
+  reset the password of any user in the shared realm, AR Onion's included. Tested instead: the
+  user's own `haryx-platform` token, with `manage-account`, lists their sessions and ends one CLI
+  machine's offline session through the account API, while their other machines keep working.
+  So the web does step 1 of a sign-out itself, the API only revokes the `sid` (task 8), and
+  "delete account" in HaryX erases HaryX data; the WeCoAp ID is deleted on the WeCoAp account page.
+- **A8, production realm by hand.** The owner configures the live realm in the admin console from
+  `deploy/README.md`; scripts only ever run against a local Keycloak.
+- **A9, `trustEmail` off on every identity provider** (security review). With it on, Keycloak's
+  first-broker-login links a social sign-in to an existing account with the same email without
+  that account proving it owns the address.
 
 ## Tasks
 
@@ -433,7 +446,7 @@ Tags: dependency, then model. Each task is one commit in one area.
 | # | Task | Tag | Test |
 |---|---|---|---|
 | 1 | `deploy/`: compose (`haryx-api`, Postgres 18, backup job), the aaPanel site config for `haryx.wecoap.com` (Pages proxy included) with HSTS, the DNS-switch runbook, `.env.example`, `gen-secrets.sh` | independent · opus | `docker compose config`; stack up locally; `curl` the Pages proxy and `/api/v1/health`; after the switch, `dig` shows `160.187.0.66` and the certificate chain is Let's Encrypt |
-| 2 | `deploy/keycloak/configure-haryx.mjs`: clients, mappers, identity providers, SMTP, device grant, service-account roles | independent · opus | Rerun twice against local Keycloak 26.8.2 (idempotent); a manual PKCE sign-in per method; then once against the live realm, after P1–P4 |
+| 2 | Realm, **by hand in production** (owner, `deploy/README.md` → "Realm, by hand"); `deploy/keycloak/configure-local.mjs` + `test-local.sh` for a local copy | independent · opus | Rerun twice against local Keycloak 26.8.2 (idempotent); a manual PKCE sign-in per method; then once against the live realm, after P1–P4 |
 | 3 | `wecoap-sso`: privacy policy and terms cover HaryX's purposes; version bump | independent · sonnet | Its `check-layout.mjs`; legal review (owner) |
 | 4 | Contracts: `whoami.json` (updated), `consents.json`, `machines.json`, `usage-sync.json` | independent · sonnet | Fixture decode tests in Rust, Swift and TS |
 
@@ -444,7 +457,7 @@ Tags: dependency, then model. Each task is one commit in one area.
 | 5 | `server/api` skeleton: config, JWKS verification, revoked-session check, pgx, embedded migrations, health | independent · opus | A table test per claim: wrong `iss`, `aud`, `azp`, expired, revoked `sid`, `alg=none`, unknown `kid` |
 | 6 | Sync rows and profile files with today's versioned semantics and limits | depends 5 · opus | Ports of the pgTAP checks as Go integration tests against compose Postgres: user A never reads or writes user B; 409/412 paths; size and count caps |
 | 7 | Consents: grant, withdraw with deletion in one transaction, `consent_required` gating | depends 5, 6 · opus | Withdrawing sync leaves zero rows and profiles and one `withdraw` event; gated endpoints answer 403 |
-| 8 | Machines, remote sign-out through the Keycloak admin API, export, account delete | depends 5, 7 · opus | Fake Keycloak admin; sign-out revokes only that `sid`; export holds every table; delete leaves nothing but the Keycloak call |
+| 8 | Machines, remote sign-out (the web ends the session with the user's token, the API revokes the `sid`), export, delete of HaryX data | depends 5, 7 · opus | A `sid` that is not one of the caller's machines is refused; sign-out revokes only that `sid`; export holds every table; delete leaves no HaryX row for the user and makes no Keycloak call |
 
 ### Phase 3: CLI
 
@@ -534,7 +547,7 @@ No surface is left out.
 - Plaintext usage of any kind.
 - Moving the marketing site off GitHub Pages.
 - AR Onion's clients in the realm: AR Onion registers them itself, following the rules above.
-  `configure-haryx.mjs` touches only `haryx-*` clients and the realm settings HaryX needs.
+  The checklist touches only `haryx-*` clients and the realm settings HaryX needs.
 - Moving WeCoMed onto the realm, or adding "Sign in with WeCoAp" to it.
 - A password-strength meter for the sync passphrase.
 

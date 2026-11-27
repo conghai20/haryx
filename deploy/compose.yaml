@@ -47,7 +47,6 @@ services:
     environment:
       <<: *db-env
       HARYX_SSO_ISSUER: ${HARYX_SSO_ISSUER:-https://sso.wecoap.com/realms/wecoap}
-      HARYX_API_ADMIN_SECRET: ${HARYX_API_ADMIN_SECRET:?run gen-secrets.sh}
     ports:
       - "127.0.0.1:18180:8080"
 

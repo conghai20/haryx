@@ -1,8 +1,8 @@
-// Checks configure-haryx.mjs against a throwaway Keycloak. Driven by test-local.sh; never point it
+// Checks configure-local.mjs against a throwaway Keycloak. Driven by test-local.sh; never point it
 // at sso.wecoap.com (`setup` deletes and recreates the realm).
 //
 //   node test-haryx.mjs setup            fresh realm + a verified test user
-//   node test-haryx.mjs snapshot FILE    what configure-haryx.mjs owns, as stable JSON
+//   node test-haryx.mjs snapshot FILE    what configure-local.mjs owns, as stable JSON
 //   node test-haryx.mjs tamper           hand edits a rerun must undo
 //   node test-haryx.mjs check            sign-ins, tokens, device grant, remote sign-out
 import crypto from "node:crypto";
@@ -10,7 +10,6 @@ import { writeFileSync } from "node:fs";
 
 const KC = process.env.KC_URL;
 const REALM = process.env.KC_REALM;
-const SECRET = process.env.HARYX_API_ADMIN_SECRET;
 const OIDC = `${KC}/realms/${REALM}/protocol/openid-connect`;
 const USER = { email: "tester@example.com", password: "tester-password-1" };
 // `setup` deletes the realm: refuse anything but a plain http://127.0.0.1:<port>.
@@ -61,22 +60,20 @@ async function snapshot(file) {
     const get = async path => (await api("GET", `/${REALM}${path}`, null, token)).json;
     const out = {};
     const realm = await get("");
-    out.realm = { verifyEmail: realm.verifyEmail, bruteForceProtected: realm.bruteForceProtected, smtp: realm.smtpServer };
-    for (const clientId of ["haryx-cli", "haryx-platform", "haryx-api-admin"]) {
+    out.realm = { verifyEmail: realm.verifyEmail, bruteForceProtected: realm.bruteForceProtected };
+    const [account] = await get("/clients?clientId=account");
+    for (const clientId of ["haryx-cli", "haryx-platform"]) {
         const [c] = await get(`/clients?clientId=${clientId}`);
-        const { id, secret, ...rep } = c;
+        const { id, ...rep } = c;
         out[clientId] = {
             rep,
-            secretMatches: clientId === "haryx-api-admin" ? secret === SECRET : undefined,
+            accountScope: (await get(`/clients/${id}/scope-mappings/clients/${account.id}`)).map(r => r.name).sort(),
             mappers: (await get(`/clients/${id}/protocol-mappers/models`)).map(strip).sort(sortBy("name")),
             defaultScopes: (await get(`/clients/${id}/default-client-scopes`)).map(s => s.name).sort(),
             optionalScopes: (await get(`/clients/${id}/optional-client-scopes`)).map(s => s.name).sort()
         };
     }
-    const [admin] = await get("/clients?clientId=haryx-api-admin");
-    const sa = await get(`/clients/${admin.id}/service-account-user`);
-    const [rm] = await get("/clients?clientId=realm-management");
-    out.serviceAccountRoles = (await get(`/users/${sa.id}/role-mappings/clients/${rm.id}`)).map(r => r.name).sort();
+    out.adminClients = (await get("/clients")).map(c => c.clientId).filter(id => id.startsWith("haryx-")).sort();
     out.providers = (await get("/identity-provider/instances")).map(p => ({ alias: p.alias, enabled: p.enabled, trustEmail: p.trustEmail, config: { ...p.config, clientSecret: p.config.clientSecret ? "set" : "" } })).sort(sortBy("alias"));
     writeFileSync(file, JSON.stringify(out, null, 2));
     console.log(`snapshot → ${file}`);
@@ -187,24 +184,26 @@ async function run() {
     const device = await token({ grant_type: "urn:ietf:params:oauth:grant-type:device_code", client_id: "haryx-cli", device_code: start.device_code, code_verifier: dp.verifier });
     check("device grant returns offline tokens", device.status === 200 && claims(device.json.refresh_token).typ === "Offline", device.json.error ?? "");
 
-    // haryx-api-admin: signs one machine out, nothing more
-    const sa = await token({ grant_type: "client_credentials", client_id: "haryx-api-admin", client_secret: SECRET });
-    check("haryx-api-admin gets a token with its secret", sa.status === 200, sa.json.error ?? "");
-    const saToken = sa.json.access_token;
-    const users = await api("GET", `/${REALM}/users?email=${encodeURIComponent(USER.email)}`, null, saToken);
-    check("haryx-api-admin can call the Admin API (kc-admin-api scope)", users.status === 200, `HTTP ${users.status}`);
-    const del = await api("DELETE", `/${REALM}/sessions/${at.sid}?isOffline=true`, null, saToken);
-    check("haryx-api-admin deletes one offline session", del.status === 204, `HTTP ${del.status}`);
+    // Sign out one machine from the web, with the user's own token (plan A7)
+    check("no haryx-api-admin client exists", !(await api("GET", `/${REALM}/clients?clientId=haryx-api-admin`)).json.length);
+    check("haryx-platform token can use the account API (aud account, manage-account)",
+        [].concat(wat.aud).includes("account") && (wat.resource_access?.account?.roles ?? []).includes("manage-account"),
+        `aud=${JSON.stringify(wat.aud)} roles=${JSON.stringify(wat.resource_access?.account?.roles)}`);
+    const accountApi = (method, path, bearer = web.json.access_token) =>
+        fetch(`${KC}/realms/${REALM}/account${path}`, { method, headers: { authorization: `Bearer ${bearer}`, accept: "application/json" } });
+    const devices = await accountApi("GET", "/sessions/devices");
+    const sessions = devices.ok ? (await devices.json()).flatMap(d => d.sessions ?? []) : [];
+    check("the user sees their CLI machine among their sessions", sessions.some(x => x.id === at.sid), `${sessions.length} sessions`);
+    const signOut = await accountApi("DELETE", `/sessions/${at.sid}`);
+    check("the web signs out that one machine", signOut.status === 204, `HTTP ${signOut.status}`);
     const gone = await token({ grant_type: "refresh_token", client_id: "haryx-cli", refresh_token: cli.json.refresh_token });
     const kept = await token({ grant_type: "refresh_token", client_id: "haryx-cli", refresh_token: device.json.refresh_token });
     check("that machine is signed out (invalid_grant)", gone.json.error === "invalid_grant", gone.json.error);
     check("the other machine still refreshes", kept.status === 200, `HTTP ${kept.status}`);
-    const realmPut = await api("PUT", `/${REALM}`, { registrationAllowed: false }, saToken);
-    check("haryx-api-admin cannot change realm settings", realmPut.status === 403, `HTTP ${realmPut.status}`);
-    const clients = await api("GET", `/${REALM}/clients`, null, saToken);
-    check("haryx-api-admin cannot list clients", clients.status === 403, `HTTP ${clients.status}`);
-    const roles = claims(saToken).resource_access?.["realm-management"]?.roles ?? [];
-    check("haryx-api-admin token carries only view-users + manage-users (+ implied query-*)", roles.every(r => ["view-users", "manage-users", "query-users", "query-groups"].includes(r)), roles.join(","));
+    const cliAccount = await accountApi("GET", "/sessions/devices", kept.json.access_token);
+    check("a haryx-cli token cannot use the account API", cliAccount.status === 401 || cliAccount.status === 403, `HTTP ${cliAccount.status}`);
+    const adminCall = await api("GET", `/${REALM}/users`, null, web.json.access_token);
+    check("a haryx-platform token cannot use the Admin API", adminCall.status === 401 || adminCall.status === 403, `HTTP ${adminCall.status}`);
 
     console.log(failures.length ? `\n${failures.length} FAILED` : "\nall passed");
     process.exit(failures.length ? 1 : 0);

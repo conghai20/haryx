@@ -1,8 +1,7 @@
 //! The one-shot local listener the browser returns to after sign-in (RFC 8252 loopback redirect).
 //!
-//! Binds `127.0.0.1` on a port the OS picks. Supabase Auth accepts any loopback IP redirect with no
-//! allow-list entry, but not `localhost` (spike, `docs/haryx-account-plan.md`), so the literal IP is
-//! used. The path is `/callback/<nonce>`, random per sign-in, so nothing that merely finds the port
+//! Binds `127.0.0.1` on a port the OS picks. The `haryx-cli` client allows `http://127.0.0.1/*` on
+//! any port, but not `localhost` (plan Phase 0, item 1), so the literal IP is used. The path is `/callback/<nonce>`, random per sign-in, so nothing that merely finds the port
 //! (a port-scanning page, another local process) can end the sign-in: any other request is answered
 //! 404 and the wait goes on, as are requests without `code`/`error` (a `/favicon.ico`, for one).
 //!
@@ -22,7 +21,7 @@ use super::AccountError;
 const POLL: Duration = Duration::from_millis(50);
 /// Total time one connection gets to send its request line and headers.
 const REQUEST_BUDGET: Duration = Duration::from_secs(2);
-/// Requests larger than this are not a redirect from Supabase.
+/// Requests larger than this are not a redirect from the sign-in server.
 const MAX_REQUEST: usize = 16 * 1024;
 const NONCE_BYTES: usize = 16;
 

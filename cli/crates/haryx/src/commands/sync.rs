@@ -75,7 +75,7 @@ fn store_root() -> Result<std::path::PathBuf, SyncError> {
     paths::store_root().map_err(local)
 }
 
-/// The session for the compiled-in (or configured) project, renewed if needed.
+/// The session for the compiled-in (or configured) issuer, renewed if needed.
 fn session(store: &SessionStore, backend: &Backend) -> Result<Session, SyncError> {
     store.current(backend, now())?.ok_or(SyncError::NotSignedIn)
 }
@@ -86,8 +86,9 @@ fn with_session(action: &SyncAction, debug: bool) -> Result<(), SyncError> {
     let store = SessionStore::for_store(&root);
     let backend = Backend::from_env();
     let session = session(&store, &backend)?;
-    let remote = Postgrest::new(backend.base(), backend.key(), &session.access_token);
-    let objects = Storage::new(backend.base(), backend.key(), &session.access_token);
+    // Task 10 replaces these with the HaryX API (`backend.api_url()`); until then sync has no server.
+    let remote = Postgrest::new(backend.api_url(), "", &session.access_token);
+    let objects = Storage::new(backend.api_url(), "", &session.access_token);
     let ctx = Context {
         root: &root,
         switcher: &switcher,
@@ -95,7 +96,7 @@ fn with_session(action: &SyncAction, debug: bool) -> Result<(), SyncError> {
         remote: &remote,
         objects: &objects,
         user: &session.user.id,
-        project: backend.base(),
+        project: backend.issuer(),
         now: now(),
     };
     match action {
@@ -209,12 +210,12 @@ fn status(json: bool) -> Result<(), SyncError> {
     let backend = Backend::from_env();
     let signed_in = store
         .load()?
-        .filter(|s| s.project == backend.base())
+        .filter(|s| s.issuer == backend.issuer())
         .map(|s| s.user.id);
     let status = sync::status(
         &root,
         store.vault(),
-        signed_in.as_deref().map(|u| (u, backend.base())),
+        signed_in.as_deref().map(|u| (u, backend.issuer())),
     );
     if json {
         println!("{}", serde_json::to_value(&status).map_err(local)?);

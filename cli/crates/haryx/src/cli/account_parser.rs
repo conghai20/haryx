@@ -1,5 +1,5 @@
 //! `haryx login`, `haryx logout`, `haryx whoami`: the HaryX account itself, outside the `ai` section.
-//! Plan: `docs/haryx-account-plan.md`.
+//! Plan: `docs/sso-platform-plan.md`.
 
 use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser, ValueEnum};
@@ -14,7 +14,8 @@ pub const ACCOUNT_VERBS: &[&str] = &["login", "logout", "whoami", "account"];
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AccountAction {
     Login {
-        provider: Provider,
+        /// `None`: the WeCoAp page, with every method.
+        provider: Option<Provider>,
         no_browser: bool,
         json: bool,
     },
@@ -24,7 +25,7 @@ pub enum AccountAction {
     Whoami {
         json: bool,
     },
-    /// `account delete`: the HaryX account and everything it synced.
+    /// `account delete`: answered with where a WeCoAp ID is deleted (plan A10).
     Delete {
         yes: bool,
         json: bool,
@@ -35,22 +36,24 @@ pub enum AccountAction {
 enum ProviderArg {
     Github,
     Google,
+    Apple,
+    Email,
 }
 
 #[derive(Parser, Debug)]
 #[command(
     name = "login",
     bin_name = format!("{} login", haryx_core::PROG),
-    about = p("Sign this machine in to your HaryX account, with GitHub or Google. \
-               Your browser opens; approve, and it comes back to HaryX."),
+    about = p("Sign this machine in to your HaryX account with your WeCoAp ID: GitHub, Google, \
+               Apple, or email and password. Your browser opens; approve, and it comes back to HaryX."),
     after_help = login_epilog(),
     help_template = HELP_TEMPLATE,
 )]
 struct LoginArgs {
-    /// Who to sign in with
-    #[arg(long, value_enum, default_value = "github")]
-    provider: ProviderArg,
-    /// Print the sign-in link instead of opening a browser; open it in a browser on this machine
+    /// Who to sign in with; without it, the WeCoAp page offers every method
+    #[arg(long, value_enum)]
+    provider: Option<ProviderArg>,
+    /// No browser here (over SSH): print a link and a code to approve on any other device
     #[arg(long)]
     no_browser: bool,
     /// One JSON object per line: browser, then signed_in or error
@@ -111,8 +114,7 @@ struct AccountArgs {
 
 #[derive(clap::Subcommand, Debug)]
 enum AccountVerb {
-    /// Delete your HaryX account and everything it synced, on every machine. Claude accounts on
-    /// your machines are not touched.
+    /// Where to delete your WeCoAp ID, which is your HaryX account. HaryX does not delete it.
     Delete {
         /// Do not ask for confirmation
         #[arg(long, short = 'y')]
@@ -134,6 +136,7 @@ account, use '{ai} login'.
 Examples:
   {prog} login
   {prog} login --provider google
+  {prog} login --provider email
   {prog} login --no-browser",
     )
 }
@@ -160,10 +163,12 @@ pub(super) fn parse(verb: &str, rest: &[String]) -> Result<Invocation, Error> {
                     ),
                 ));
                 }
-                let provider = match args.provider {
+                let provider = args.provider.map(|arg| match arg {
                     ProviderArg::Github => Provider::Github,
                     ProviderArg::Google => Provider::Google,
-                };
+                    ProviderArg::Apple => Provider::Apple,
+                    ProviderArg::Email => Provider::Email,
+                });
                 (
                     args.debug,
                     AccountAction::Login {
@@ -214,11 +219,11 @@ mod tests {
     }
 
     #[test]
-    fn login_defaults_to_github_and_opens_a_browser() {
+    fn login_defaults_to_the_wecoap_page_and_opens_a_browser() {
         assert_eq!(
             action("login", &[]).unwrap(),
             AccountAction::Login {
-                provider: Provider::Github,
+                provider: None,
                 no_browser: false,
                 json: false
             }
@@ -226,11 +231,21 @@ mod tests {
         assert_eq!(
             action("login", &["--provider", "google", "--no-browser", "--json"]).unwrap(),
             AccountAction::Login {
-                provider: Provider::Google,
+                provider: Some(Provider::Google),
                 no_browser: true,
                 json: true
             }
         );
+        for (arg, provider) in [
+            ("github", Provider::Github),
+            ("apple", Provider::Apple),
+            ("email", Provider::Email),
+        ] {
+            assert!(matches!(
+                action("login", &["--provider", arg]).unwrap(),
+                AccountAction::Login { provider: Some(p), .. } if p == provider
+            ));
+        }
         assert!(action("login", &["--provider", "gitlab"]).is_err());
     }
 

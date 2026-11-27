@@ -2,15 +2,14 @@
 //! [`haryx_core::account`].
 //!
 //! `--json` shapes: `packages/contracts/haryx/whoami.json` and `login-events.json`; `account
-//! delete --json` answers `{"ok": true}` or `{"ok": false, "code": …, "message": …}`.
+//! delete --json` answers `{"ok": false, "code": "unsupported", "message": …}`: a WeCoAp ID is
+//! deleted on its account page, not by HaryX (plan A10).
 
 use haryx_core::account::{
-    self, AccountError, Backend, LOGIN_TIMEOUT, Provider, SessionStore, User, browser,
+    self, AccountError, Backend, DeviceCode, LOGIN_TIMEOUT, Provider, SessionStore, User, browser,
 };
-use std::io::IsTerminal as _;
 
 use haryx_core::printer::{accent, dimmed};
-use haryx_core::switcher::prompt;
 use haryx_core::{AI_PROG, PROG, paths, sync};
 use serde_json::{Value, json};
 
@@ -29,7 +28,7 @@ pub fn run(action: &AccountAction) -> Result<(), CommandError> {
         } => login(&backend, &store, provider, no_browser, json),
         AccountAction::Logout { json } => logout(&backend, &store, &root, json),
         AccountAction::Whoami { json } => whoami(&store, json),
-        AccountAction::Delete { yes, json } => delete(&backend, &store, &root, yes, json),
+        AccountAction::Delete { json, .. } => delete(&backend, json),
     }
 }
 
@@ -67,6 +66,8 @@ fn provider_label(user: &User) -> &str {
     match user.provider.as_str() {
         "github" => "GitHub",
         "google" => "Google",
+        "apple" => "Apple",
+        "email" => "email",
         other => other,
     }
 }
@@ -74,31 +75,46 @@ fn provider_label(user: &User) -> &str {
 fn login(
     backend: &Backend,
     store: &SessionStore,
-    provider: Provider,
+    provider: Option<Provider>,
     no_browser: bool,
     json: bool,
 ) -> Result<(), CommandError> {
+    let with = provider
+        .map(|p| format!(" with {}", p.label()))
+        .unwrap_or_default();
     let show_url = |url: &str| {
-        let opened = !no_browser && browser::open(url);
+        let opened = browser::open(url);
         if json {
             print_line(&json!({"event": "browser", "url": url, "opened": opened}));
         } else if opened {
-            println!(
-                "Opening your browser to sign in to HaryX with {}…",
-                provider.label()
-            );
+            println!("Opening your browser to sign in to HaryX{with}…");
             println!(
                 "{}",
                 dimmed(&format!("If it did not open, visit:\n  {url}"))
             );
         } else {
+            println!("Open this link to sign in to HaryX{with}:\n  {url}");
+        }
+    };
+    // The same `browser` event, never opened: the link is for another device.
+    let show_device = |device: &DeviceCode| {
+        if json {
+            print_line(&json!({"event": "browser", "url": device.url, "opened": false}));
+        } else {
             println!(
-                "Open this link to sign in to HaryX with {}:\n  {url}",
-                provider.label()
+                "To sign in to HaryX, open this link on any device:\n  {}\nand check that it \
+                 shows the code {}.",
+                device.url,
+                accent(&device.user_code)
             );
         }
     };
-    match account::login(backend, store, provider, LOGIN_TIMEOUT, show_url) {
+    let signed_in = if no_browser {
+        account::login_device(backend, store, LOGIN_TIMEOUT, show_device)
+    } else {
+        account::login(backend, store, provider, LOGIN_TIMEOUT, show_url)
+    };
+    match signed_in {
         Ok(user) if json => {
             print_line(&json!({"event": "signed_in", "user": user_json(&user)}));
             Ok(())
@@ -121,8 +137,7 @@ fn logout(
     root: &std::path::Path,
     json: bool,
 ) -> Result<(), CommandError> {
-    let user = account::logout(backend, store, jiff::Timestamp::now().as_second())
-        .map_err(|err| failure(&err, json))?;
+    let user = account::logout(backend, store).map_err(|err| failure(&err, json))?;
     forget_sync(root, store);
     if json {
         print_line(&status_json(None));
@@ -135,7 +150,17 @@ fn logout(
 }
 
 fn whoami(store: &SessionStore, json: bool) -> Result<(), CommandError> {
-    let session = store.load().map_err(|err| failure(&err, json))?;
+    let session = match store.load() {
+        // A session from the sign-in this replaced: signed out, and the text says what to do.
+        Err(AccountError::SignedOut(why)) => {
+            if !json {
+                println!("Not signed in to HaryX: {why}.");
+                return Ok(());
+            }
+            None
+        }
+        other => other.map_err(|err| failure(&err, json))?,
+    };
     let user = session.as_ref().map(|s| &s.user);
     if json {
         print_line(&status_json(user));
@@ -167,54 +192,19 @@ fn failure(err: &AccountError, json: bool) -> CommandError {
     }
 }
 
-fn delete(
-    backend: &Backend,
-    store: &SessionStore,
-    root: &std::path::Path,
-    yes: bool,
-    json: bool,
-) -> Result<(), CommandError> {
-    let fail = |err: AccountError| {
-        if json {
-            print_line(&json!({"ok": false, "code": err.code(), "message": err.to_string()}));
-            return CommandError::silent(1);
-        }
-        CommandError {
-            message: format!("Error: {err}"),
-            exit_code: 1,
-        }
-    };
-    let now = jiff::Timestamp::now().as_second();
-    let Some(session) = store.current(backend, now).map_err(fail)? else {
-        return Err(fail(AccountError::SignedOut("not signed in".into())));
-    };
-    if !yes {
-        if !std::io::stdin().is_terminal() {
-            return Err(fail(AccountError::Refused("confirm with --yes".into())));
-        }
-        let question = format!(
-            "Delete the HaryX account {} and everything it synced, on every machine? Claude \
-             accounts are not touched. [y/N] ",
-            session.user.email
-        );
-        if !prompt(&question)
-            .unwrap_or_default()
-            .trim()
-            .eq_ignore_ascii_case("y")
-        {
-            println!("Nothing changed.");
-            return Ok(());
-        }
-    }
-    backend
-        .delete_account(&session.access_token)
-        .map_err(fail)?;
-    store.clear().map_err(fail)?;
-    forget_sync(root, store);
+/// HaryX does not delete accounts: the WeCoAp ID is shared by every WeCoAp product, and is
+/// deleted on its own account page (plan A10).
+fn delete(backend: &Backend, json: bool) -> Result<(), CommandError> {
+    let message = format!(
+        "Your HaryX account is your WeCoAp ID. Delete it on the WeCoAp account page: {}",
+        backend.account_url()
+    );
     if json {
-        print_line(&json!({"ok": true}));
-    } else {
-        println!("Deleted the HaryX account {}.", session.user.email);
+        print_line(&json!({"ok": false, "code": "unsupported", "message": message}));
+        return Err(CommandError::silent(1));
     }
-    Ok(())
+    Err(CommandError {
+        message: format!("Error: {message}"),
+        exit_code: 1,
+    })
 }

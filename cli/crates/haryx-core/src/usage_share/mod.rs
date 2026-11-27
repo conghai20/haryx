@@ -91,9 +91,10 @@ fn connect_store(store_root: &Path) -> Result<Connection, SyncError> {
     let session = sessions
         .current(&backend, unix_now())?
         .ok_or(SyncError::NotSignedIn)?;
-    let key = sync::unlocked_key(sessions.vault(), &session.user.id, backend.base())?
+    let key = sync::unlocked_key(sessions.vault(), &session.user.id, backend.issuer())?
         .ok_or(SyncError::Locked)?;
-    let remote = Postgrest::new(backend.base(), backend.key(), &session.access_token);
+    // Task 10 replaces this with the HaryX API (`backend.api_url()`).
+    let remote = Postgrest::new(backend.api_url(), "", &session.access_token);
     Ok(Connection {
         remote: Box::new(remote),
         key,

@@ -2,8 +2,7 @@
 //! fresh.
 //!
 //! Renewal happens on use, under `<store>/account/session.lock`, re-reading after the lock so two
-//! processes never spend the same refresh token. Supabase tolerates a reuse inside 10 s anyway
-//! (spike), so the lock is for renewals further apart.
+//! processes never spend the same refresh token (Keycloak rotates it on each renewal).
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -22,7 +21,8 @@ const LOCK_NAME: &str = "session.lock";
 const RENEW_MARGIN_S: i64 = 60;
 /// Above this, the access token is not stored, so `security -i` (its line limit, with the value
 /// hex-encoded at twice its size, after the ~60-byte command) never falls back to putting the value
-/// in argv. The next use renews instead. A real GitHub session measured 1,359 bytes (spike).
+/// in argv. The next use renews instead. A Keycloak session measured 2,396 bytes in full and 1,013
+/// compact (plan Phase 0, item 2), so on macOS the access token is in practice never stored.
 const MAX_KEYCHAIN_JSON: usize = (SECURITY_STDIN_LINE_LIMIT - 96) / 2;
 const LOCK_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -31,7 +31,8 @@ const LOCK_TIMEOUT: Duration = Duration::from_secs(30);
 pub struct User {
     pub id: String,
     pub email: String,
-    /// `github` or `google`.
+    /// `github`, `google`, `apple` or `email` (Keycloak's `identity_provider` claim, absent for a
+    /// password sign-in).
     pub provider: String,
 }
 
@@ -42,9 +43,12 @@ pub struct Session {
     /// Unix seconds when the access token expires.
     pub expires_at: i64,
     pub user: User,
-    /// The Supabase project URL that issued it. A session is only ever sent back to that project.
+    /// The SSO issuer that signed it in. A session is only ever sent back to that issuer.
+    pub issuer: String,
+    /// Keycloak's session id (the access token's `sid`): this machine's sign-in, as the web's
+    /// machine list and remote sign-out name it.
     #[serde(default)]
-    pub project: String,
+    pub sid: String,
 }
 
 /// Tokens stay out of debug output and logs.
@@ -53,7 +57,8 @@ impl std::fmt::Debug for Session {
         f.debug_struct("Session")
             .field("expires_at", &self.expires_at)
             .field("user", &self.user)
-            .field("project", &self.project)
+            .field("issuer", &self.issuer)
+            .field("sid", &self.sid)
             .finish_non_exhaustive()
     }
 }
@@ -71,6 +76,12 @@ impl Session {
             ..self.clone()
         }
     }
+}
+
+/// The Supabase-era session: `project` (its URL) where an SSO session has `issuer`.
+fn is_supabase_session(text: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(text)
+        .is_ok_and(|v| v.get("project").is_some() && v.get("issuer").is_none())
 }
 
 #[derive(Debug, Clone)]
@@ -103,12 +114,21 @@ impl SessionStore {
         &self.vault
     }
 
+    /// The stored session. A value this build cannot read is treated as signed out, not as a hard
+    /// failure. A session from the Supabase sign-in this replaced is [`AccountError::SignedOut`],
+    /// with what to do; its tokens are never migrated. It stays until the next login or logout, so
+    /// every command says it, not only the first.
     pub fn load(&self) -> Result<Option<Session>, AccountError> {
-        // A value this build cannot read is treated as signed out, not as a hard failure.
-        Ok(self
-            .vault
-            .read(NAME)?
-            .and_then(|t| serde_json::from_str(&t).ok()))
+        let Some(text) = self.vault.read(NAME)? else {
+            return Ok(None);
+        };
+        if is_supabase_session(&text) {
+            return Err(AccountError::SignedOut(format!(
+                "HaryX now signs in with a WeCoAp ID; run '{} login' to sign in again",
+                crate::PROG
+            )));
+        }
+        Ok(serde_json::from_str(&text).ok())
     }
 
     pub fn save(&self, session: &Session) -> Result<(), AccountError> {
@@ -132,11 +152,11 @@ impl SessionStore {
 
     /// The session with an access token good for at least a minute, renewing it if needed.
     ///
-    /// `Ok(None)`: not signed in to `backend`'s project (a session from another project is left
+    /// `Ok(None)`: not signed in to `backend`'s issuer (a session from another issuer is left
     /// alone and never sent there). A refused renewal (revoked, or the refresh token was spent
     /// elsewhere) forgets the session and is [`AccountError::SignedOut`]. A network failure keeps it.
     pub fn current(&self, backend: &Backend, now: i64) -> Result<Option<Session>, AccountError> {
-        let ours = |s: &Session| s.project == backend.base();
+        let ours = |s: &Session| s.issuer == backend.issuer();
         match self.load()? {
             Some(session) if !ours(&session) => return Ok(None),
             Some(session) if session.is_fresh(now) => return Ok(Some(session)),
@@ -153,7 +173,7 @@ impl SessionStore {
         }
         match backend.refresh(&session.refresh_token) {
             Ok(renewed) => {
-                // The response names the account's first provider; keep the one signed in with.
+                // Keep the method this machine signed in with, should a renewal not carry it.
                 let renewed = Session {
                     user: User {
                         provider: session.user.provider,
@@ -179,6 +199,7 @@ impl SessionStore {
 
 #[cfg(test)]
 mod tests {
+    use super::super::client::fake::{self, TOKEN, at};
     use super::*;
     use crate::oauth::tests::stub::{Reply, Stub, closed_base};
 
@@ -188,8 +209,8 @@ mod tests {
         on("", access, refresh, expires_at)
     }
 
-    /// A session issued by `backend`'s project.
-    fn on(project: &str, access: &str, refresh: &str, expires_at: i64) -> Session {
+    /// A session signed in by `issuer`.
+    fn on(issuer: &str, access: &str, refresh: &str, expires_at: i64) -> Session {
         Session {
             access_token: access.into(),
             refresh_token: refresh.into(),
@@ -199,16 +220,16 @@ mod tests {
                 email: "you@example.com".into(),
                 provider: "github".into(),
             },
-            project: project.into(),
+            issuer: issuer.into(),
+            sid: "sid-1".into(),
         }
     }
 
-    fn renewed_reply() -> Reply {
-        Reply::json(
-            200,
-            r#"{"access_token":"at-2","refresh_token":"rt-2","expires_at":1800003600,
-               "user":{"id":"u-1","email":"you@example.com","app_metadata":{"provider":"github"}}}"#,
-        )
+    /// A fake Keycloak whose renewals answer `rt-2`, as a password session (no provider claim).
+    fn renewing() -> (Stub, Backend) {
+        let stub = fake::keycloak(|_| Reply::json(200, &fake::tokens(None, "rt-2")));
+        let backend = fake::backend(&stub);
+        (stub, backend)
     }
 
     fn store() -> (tempfile::TempDir, SessionStore) {
@@ -237,22 +258,48 @@ mod tests {
     }
 
     #[test]
+    fn a_supabase_session_is_signed_out_with_what_to_do_and_never_sent() {
+        let (_dir, store) = store();
+        let (stub, backend) = renewing();
+        let old = r#"{"access_token":"at","refresh_token":"rt","expires_at":1,
+            "user":{"id":"u","email":"you@example.com","provider":"github"},
+            "project":"https://ygvcznwlugaxqqmlsssh.supabase.co"}"#;
+        store.vault().write(NAME, old).unwrap();
+        let AccountError::SignedOut(why) = store.load().unwrap_err() else {
+            panic!("not signed out");
+        };
+        assert!(
+            why.contains("WeCoAp ID") && why.contains("haryx login"),
+            "{why}"
+        );
+        assert!(matches!(
+            store.current(&backend, NOW).unwrap_err(),
+            AccountError::SignedOut(_)
+        ));
+        assert!(stub.requests().is_empty(), "its tokens go nowhere");
+    }
+
+    #[test]
     fn a_fresh_session_is_used_without_a_request() {
         let (_dir, store) = store();
-        let backend = Backend::new(&closed_base(), "k");
-        let s = on(backend.base(), "at", "rt", NOW + 600);
+        let backend = Backend::new(&closed_base(), "api");
+        let s = on(backend.issuer(), "at", "rt", NOW + 600);
         store.save(&s).unwrap();
         assert_eq!(store.current(&backend, NOW).unwrap(), Some(s));
     }
 
     #[test]
-    fn a_session_from_another_project_is_never_sent_there() {
+    fn a_session_from_another_issuer_is_never_sent_there() {
         let (_dir, store) = store();
-        let stub = Stub::start(|_| renewed_reply());
+        let (stub, other) = renewing();
         store
-            .save(&on("https://prod.example", "at", "rt", NOW - 10))
+            .save(&on(
+                "https://sso.wecoap.com/realms/wecoap",
+                "at",
+                "rt",
+                NOW - 10,
+            ))
             .unwrap();
-        let other = Backend::new(stub.base(), "k");
         assert_eq!(store.current(&other, NOW).unwrap(), None);
         assert!(stub.requests().is_empty());
         assert!(store.load().unwrap().is_some(), "left alone, not cleared");
@@ -261,99 +308,114 @@ mod tests {
     #[test]
     fn a_session_about_to_expire_is_renewed_and_saved() {
         let (_dir, store) = store();
-        let stub = Stub::start(|_| renewed_reply());
-        let backend = Backend::new(stub.base(), "k");
+        let (stub, backend) = renewing();
         store
-            .save(&on(backend.base(), "at-1", "rt-1", NOW + 30))
+            .save(&on(backend.issuer(), "at-1", "rt-1", NOW + 30))
             .unwrap();
         let renewed = store.current(&backend, NOW).unwrap().unwrap();
-        assert_eq!(renewed.access_token, "at-2");
+        assert_ne!(renewed.access_token, "at-1");
         assert_eq!(store.load().unwrap().unwrap().refresh_token, "rt-2");
-        assert!(stub.requests()[0].body.contains("rt-1"));
+        assert!(at(&stub, TOKEN)[0].body.contains("refresh_token=rt-1"));
     }
 
     #[test]
     fn a_renewal_keeps_the_provider_this_machine_signed_in_with() {
         let (_dir, store) = store();
-        let stub = Stub::start(|_| renewed_reply()); // says `github`, the account's first provider
-        let backend = Backend::new(stub.base(), "k");
-        let google = on(backend.base(), "at-1", "rt-1", NOW + 30);
-        let google = Session {
-            user: User {
-                provider: "google".into(),
-                ..google.user
-            },
-            ..google
-        };
-        store.save(&google).unwrap();
+        let (_stub, backend) = renewing(); // its tokens carry no provider claim
+        store
+            .save(&on(backend.issuer(), "at-1", "rt-1", NOW + 30))
+            .unwrap();
         assert_eq!(
             store.current(&backend, NOW).unwrap().unwrap().user.provider,
-            "google"
+            "github"
         );
-        assert_eq!(store.load().unwrap().unwrap().user.provider, "google");
+        assert_eq!(store.load().unwrap().unwrap().user.provider, "github");
     }
 
     #[test]
     fn a_compact_session_from_the_keychain_is_renewed() {
         let (_dir, store) = store();
-        let stub = Stub::start(|_| renewed_reply());
-        let backend = Backend::new(stub.base(), "k");
+        let (_stub, backend) = renewing();
         store
-            .save(&on(backend.base(), "at", "rt-1", NOW + 3600).compact())
+            .save(&on(backend.issuer(), "at", "rt-1", NOW + 3600).compact())
             .unwrap();
-        assert_eq!(
-            store.current(&backend, NOW).unwrap().unwrap().access_token,
-            "at-2"
-        );
+        let renewed = store.current(&backend, NOW).unwrap().unwrap();
+        assert!(!renewed.access_token.is_empty());
+        assert_eq!(renewed.refresh_token, "rt-2");
     }
 
     #[test]
-    fn a_refused_renewal_signs_out() {
+    fn an_invalid_grant_renewal_signs_out() {
         let (_dir, store) = store();
-        let stub =
-            Stub::start(|_| Reply::json(400, r#"{"msg":"Invalid Refresh Token: Already Used"}"#));
-        let backend = Backend::new(stub.base(), "k");
+        let stub = fake::keycloak(|_| {
+            Reply::json(
+                400,
+                r#"{"error":"invalid_grant","error_description":"Offline user session not found"}"#,
+            )
+        });
+        let backend = fake::backend(&stub);
         store
-            .save(&on(backend.base(), "at", "rt-dead", NOW - 10))
+            .save(&on(backend.issuer(), "at", "rt-dead", NOW - 10))
             .unwrap();
         assert_eq!(
             store.current(&backend, NOW).unwrap_err(),
-            AccountError::SignedOut("Invalid Refresh Token: Already Used".into())
+            AccountError::SignedOut("Offline user session not found".into())
         );
         assert_eq!(store.load().unwrap(), None);
     }
 
     #[test]
-    fn a_network_failure_keeps_the_session() {
+    fn a_failed_renewal_of_any_other_kind_keeps_the_session() {
+        let replies = [
+            Reply::json(503, r#"{"error":"invalid_grant"}"#),
+            Reply::json(429, r#"{"error":"invalid_grant"}"#),
+            Reply::json(400, r#"{"error":"invalid_request"}"#),
+            Reply::json(200, "garbage"),
+        ];
+        for reply in replies {
+            let (_dir, store) = store();
+            let stub = fake::keycloak(move |_| reply.clone());
+            let backend = fake::backend(&stub);
+            let s = on(backend.issuer(), "at", "rt", NOW - 10);
+            store.save(&s).unwrap();
+            assert!(matches!(
+                store.current(&backend, NOW).unwrap_err(),
+                AccountError::Network(_)
+            ));
+            assert_eq!(store.load().unwrap(), Some(s));
+        }
         let (_dir, store) = store();
-        let backend = Backend::new(&closed_base(), "k");
-        let s = on(backend.base(), "at", "rt", NOW - 10);
-        store.save(&s).unwrap();
+        let backend = Backend::new(&closed_base(), "api");
+        store
+            .save(&on(backend.issuer(), "at", "rt", NOW - 10))
+            .unwrap();
         assert!(matches!(
             store.current(&backend, NOW).unwrap_err(),
             AccountError::Network(_)
         ));
-        assert_eq!(store.load().unwrap(), Some(s));
+        assert!(store.load().unwrap().is_some());
     }
 
     #[test]
     fn two_processes_renewing_spend_the_refresh_token_once() {
         let (_dir, store) = store();
-        let stub = Stub::start(|_| renewed_reply());
-        let backend = Backend::new(stub.base(), "k");
+        let (stub, backend) = renewing();
+        // The real clock: a renewal's expiry is `expires_in` from now, and the later threads must
+        // find it fresh.
+        let now = jiff::Timestamp::now().as_second();
         store
-            .save(&on(backend.base(), "at-1", "rt-1", NOW - 10))
+            .save(&on(backend.issuer(), "at-1", "rt-1", now - 10))
             .unwrap();
         let threads: Vec<_> = (0..4)
             .map(|_| {
                 let (store, backend) = (store.clone(), backend.clone());
-                std::thread::spawn(move || store.current(&backend, NOW).unwrap().unwrap())
+                std::thread::spawn(move || store.current(&backend, now).unwrap().unwrap())
             })
             .collect();
         for t in threads {
-            assert_eq!(t.join().unwrap().access_token, "at-2");
+            assert_eq!(t.join().unwrap().refresh_token, "rt-2");
         }
-        assert_eq!(stub.requests().len(), 1);
+        assert_eq!(at(&stub, TOKEN).len(), 1);
     }
 
     #[test]
@@ -366,9 +428,41 @@ mod tests {
             "a compact session renews on first use"
         );
         assert_eq!(
-            (compact.refresh_token, compact.user),
-            ("rt".into(), full.user)
+            (
+                compact.refresh_token,
+                compact.user,
+                compact.issuer,
+                compact.sid
+            ),
+            ("rt".into(), full.user, full.issuer, full.sid)
         );
+    }
+
+    #[test]
+    fn a_keycloak_session_fits_the_keychain_only_compact() {
+        // Phase 0 sizes: access token 1,374 bytes, offline refresh token 730, a 63-character email.
+        let email = format!("{}@example.com", "a".repeat(51));
+        assert_eq!(email.len(), 63);
+        let s = Session {
+            access_token: "a".repeat(1374),
+            refresh_token: "r".repeat(730),
+            expires_at: NOW,
+            user: User {
+                id: "3f0c9b1e-7d2a-4c55-9e41-0b6f2d8a1c77".into(),
+                email,
+                provider: "github".into(),
+            },
+            issuer: crate::account::client::SSO_ISSUER.into(),
+            sid: "9b3c1e2a-5d4f-4a6b-8c7d-0e1f2a3b4c5d".into(),
+        };
+        let full = serde_json::to_string(&s).unwrap().len();
+        let compact = serde_json::to_string(&s.compact()).unwrap().len();
+        assert!(full > MAX_KEYCHAIN_JSON, "{full}");
+        assert!(
+            compact <= MAX_KEYCHAIN_JSON,
+            "{compact} > {MAX_KEYCHAIN_JSON}"
+        );
+        eprintln!("full {full} bytes, compact {compact}, limit {MAX_KEYCHAIN_JSON}");
     }
 
     #[test]

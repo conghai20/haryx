@@ -20,6 +20,8 @@ import (
 	"github.com/conghai20/haryx/server/api/internal/auth"
 	"github.com/conghai20/haryx/server/api/internal/consent"
 	"github.com/conghai20/haryx/server/api/internal/db"
+	"github.com/conghai20/haryx/server/api/internal/export"
+	"github.com/conghai20/haryx/server/api/internal/machines"
 	syncapi "github.com/conghai20/haryx/server/api/internal/sync"
 	"github.com/conghai20/haryx/server/api/internal/web"
 )
@@ -85,7 +87,7 @@ func run() error {
 }
 
 // routes: /api/v1/health is open; everything else under /api/v1/ needs a valid token, and
-// touches the caller's users row. Tasks 6–8 register their endpoints on `api`.
+// touches the caller's users row.
 func routes(pool *pgxpool.Pool, store *db.Store, verifier *auth.Verifier) http.Handler {
 	api := http.NewServeMux()
 	api.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
@@ -99,6 +101,11 @@ func routes(pool *pgxpool.Pool, store *db.Store, verifier *auth.Verifier) http.H
 	api.Handle("/api/v1/sync/", data)
 	api.Handle("/api/v1/profiles", data)
 	api.Handle("/api/v1/profiles/", data)
+	// The heartbeat answers 403 consent_required without the machines consent; the list does not.
+	registry := machines.Routes(pool)
+	api.Handle("/api/v1/machines", registry)
+	api.Handle("/api/v1/machines/", registry)
+	api.Handle("GET /api/v1/me/export", export.Handler(pool))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", health(pool))

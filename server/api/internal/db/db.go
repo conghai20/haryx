@@ -73,6 +73,11 @@ func apply(ctx context.Context, tx pgx.Tx, name string) error {
 	return nil
 }
 
+// Querier is what reads need: a pool, or a transaction when several reads must agree.
+type Querier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
 // Store holds the queries that are not one feature's own.
 type Store struct{ pool *pgxpool.Pool }
 

@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/conghai20/haryx/server/api/internal/db"
 	"github.com/conghai20/haryx/server/api/internal/web"
 )
 
@@ -35,12 +37,17 @@ func profileFile(w http.ResponseWriter, r *http.Request) string {
 	return name
 }
 
-func (h *handler) listProfiles(w http.ResponseWriter, r *http.Request, user string) {
-	rows, _ := h.pool.Query(r.Context(), `select name_hmac, octet_length(body), updated_at
+// Profiles describes the user's profile files, without their bodies.
+func Profiles(ctx context.Context, q db.Querier, user string) ([]Profile, error) {
+	rows, _ := q.Query(ctx, `select name_hmac, octet_length(body), updated_at
 		from profile_files where user_id = $1 order by name_hmac`, user)
-	list, err := pgx.CollectRows(rows, pgx.RowToStructByPos[Profile])
+	return pgx.CollectRows(rows, pgx.RowToStructByPos[Profile])
+}
+
+func (h *handler) listProfiles(w http.ResponseWriter, r *http.Request, user string) {
+	list, err := Profiles(r.Context(), h.pool, user)
 	if err != nil {
-		internalError(w, "list profiles", err)
+		web.InternalError(w, "list profiles", err)
 		return
 	}
 	web.JSON(w, http.StatusOK, list)
@@ -74,7 +81,7 @@ func (h *handler) putProfile(w http.ResponseWriter, r *http.Request, user string
 	case constraint == "consent_required": // withdrawn while this request was in flight
 		web.Error(w, http.StatusForbidden, "consent_required")
 	default:
-		internalError(w, "put profile", err)
+		web.InternalError(w, "put profile", err)
 	}
 }
 
@@ -90,7 +97,7 @@ func (h *handler) getProfile(w http.ResponseWriter, r *http.Request, user string
 	case errors.Is(err, pgx.ErrNoRows):
 		web.Error(w, http.StatusNotFound, "not_found")
 	case err != nil:
-		internalError(w, "get profile", err)
+		web.InternalError(w, "get profile", err)
 	default:
 		w.Header().Set("Content-Type", "application/octet-stream")
 		_, _ = w.Write(body)

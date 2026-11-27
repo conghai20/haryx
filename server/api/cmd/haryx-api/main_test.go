@@ -43,7 +43,7 @@ func TestRoutes(t *testing.T) {
 	if rec := get("/api/v1/health", ""); rec.Code != http.StatusOK || rec.Body.String() != "{\"status\":\"ok\"}\n" {
 		t.Errorf("health: %d %s", rec.Code, rec.Body)
 	}
-	for _, path := range []string{"/api/v1/sync/rows", "/api/v1/anything", "/api/v1/"} {
+	for _, path := range []string{"/api/v1/sync/rows", "/api/v1/machines", "/api/v1/me/export", "/api/v1/anything", "/api/v1/"} {
 		if rec := get(path, ""); rec.Code != http.StatusUnauthorized {
 			t.Errorf("%s without a token: %d, want 401", path, rec.Code)
 		}

@@ -140,6 +140,17 @@ func FromContext(ctx context.Context) (User, bool) {
 	return user, ok
 }
 
+// Caller is the authenticated user. Middleware always sets one; a request without it is refused
+// (401, written here) rather than run unscoped.
+func Caller(w http.ResponseWriter, r *http.Request) (User, bool) {
+	user, ok := FromContext(r.Context())
+	if !ok || user.ID == "" {
+		web.Error(w, http.StatusUnauthorized, "unauthorized")
+		return user, false
+	}
+	return user, true
+}
+
 func bearer(r *http.Request) (string, bool) {
 	scheme, token, ok := strings.Cut(r.Header.Get("Authorization"), " ")
 	if !ok || !strings.EqualFold(scheme, "Bearer") || token == "" {

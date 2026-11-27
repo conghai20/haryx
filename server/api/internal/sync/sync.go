@@ -8,7 +8,6 @@ package sync
 
 import (
 	"errors"
-	"log/slog"
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -41,22 +40,13 @@ func Routes(pool *pgxpool.Pool) http.Handler {
 	return mux
 }
 
-// as hands the handler the caller's user id. The auth middleware always sets one; a request
-// without it is refused rather than run unscoped.
+// as hands the handler the caller's user id.
 func (h *handler) as(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user, ok := auth.FromContext(r.Context())
-		if !ok || user.ID == "" {
-			web.Error(w, http.StatusUnauthorized, "unauthorized")
-			return
+		if user, ok := auth.Caller(w, r); ok {
+			fn(w, r, user.ID)
 		}
-		fn(w, r, user.ID)
 	}
-}
-
-func internalError(w http.ResponseWriter, what string, err error) {
-	slog.Error(what, "err", err)
-	web.Error(w, http.StatusInternalServerError, "internal")
 }
 
 // pgCode is the Postgres error's SQLSTATE and constraint, or empty strings.

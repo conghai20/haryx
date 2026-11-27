@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/conghai20/haryx/server/api/internal/db"
 	"github.com/conghai20/haryx/server/api/internal/web"
 )
 
@@ -70,17 +72,22 @@ func readBody(w http.ResponseWriter, r *http.Request, v any, body func() string)
 	return false
 }
 
+// Rows are the user's sync rows, of one kind or ("") all of them.
+func Rows(ctx context.Context, q db.Querier, user, kind string) ([]Row, error) {
+	rows, _ := q.Query(ctx, `select `+rowColumns+` from sync_rows
+		where user_id = $1 and ($2 = '' or kind = $2) order by kind, key`, user, kind)
+	return pgx.CollectRows(rows, pgx.RowToStructByPos[Row])
+}
+
 func (h *handler) listRows(w http.ResponseWriter, r *http.Request, user string) {
 	kind := r.URL.Query().Get("kind")
 	if r.URL.Query().Has("kind") && !kinds[kind] {
 		web.Error(w, http.StatusBadRequest, "invalid_kind")
 		return
 	}
-	rows, _ := h.pool.Query(r.Context(), `select `+rowColumns+` from sync_rows
-		where user_id = $1 and ($2 = '' or kind = $2) order by kind, key`, user, kind)
-	list, err := pgx.CollectRows(rows, pgx.RowToStructByPos[Row])
+	list, err := Rows(r.Context(), h.pool, user, kind)
 	if err != nil {
-		internalError(w, "list sync rows", err)
+		web.InternalError(w, "list sync rows", err)
 		return
 	}
 	web.JSON(w, http.StatusOK, list)
@@ -108,7 +115,7 @@ func (h *handler) insertRow(w http.ResponseWriter, r *http.Request, user string)
 	case constraint == "consent_required": // withdrawn while this request was in flight
 		web.Error(w, http.StatusForbidden, "consent_required")
 	default:
-		internalError(w, "insert sync row", err)
+		web.InternalError(w, "insert sync row", err)
 	}
 }
 
@@ -144,13 +151,13 @@ func (h *handler) updateRow(w http.ResponseWriter, r *http.Request, user string)
 		return
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		internalError(w, "update sync row", err)
+		web.InternalError(w, "update sync row", err)
 		return
 	}
 	var exists bool
 	if err := h.pool.QueryRow(r.Context(), `select exists(select 1 from sync_rows
 		where user_id = $1 and kind = $2 and key = $3)`, user, kind, key).Scan(&exists); err != nil {
-		internalError(w, "update sync row", err)
+		web.InternalError(w, "update sync row", err)
 		return
 	}
 	if exists {
@@ -178,7 +185,7 @@ func (h *handler) deleteAllRows(w http.ResponseWriter, r *http.Request, user str
 // exec runs a statement and answers 204.
 func (h *handler) exec(w http.ResponseWriter, r *http.Request, what, sql string, args ...any) {
 	if _, err := h.pool.Exec(r.Context(), sql, args...); err != nil {
-		internalError(w, what, err)
+		web.InternalError(w, what, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

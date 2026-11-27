@@ -20,3 +20,9 @@ func JSON(w http.ResponseWriter, status int, v any) {
 func Error(w http.ResponseWriter, status int, code string) {
 	JSON(w, status, map[string]string{"error": code})
 }
+
+// InternalError logs err with what failed and answers 500 internal: the detail stays in the log.
+func InternalError(w http.ResponseWriter, what string, err error) {
+	slog.Error(what, "err", err)
+	Error(w, http.StatusInternalServerError, "internal")
+}

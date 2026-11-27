@@ -17,7 +17,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
 	"regexp"
 	"slices"
@@ -27,6 +26,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/conghai20/haryx/server/api/internal/auth"
+	"github.com/conghai20/haryx/server/api/internal/db"
 	"github.com/conghai20/haryx/server/api/internal/web"
 )
 
@@ -46,9 +46,9 @@ var erase = map[string][]string{
 		`delete from sync_rows where user_id = $1`,
 		`delete from profile_files where user_id = $1`,
 	},
-	// Task 8 adds `delete from machines where user_id = $1` here, and gives machines the
-	// require_consent('machines') trigger (see migrations/0004_consents.sql).
-	Machines: {},
+	Machines: {
+		`delete from machines where user_id = $1`,
+	},
 }
 
 var (
@@ -100,7 +100,7 @@ func Routes(pool *pgxpool.Pool) http.Handler {
 // 403 consent_required otherwise.
 func Require(pool *pgxpool.Pool, purpose string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, ok := caller(w, r)
+		user, ok := auth.Caller(w, r)
 		if !ok {
 			return
 		}
@@ -109,7 +109,7 @@ func Require(pool *pgxpool.Pool, purpose string, next http.Handler) http.Handler
 			where user_id = $1 and purpose = $2 and granted)`, user.ID, purpose).Scan(&granted)
 		switch {
 		case err != nil:
-			internalError(w, "consent check", err)
+			web.InternalError(w, "consent check", err)
 		case !granted:
 			web.Error(w, http.StatusForbidden, "consent_required")
 		default:
@@ -119,13 +119,13 @@ func Require(pool *pgxpool.Pool, purpose string, next http.Handler) http.Handler
 }
 
 func (h *handler) list(w http.ResponseWriter, r *http.Request) {
-	user, ok := caller(w, r)
+	user, ok := auth.Caller(w, r)
 	if !ok {
 		return
 	}
-	body, err := read(r.Context(), h.pool, user.ID)
+	body, err := Read(r.Context(), h.pool, user.ID)
 	if err != nil {
-		internalError(w, "list consents", err)
+		web.InternalError(w, "list consents", err)
 		return
 	}
 	web.JSON(w, http.StatusOK, body)
@@ -201,11 +201,11 @@ func (h *handler) change(w http.ResponseWriter, r *http.Request, user string, fn
 			return err
 		}
 		var err error
-		body, err = read(ctx, tx, user)
+		body, err = Read(ctx, tx, user)
 		return err
 	})
 	if err != nil {
-		internalError(w, "change consent", err)
+		web.InternalError(w, "change consent", err)
 		return
 	}
 	web.JSON(w, http.StatusOK, body)
@@ -234,12 +234,8 @@ func record(ctx context.Context, tx pgx.Tx, user, purpose, action, version, sour
 	return err
 }
 
-type querier interface {
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-}
-
-// read builds the GET body from the events: the state of a purpose is its latest event's.
-func read(ctx context.Context, q querier, user string) (Consents, error) {
+// Read builds the GET body from the events: the state of a purpose is its latest event's.
+func Read(ctx context.Context, q db.Querier, user string) (Consents, error) {
 	type row struct {
 		Purpose, Action, Version string
 		At                       time.Time
@@ -266,7 +262,7 @@ func read(ctx context.Context, q querier, user string) (Consents, error) {
 
 // target is the caller and a known {purpose}, or false with the error written.
 func target(w http.ResponseWriter, r *http.Request) (auth.User, string, bool) {
-	user, ok := caller(w, r)
+	user, ok := auth.Caller(w, r)
 	if !ok {
 		return user, "", false
 	}
@@ -278,26 +274,10 @@ func target(w http.ResponseWriter, r *http.Request) (auth.User, string, bool) {
 	return user, purpose, true
 }
 
-// caller is the authenticated user. The auth middleware always sets one; a request without it is
-// refused rather than run unscoped.
-func caller(w http.ResponseWriter, r *http.Request) (auth.User, bool) {
-	user, ok := auth.FromContext(r.Context())
-	if !ok || user.ID == "" {
-		web.Error(w, http.StatusUnauthorized, "unauthorized")
-		return user, false
-	}
-	return user, true
-}
-
 // sourceOf is the source to record for what the client claimed, or false if it may not claim it.
 func sourceOf(user auth.User, claimed string) (string, bool) {
 	if user.Client == "haryx-platform" {
 		return "web", true
 	}
 	return claimed, cliSources[claimed]
-}
-
-func internalError(w http.ResponseWriter, what string, err error) {
-	slog.Error(what, "err", err)
-	web.Error(w, http.StatusInternalServerError, "internal")
 }

@@ -265,6 +265,8 @@ export interface HaryxMachine {
   lastSeenAt: string;
   isThisMachine: boolean;
   signedIn: boolean;
+  /** The machine's Keycloak session id; the web ends that session through the account API. */
+  sessionId?: string;
 }
 
 /** `haryx account machines --json` (contract: machines.json). */

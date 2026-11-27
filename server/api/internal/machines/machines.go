@@ -56,6 +56,9 @@ type Machine struct {
 	LastSeenAt    time.Time `json:"lastSeenAt"`
 	IsThisMachine bool      `json:"isThisMachine"`
 	SignedIn      bool      `json:"signedIn"`
+	// SessionID is the machine's Keycloak session: the web names it to the account API to end
+	// that session (A7 step 1). It is the user's own, and not a credential.
+	SessionID string `json:"sessionId"`
 }
 
 // Machines is the body of GET /api/v1/machines.
@@ -66,7 +69,8 @@ type Machines struct {
 // columns of a Machine from `machines as m`, where $2 is the caller's sid: the row whose session
 // is the caller's is the machine asking.
 const columns = `m.machine_id::text, m.name, m.os, m.version, m.last_seen_at, m.session_id = $2,
-	not exists(select 1 from revoked_sessions r where r.session_id = m.session_id and r.until > now())`
+	not exists(select 1 from revoked_sessions r where r.session_id = m.session_id and r.until > now()),
+	m.session_id`
 
 type handler struct{ pool *pgxpool.Pool }
 

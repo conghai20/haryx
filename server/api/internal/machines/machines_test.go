@@ -204,7 +204,7 @@ func TestHeartbeatNeedsTheMachinesConsent(t *testing.T) {
 	before := time.Now().UTC().Truncate(time.Second)
 	got := e.machine(e.do(macA, "PUT", "/api/v1/machines/self", beat(mac, "Work MacBook")))
 	want := Machine{MachineID: mac, Name: "Work MacBook", OS: "macos", Version: "1.9.0",
-		LastSeenAt: got.LastSeenAt, IsThisMachine: true, SignedIn: true}
+		LastSeenAt: got.LastSeenAt, IsThisMachine: true, SignedIn: true, SessionID: "sid-mac"}
 	if got != want || got.LastSeenAt.Before(before) || got.LastSeenAt.Location() != time.UTC {
 		t.Fatalf("heartbeat: %+v", got)
 	}

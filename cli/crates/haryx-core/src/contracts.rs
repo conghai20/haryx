@@ -63,6 +63,8 @@ pub struct Machine {
     pub last_seen_at: String,
     pub is_this_machine: bool,
     pub signed_in: bool,
+    /// The machine's Keycloak session id; the web ends that session through the account API.
+    pub session_id: String,
 }
 
 /// `machines.json` and `GET /api/v1/machines`.

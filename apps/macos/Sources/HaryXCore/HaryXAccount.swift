@@ -257,6 +257,8 @@ public struct HaryXMachine: Decodable, Sendable, Equatable {
     public let lastSeenAt: String
     public let isThisMachine: Bool
     public let signedIn: Bool
+    /// The machine's Keycloak session id (the web ends that session); unused by the app.
+    public let sessionId: String?
 }
 
 /// `haryx account machines --json`.

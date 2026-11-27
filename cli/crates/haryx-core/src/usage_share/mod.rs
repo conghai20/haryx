@@ -30,7 +30,7 @@ pub use row::Clock;
 use crate::account::{Backend, SessionStore};
 use crate::poll_policy::ACTIVE_MARK_TTL_S;
 use crate::sync::crypto::SyncKey;
-use crate::sync::remote::{Postgrest, Remote, Row};
+use crate::sync::remote::{Api, Remote, Row};
 use crate::sync::sources::label;
 use crate::sync::{self, Document, KIND_USAGE, Opened, SyncError};
 use crate::usage_store::{CLAIM_TTL_S, Identities, Identity, SharedState, UsageStore};
@@ -93,10 +93,8 @@ fn connect_store(store_root: &Path) -> Result<Connection, SyncError> {
         .ok_or(SyncError::NotSignedIn)?;
     let key = sync::unlocked_key(sessions.vault(), &session.user.id, backend.issuer())?
         .ok_or(SyncError::Locked)?;
-    // Task 10 replaces this with the HaryX API (`backend.api_url()`).
-    let remote = Postgrest::new(backend.api_url(), "", &session.access_token);
     Ok(Connection {
-        remote: Box::new(remote),
+        remote: Box::new(Api::new(&backend, &sessions, &session.access_token)),
         key,
     })
 }

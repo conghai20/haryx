@@ -322,29 +322,29 @@ fn an_unreachable_server_is_no_share() {
     assert!(share.pull(&store, &identities()).is_none());
 }
 
-/// Two machines against a real PostgREST (`npx supabase start`): the `usage` kind, the
+/// Two machines against a real HaryX API (the local compose stack): the `usage` kind, the
 /// compare-and-set lease and the server clock. Run with
-/// `HARYX_E2E_API=… HARYX_E2E_KEY=… HARYX_E2E_TOKEN=<user access token> cargo test -- --ignored`.
+/// `HARYX_E2E_API=<…/api/v1> HARYX_E2E_TOKEN=<user access token> cargo test -- --ignored`.
 #[test]
-#[ignore = "needs a running local Supabase stack"]
-fn two_machines_against_postgrest() {
-    use crate::sync::remote::Postgrest;
+#[ignore = "needs a running HaryX API"]
+fn two_machines_against_the_api() {
+    use crate::account::{Backend, SessionStore};
+    use crate::sync::remote::Api;
     let env = |k: &str| std::env::var(k).unwrap_or_else(|_| panic!("{k} is not set"));
-    let (api, key, token) = (
-        env("HARYX_E2E_API"),
-        env("HARYX_E2E_KEY"),
-        env("HARYX_E2E_TOKEN"),
-    );
+    let (api, token) = (env("HARYX_E2E_API"), env("HARYX_E2E_TOKEN"));
     let secret = SyncKey::generate().to_secret();
     let machine = |id: &str| {
         let tmp = TempDir::new().unwrap();
         let store = UsageStore::new(tmp.path());
-        let (api, key, token, secret) = (api.clone(), key.clone(), token.clone(), secret.clone());
+        let (api, token, secret) = (api.clone(), token.clone(), secret.clone());
         let share = UsageShare::new(
             id,
             Box::new(move || {
+                // No stored session: a 401 is "not signed in", never a renewal.
+                let backend = Backend::new("http://127.0.0.1:9/realms/none", &api);
+                let sessions = SessionStore::file(std::env::temp_dir().join("haryx-e2e-none"));
                 Ok(Connection {
-                    remote: Box::new(Postgrest::new(&api, &key, &token)),
+                    remote: Box::new(Api::new(&backend, &sessions, &token)),
                     key: SyncKey::from_secret(&secret)?,
                 })
             }),

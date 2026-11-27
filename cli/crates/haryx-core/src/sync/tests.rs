@@ -375,7 +375,7 @@ fn profiles_round_trip_encrypted_and_are_capped() {
     profiles::push(&ctx_a, "work", b"profile bytes").unwrap();
     let stored = w.objects.files.lock().unwrap().clone();
     let (name, bytes) = stored.iter().next().unwrap();
-    assert!(name.starts_with("user-1/") && !name.contains("work"));
+    assert!(name.len() == 64 && name.bytes().all(|b| b.is_ascii_hexdigit()));
     assert!(!String::from_utf8_lossy(bytes).contains("profile bytes"));
 
     let ctx_b = b.ctx(&w.server, &w.objects);

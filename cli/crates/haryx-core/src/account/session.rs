@@ -156,10 +156,33 @@ impl SessionStore {
     /// alone and never sent there). A refused renewal (revoked, or the refresh token was spent
     /// elsewhere) forgets the session and is [`AccountError::SignedOut`]. A network failure keeps it.
     pub fn current(&self, backend: &Backend, now: i64) -> Result<Option<Session>, AccountError> {
+        self.usable(backend, now, "")
+    }
+
+    /// The HaryX API refused `rejected`, an access token [`SessionStore::current`] handed out (it
+    /// may have been revoked before it expired): a session with another one. That is the stored
+    /// session when another process already renewed it, else a renewal, with the same outcomes as
+    /// [`SessionStore::current`].
+    pub fn renew(
+        &self,
+        backend: &Backend,
+        rejected: &str,
+        now: i64,
+    ) -> Result<Option<Session>, AccountError> {
+        self.usable(backend, now, rejected)
+    }
+
+    fn usable(
+        &self,
+        backend: &Backend,
+        now: i64,
+        rejected: &str,
+    ) -> Result<Option<Session>, AccountError> {
         let ours = |s: &Session| s.issuer == backend.issuer();
+        let good = |s: &Session| s.is_fresh(now) && s.access_token != rejected;
         match self.load()? {
             Some(session) if !ours(&session) => return Ok(None),
-            Some(session) if session.is_fresh(now) => return Ok(Some(session)),
+            Some(session) if good(&session) => return Ok(Some(session)),
             None => return Ok(None),
             Some(_) => {}
         }
@@ -168,7 +191,7 @@ impl SessionStore {
         let Some(session) = self.load()?.filter(ours) else {
             return Ok(None);
         };
-        if session.is_fresh(now) {
+        if good(&session) {
             return Ok(Some(session));
         }
         match backend.refresh(&session.refresh_token) {
@@ -342,6 +365,24 @@ mod tests {
         let renewed = store.current(&backend, NOW).unwrap().unwrap();
         assert!(!renewed.access_token.is_empty());
         assert_eq!(renewed.refresh_token, "rt-2");
+    }
+
+    #[test]
+    fn a_rejected_access_token_is_renewed_even_while_it_looks_fresh() {
+        let (_dir, store) = store();
+        let (stub, backend) = renewing();
+        // Real time: a renewal sets its expiry from the clock.
+        let now = jiff::Timestamp::now().as_second();
+        store
+            .save(&on(backend.issuer(), "at-1", "rt-1", now + 3600))
+            .unwrap();
+        let renewed = store.renew(&backend, "at-1", now).unwrap().unwrap();
+        assert_ne!(renewed.access_token, "at-1");
+        assert_eq!(at(&stub, TOKEN).len(), 1);
+        // A token other than the rejected one is used as it is.
+        let again = store.renew(&backend, "at-1", now).unwrap().unwrap();
+        assert_eq!(again.access_token, renewed.access_token);
+        assert_eq!(at(&stub, TOKEN).len(), 1);
     }
 
     #[test]

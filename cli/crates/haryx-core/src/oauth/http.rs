@@ -250,7 +250,7 @@ pub(crate) fn post(
     collect(req.send(body).map_err(map_transport)?)
 }
 
-pub(crate) fn patch(
+pub(crate) fn put(
     url: &str,
     headers: &[(&str, &str)],
     body: &[u8],
@@ -258,7 +258,7 @@ pub(crate) fn patch(
 ) -> Result<HttpResponse, FetchError> {
     let req = headers
         .iter()
-        .fold(agent(timeout).patch(url), |r, (k, v)| r.header(*k, *v));
+        .fold(agent(timeout).put(url), |r, (k, v)| r.header(*k, *v));
     collect(req.send(body).map_err(map_transport)?)
 }
 

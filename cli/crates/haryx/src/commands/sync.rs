@@ -11,8 +11,8 @@ use haryx_core::printer::{accent, dimmed, warning};
 use haryx_core::profile::{Category, ProfileEnv};
 use haryx_core::switcher::{Switcher, prompt, prompt_secret};
 use haryx_core::sync::merge::{Side, Values};
-use haryx_core::sync::profiles::{self, Storage};
-use haryx_core::sync::remote::Postgrest;
+use haryx_core::sync::profiles;
+use haryx_core::sync::remote::Api;
 use haryx_core::sync::{self, Context, Report, SyncError, sources};
 use haryx_core::{PROG, paths};
 use serde_json::{Value, json};
@@ -86,15 +86,13 @@ fn with_session(action: &SyncAction, debug: bool) -> Result<(), SyncError> {
     let store = SessionStore::for_store(&root);
     let backend = Backend::from_env();
     let session = session(&store, &backend)?;
-    // Task 10 replaces these with the HaryX API (`backend.api_url()`); until then sync has no server.
-    let remote = Postgrest::new(backend.api_url(), "", &session.access_token);
-    let objects = Storage::new(backend.api_url(), "", &session.access_token);
+    let api = Api::new(&backend, &store, &session.access_token);
     let ctx = Context {
         root: &root,
         switcher: &switcher,
         vault: store.vault(),
-        remote: &remote,
-        objects: &objects,
+        remote: &api,
+        objects: &api,
         user: &session.user.id,
         project: backend.issuer(),
         now: now(),
@@ -102,7 +100,7 @@ fn with_session(action: &SyncAction, debug: bool) -> Result<(), SyncError> {
     match action {
         SyncAction::Run { json } => run_sync(&ctx, *json),
         SyncAction::HasPassphrase { .. } => {
-            let has = sync::has_passphrase(&remote)?;
+            let has = sync::has_passphrase(&api)?;
             println!("{}", json!({"ok": true, "hasPassphrase": has}));
             Ok(())
         }

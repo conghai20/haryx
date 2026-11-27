@@ -61,6 +61,10 @@ pub enum SyncError {
     KeyChanged,
     #[error("Another machine kept changing the same data. Run 'haryx sync' again.")]
     Busy,
+    /// The API answered 403 `consent_required`: this HaryX ID has not granted (or withdrew) the
+    /// Sync consent, so the server keeps none of its data.
+    #[error("Sync is off for your HaryX ID: it has not given its consent to sync.")]
+    ConsentRequired,
     #[error("{0}")]
     Invalid(String),
     #[error("{0}")]
@@ -80,6 +84,7 @@ impl SyncError {
             SyncError::WrongPassphrase => "wrong_passphrase",
             SyncError::KeyChanged => "key_changed",
             SyncError::Busy => "busy",
+            SyncError::ConsentRequired => "consent_required",
             SyncError::Invalid(_) => "invalid",
             SyncError::Local(_) => "local",
             SyncError::Server(_) => "server",
@@ -789,5 +794,7 @@ pub fn status(root: &Path, vault: &Vault, signed_in_as: Option<(&str, &str)>) ->
     }
 }
 
+#[cfg(test)]
+mod api_tests;
 #[cfg(test)]
 mod tests;

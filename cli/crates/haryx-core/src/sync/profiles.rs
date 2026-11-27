@@ -1,110 +1,80 @@
 //! Setup profiles carried between machines: `haryx sync profile push|pull|list`.
 //!
 //! A profile travels as its export file (secrets redacted, no history, no credentials), encrypted
-//! whole to the sync key, in the private `profiles` bucket at `<user id>/<HMAC of the name>`. Names
-//! live only in the encrypted `profiles` index row. A pull hands back the file for
+//! whole to the sync key, as the API's profile file `/profiles/<HMAC of the name>` (the API scopes
+//! it to the caller). Names live only in the encrypted `profiles` index row. A pull hands back the file for
 //! `ai profile import`; applying it stays the explicit `ai profile apply`.
 
 use std::time::Duration;
 
-use serde_json::json;
+use serde_json::{Value, json};
 
 use super::crypto::SyncKey;
 use super::merge::Values;
-use super::remote::Row;
+use super::remote::{Api, Method, Row, encode};
 use super::{Context, KIND_PROFILES, Opened, SyncError, open, require_key, write_row};
-use crate::account::AccountError;
-use crate::oauth::http::{self, FetchError};
 
 /// Profiles one account may keep on the server.
 pub const MAX_PROFILES: usize = 3;
-/// Largest encrypted profile file; the bucket enforces the same limit.
+/// Largest encrypted profile file; the API enforces the same limit.
 pub const MAX_BYTES: usize = 10 * 1024 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(120);
-const BUCKET: &str = "profiles";
 
-/// Where the encrypted files live.
+/// Where the encrypted files live. Names are object keys (lowercase hex).
 pub trait Objects {
     fn put(&self, name: &str, bytes: &[u8]) -> Result<(), SyncError>;
     fn get(&self, name: &str) -> Result<Option<Vec<u8>>, SyncError>;
     fn delete(&self, name: &str) -> Result<(), SyncError>;
+    /// The names of every file this user has.
+    fn list(&self) -> Result<Vec<String>, SyncError>;
 }
 
-/// Supabase Storage, as the signed-in user. Object names start with the user id; the bucket's
-/// policies refuse any other prefix.
-pub struct Storage {
-    base: String,
-    key: String,
-    bearer: String,
+fn object_path(name: &str) -> String {
+    format!("/profiles/{}", encode(name))
 }
 
-impl Storage {
-    pub fn new(project: &str, publishable_key: &str, access_token: &str) -> Self {
-        Storage {
-            base: format!("{}/storage/v1/object", project.trim_end_matches('/')),
-            key: publishable_key.to_owned(),
-            bearer: format!("Bearer {access_token}"),
-        }
-    }
-
-    fn headers<'a>(&'a self, extra: &[(&'a str, &'a str)]) -> Vec<(&'a str, &'a str)> {
-        let mut headers = vec![
-            ("apikey", self.key.as_str()),
-            ("authorization", self.bearer.as_str()),
-        ];
-        headers.extend_from_slice(extra);
-        headers
-    }
-}
-
-fn storage_error(err: FetchError) -> SyncError {
-    match &err {
-        FetchError::Http { status: 401, .. } => SyncError::Account(AccountError::SignedOut(
-            "the server no longer accepts this session".into(),
-        )),
-        FetchError::Http { status, body, .. } => SyncError::Server(format!(
-            "storage: HTTP {status}: {}",
-            String::from_utf8_lossy(&body[..body.len().min(300)])
-                .chars()
-                .filter(|c| !c.is_control())
-                .collect::<String>()
-        )),
-        _ => SyncError::Account(AccountError::Network(err.to_string())),
-    }
-}
-
-impl Objects for Storage {
+/// The API's `/profiles`.
+impl Objects for Api {
     fn put(&self, name: &str, bytes: &[u8]) -> Result<(), SyncError> {
-        let url = format!("{}/{BUCKET}/{name}", self.base);
-        let headers = self.headers(&[
-            ("content-type", "application/octet-stream"),
-            ("x-upsert", "true"),
-        ]);
-        http::post(&url, &headers, bytes, TIMEOUT)
-            .map(drop)
-            .map_err(storage_error)
+        let headers = [("content-type", "application/octet-stream")];
+        self.call(
+            Method::Put,
+            &object_path(name),
+            &headers,
+            bytes,
+            TIMEOUT,
+            &[],
+        )
+        .map(drop)
     }
 
     fn get(&self, name: &str) -> Result<Option<Vec<u8>>, SyncError> {
-        let url = format!("{}/authenticated/{BUCKET}/{name}", self.base);
-        match http::get(&url, &self.headers(&[]), TIMEOUT) {
-            Ok(resp) => Ok(Some(resp.body)),
-            Err(FetchError::Http {
-                status: 400 | 404, ..
-            }) => Ok(None),
-            Err(err) => Err(storage_error(err)),
-        }
+        let resp = self.call(Method::Get, &object_path(name), &[], &[], TIMEOUT, &[404])?;
+        Ok(resp.map(|r| r.body))
     }
 
     fn delete(&self, name: &str) -> Result<(), SyncError> {
-        let url = format!("{}/{BUCKET}/{name}", self.base);
-        match http::delete(&url, &self.headers(&[]), TIMEOUT) {
-            Ok(_)
-            | Err(FetchError::Http {
-                status: 400 | 404, ..
-            }) => Ok(()),
-            Err(err) => Err(storage_error(err)),
-        }
+        self.call(Method::Delete, &object_path(name), &[], &[], TIMEOUT, &[])
+            .map(drop)
+    }
+
+    fn list(&self) -> Result<Vec<String>, SyncError> {
+        let bad = || SyncError::Server("unexpected profiles response".into());
+        let resp = self
+            .call(Method::Get, "/profiles", &[], &[], TIMEOUT, &[])?
+            .ok_or_else(bad)?;
+        let value = resp.json().map_err(|_| bad())?;
+        value
+            .as_array()
+            .ok_or_else(bad)?
+            .iter()
+            .map(|p| {
+                p.get("name")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+                    .ok_or_else(bad)
+            })
+            .collect()
     }
 }
 
@@ -131,6 +101,16 @@ impl Objects for MemoryObjects {
         self.files.lock().expect("files lock").remove(name);
         Ok(())
     }
+
+    fn list(&self) -> Result<Vec<String>, SyncError> {
+        Ok(self
+            .files
+            .lock()
+            .expect("files lock")
+            .keys()
+            .cloned()
+            .collect())
+    }
 }
 
 /// A profile on the server.
@@ -143,8 +123,8 @@ pub struct Entry {
     pub pushed_at: i64,
 }
 
-fn object_name(ctx: &Context<'_>, key: &SyncKey, name: &str) -> String {
-    format!("{}/{}", ctx.user, key.row_key(&format!("profile:{name}")))
+fn object_name(key: &SyncKey, name: &str) -> String {
+    key.row_key(&format!("profile:{name}"))
 }
 
 /// The index row and its entries, by object key. An index that does not open reads as empty, and
@@ -213,11 +193,10 @@ pub fn push(ctx: &Context<'_>, name: &str, file: &[u8]) -> Result<Entry, SyncErr
             MAX_BYTES / (1024 * 1024)
         )));
     }
-    let object = object_name(ctx, &key, name);
-    let object_key = object.rsplit('/').next().unwrap_or_default().to_owned();
+    let object = object_name(&key, name);
     for _ in 0..3 {
         let (row, mut values) = index(ctx, &key)?;
-        if !values.contains_key(&object_key) && values.len() >= MAX_PROFILES {
+        if !values.contains_key(&object) && values.len() >= MAX_PROFILES {
             return Err(SyncError::Invalid(format!(
                 "At most {MAX_PROFILES} profiles are kept on the server; remove one with \
                  'haryx sync profile remove NAME' first"
@@ -230,7 +209,7 @@ pub fn push(ctx: &Context<'_>, name: &str, file: &[u8]) -> Result<Entry, SyncErr
             pushed_at: ctx.now,
         };
         values.insert(
-            object_key.clone(),
+            object.clone(),
             json!({"name": entry.name, "bytes": entry.bytes, "pushedAt": entry.pushed_at}),
         );
         if save_index(ctx, &key, row.as_ref(), values)? {
@@ -243,7 +222,7 @@ pub fn push(ctx: &Context<'_>, name: &str, file: &[u8]) -> Result<Entry, SyncErr
 /// The export file of profile `name`, decrypted. `None`: no such profile on the server.
 pub fn pull(ctx: &Context<'_>, name: &str) -> Result<Option<Vec<u8>>, SyncError> {
     let key = require_key(ctx)?;
-    let object = object_name(ctx, &key, name);
+    let object = object_name(&key, name);
     let Some(cipher) = ctx.objects.get(&object)? else {
         return Ok(None);
     };
@@ -259,11 +238,10 @@ pub fn pull(ctx: &Context<'_>, name: &str) -> Result<Option<Vec<u8>>, SyncError>
 /// Remove profile `name` from the server. `false`: there was none.
 pub fn remove(ctx: &Context<'_>, name: &str) -> Result<bool, SyncError> {
     let key = require_key(ctx)?;
-    let object = object_name(ctx, &key, name);
-    let object_key = object.rsplit('/').next().unwrap_or_default().to_owned();
+    let object = object_name(&key, name);
     for _ in 0..3 {
         let (row, mut values) = index(ctx, &key)?;
-        if values.remove(&object_key).is_none() {
+        if values.remove(&object).is_none() {
             return Ok(false);
         }
         ctx.objects.delete(&object)?;
@@ -274,18 +252,11 @@ pub fn remove(ctx: &Context<'_>, name: &str) -> Result<bool, SyncError> {
     Err(SyncError::Busy)
 }
 
-/// Delete every profile file this account has (`sync reset`). Needs the key to read the index; a
-/// machine without it can only clear the rows, and the bucket's files are then orphaned until the
-/// account is deleted.
+/// Delete every profile file this account has (`sync reset`). The server lists them, so this
+/// works without the sync key too, and leaves no orphaned files to count against its limit.
 pub fn delete_all_objects(ctx: &Context<'_>) -> Result<(), SyncError> {
-    let Ok(key) = require_key(ctx) else {
-        return Ok(());
-    };
-    let Ok((_, values)) = index(ctx, &key) else {
-        return Ok(());
-    };
-    for object_key in values.keys() {
-        ctx.objects.delete(&format!("{}/{object_key}", ctx.user))?;
+    for name in ctx.objects.list()? {
+        ctx.objects.delete(&name)?;
     }
     Ok(())
 }

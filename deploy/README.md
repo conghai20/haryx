@@ -24,7 +24,7 @@ personal data goes through Cloudflare.
    `/www/server/panel/vhost/nginx/`, and `nginx/haryx-headers.inc` to
    `/www/server/panel/vhost/nginx/haryx/`. `mkdir -p /www/server/nginx/proxy_cache_dir/haryx`,
    `nginx -t`, reload.
-4. **Realm**: by hand, below. The realm prerequisites P1–P4 from the plan come first.
+4. **Realm**: by hand, below. The realm prerequisites P1, P3 and P4 from the plan come first.
 
 ## Realm, by hand
 

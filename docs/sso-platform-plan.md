@@ -1,6 +1,6 @@
 # HaryX on WeCoAp SSO, a HaryX API in Vietnam, and the web platform: plan
 
-Status: **approved** (2026-11-26), not started. Prerequisites P1–P4 are on the owner. Supersedes the backend half of
+Status: **approved** (2026-11-26), not started. Prerequisites P1, P3 and P4 are on the owner. Supersedes the backend half of
 `haryx-account-plan.md` (Supabase Auth, PostgREST, Storage, Edge Function). The sync engine,
 encryption and merge rules from that plan stay as built.
 
@@ -177,7 +177,6 @@ The HaryX setup:
 
 - Sync and profile endpoints answer **403 `consent_required`** without the `sync` consent.
 - Rows keep today's limits: `kind` in the allowed set (now including `usage`), body < 256 KB.
-- A per-user rate limit (nginx `limit_req` on `/api/`) replaces the abuse limits Supabase gave us.
 
 **Schema** (`server/api/migrations/`, plain SQL, embedded, applied at start):
 
@@ -284,7 +283,7 @@ aaPanel's site doing nginx and TLS):
   `haryx-api` on `127.0.0.1:<port>`, and a `backup` job: nightly `pg_dump` of `haryx`, 14 days
   kept, copied offsite in Vietnam.
 - **`nginx/haryx.wecoap.com.conf`**: the aaPanel site's config, kept in the repo: the current
-  Pages proxy, `/api/` (with `limit_req`) and `/platform/` (static, SPA fallback to `index.html`).
+  Pages proxy, `/api/` and `/platform/` (static, SPA fallback to `index.html`).
 - **TLS**: aaPanel's Let's Encrypt for `haryx.wecoap.com`, plus HSTS. A Cloudflare Origin
   certificate is not trusted by browsers once the proxy is off, so the certificate goes in first.
 - **DNS switch for `haryx.wecoap.com`** (`sso.wecoap.com` is done), in order:
@@ -344,7 +343,6 @@ Checked from outside, before HaryX registers anything:
 | # | Gap | Fix |
 |---|---|---|
 | P1 | **The sign-up form has no consent fields** (it asks for email, first and last name only), so `configure-realm.mjs` has not run on the live realm. Anyone can register now without the Law 91 Terms and Privacy consent. | Run `configure-realm.mjs` against the live realm, or turn registration off until it has run. Then sign up once and check that both consents are required and logged as events. |
-| P2 | **The admin console and the `master` realm are public**: `/admin/master/console/` returns 200 to anyone. | In the aaPanel site for `sso.wecoap.com`, deny `/admin/` and `/realms/master/` except from an allowlisted IP or VPN. |
 | P3 | The **bootstrap admin** from `.env` is meant for first start only. | Create a named permanent admin with OTP in `master`, delete the bootstrap one, and remove the bootstrap variables from `.env`. |
 | P4 | **No backup of the Keycloak database**: `wecoap-sso/deploy/compose.yaml` has no backup job, and every WeCoAp ID lives there. | Add the same nightly `pg_dump` job as HaryX's, 14 days kept, copied offsite in VN, and do one restore drill. |
 
@@ -355,8 +353,17 @@ Checked from outside, before HaryX registers anything:
 - The realm now has the **`github` and `google`** identity providers. They are realm-wide, so
   AR Onion shares them. Task 2 therefore checks these two and doesn't create or overwrite them;
   it adds only `apple` and the `haryx-*` clients.
-- **P2 is still open**: `/admin/master/console/` and `/realms/master/` both return 200.
 - P3 and P4 can't be seen from outside. The owner confirms them.
+
+**Done 2026-11-27** (owner): P1 (a real sign-up recorded both consents), P3 (named admin with
+OTP, bootstrap admin removed) and P4 (`wecoap-sso` 6c16ac8: nightly `pg_dump`, 14 days, restore
+drill). Locking down the Keycloak admin console and API rate limiting are separate issues, outside
+this plan.
+
+**Done 2026-11-27** (owner): task 3's legal review (the privacy policy and terms cover HaryX),
+the backups (HaryX and `wecoap-sso`: restore drill and offsite copy), and the Law 91 owner items
+on the SSO side (impact assessment, breach runbook). The release gate's owner items are closed;
+Phases 1–6 remain.
 
 Minor: the response carries two `Strict-Transport-Security` headers (Keycloak's realm header and
 aaPanel's). Browsers use the first one. Dropping one is tidier, but not required.
@@ -365,7 +372,7 @@ aaPanel's). Browsers use the first one. Dropping one is tidier, but not required
 
 Items 1–4 and 6 run against a local Keycloak **26.8.2** (the live version) started with
 `npx keycloakify start-keycloak`, which `wecoap-sso` already uses. The live realm is shared, so
-it is not used for experiments. Items 5 and 7 need the live host and run there, after P1–P4.
+it is not used for experiments. Items 5 and 7 need the live host and run there, after P1, P3 and P4.
 
 1. A `haryx-cli` client with redirect `http://127.0.0.1/*` accepts
    `http://127.0.0.1:<random>/callback/<nonce>` and refuses `localhost`, `127.0.0.1.evil.com`
@@ -403,7 +410,7 @@ far as they can be without the live realm and the Apple account.
 | 4 | **Pass, with PKCE.** `haryx-cli` requires S256, and Keycloak applies that to the device grant too: `auth/device` without `code_challenge` is refused. With it: `authorization_pending` before approval, then offline tokens. Interval 5 s, expiry 600 s. |
 | 5 | **Partly done.** `apple-identity-provider` **1.17.0** (latest, built against 26.5.0, sha512 checked) loads on 26.8.2. The only warnings are Keycloak's "internal SPI" notices. With a test key, `kc_idp_hint=apple` redirects to `appleid.apple.com/auth/authorize` with `response_mode=form_post`, scope `openid name email`, and the broker endpoint as `redirect_uri`. **Still to do, by the owner**: the Services ID, the key and the private-relay sender registration on the Apple account, then one real sign-in. |
 | 6 | **Pass in both browsers, but the work factor must be pinned.** `age-encryption` 0.3.1 unwraps the CLI's keyring and opens an X25519 row. WebCrypto rebuilds the keyring check and a row key exactly, and a wrong passphrase is refused. Two findings change the plan (below). |
-| 7 | **Not run.** It needs the live realm's SMTP settings (task 2 against the live realm, after P2–P4). |
+| 7 | **Not run.** It needs the live realm's SMTP settings (task 2 against the live realm, after P3 and P4). |
 
 Unlock time by scrypt work factor (`log_n`):
 
@@ -472,7 +479,7 @@ Tags: dependency, then model. Each task is one commit in one area.
 | # | Task | Tag | Test |
 |---|---|---|---|
 | 1 | `deploy/`: compose (`haryx-api`, Postgres 18, backup job), the aaPanel site config for `haryx.wecoap.com` (Pages proxy included) with HSTS, the DNS-switch runbook, `.env.example`, `gen-secrets.sh` | independent · opus | `docker compose config`; stack up locally; `curl` the Pages proxy and `/api/v1/health`; after the switch, `dig` shows `160.187.0.66` and the certificate chain is Let's Encrypt |
-| 2 | Realm, **by hand in production** (owner, `deploy/README.md` → "Realm, by hand"); `deploy/keycloak/configure-local.mjs` + `test-local.sh` for a local copy | independent · opus | Rerun twice against local Keycloak 26.8.2 (idempotent); a manual PKCE sign-in per method; then once against the live realm, after P1–P4 |
+| 2 | Realm, **by hand in production** (owner, `deploy/README.md` → "Realm, by hand"); `deploy/keycloak/configure-local.mjs` + `test-local.sh` for a local copy | independent · opus | Rerun twice against local Keycloak 26.8.2 (idempotent); a manual PKCE sign-in per method; then once against the live realm, after P1, P3 and P4 |
 | 3 | `wecoap-sso`: privacy policy and terms cover HaryX's purposes; version bump | independent · sonnet | Its `check-layout.mjs`; legal review (owner) |
 | 4 | Contracts: `whoami.json` (updated), `consents.json`, `machines.json`, `usage-sync.json` | independent · sonnet | Fixture decode tests in Rust, Swift and TS |
 
@@ -557,8 +564,8 @@ No surface is left out.
 - **Apple**: the extension is community-maintained. If Phase 0 fails, Apple ships after the rest.
 - **No Cloudflare in front any more**: `haryx.wecoap.com` loses the CDN cache and DDoS shield, and
   the server's IP becomes public.
-  - nginx caches the Pages responses and applies `limit_req` to `/api/` and to Keycloak's
-    sign-in and token endpoints, and Keycloak's brute-force detection stays on.
+  - nginx caches the Pages responses, and Keycloak's brute-force detection stays on. Rate
+    limiting is a separate issue, outside this plan.
   - A real attack would mean putting the proxy back and disclosing Cloudflare, which is a privacy
     policy change.
 - **Email + password** brings password reset, brute force and deliverability into scope.

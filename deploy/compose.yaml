@@ -38,7 +38,12 @@ services:
 
   api:
     build: ../server/api
-    image: haryx-api:local
+    # Docker Hub, linux/amd64, tagged api-v<HaryX version>; unset = api-vlatest. Built and pushed
+    # from the Mac:
+    #   docker buildx build --platform linux/amd64 -t wecoap/haryx:api-v<version> \
+    #     -t wecoap/haryx:api-vlatest --push server/api
+    # On the server: `docker compose pull api && docker compose up -d --no-build`.
+    image: wecoap/haryx:api-v${HARYX_API_VERSION:-latest}
     container_name: haryx-api
     restart: unless-stopped
     depends_on:

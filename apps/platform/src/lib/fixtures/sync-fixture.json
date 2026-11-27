@@ -1,0 +1,85 @@
+{
+  "passphrase": "correct horse battery staple",
+  "secret": "AGE-SECRET-KEY-1AEV2WCT0JCN0YD5VZ62FCG68JJ7RK3PX4VTVNW7NPK95M70NWRZQPD99UU",
+  "keyring": "{\"wrapped\":\"YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IHNjcnlwdCBpZ2NNeWhycHhSaEpGTERGa0JRb21RIDE4CkVkZHlwc2l6V1Y2b2RGUllwbUJzMVNOeUkwb210ODB0RmxyMlQzL3VING8KLS0tIExPUjZBRU5jall5dmxPVXBHUVIxYVZxRHhScmNNVHBadG9WS29SOXJyc0UK6O8+HzEg5WyqJ+ZEbj/qlPrW/UcfVrUrwPcSGl+BQaqN9Pkv8uPn1NnNLWXDqzPQHE1SDslsxz1bDspuIjXNdecO4h5UwdCNsK34JVWvUoILvGV/mGjICl41FcnNs7SMsDV8EsI8237SFQ==\",\"check\":\"ea630d0827110bf05e63fd2b5d5f97804bfd0445241dbfad11799d8011c85f59\"}",
+  "keyringLogN21": "{\"wrapped\":\"YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IHNjcnlwdCBpZ2NNeWhycHhSaEpGTERGa0JRb21RIDIxCkVkZHlwc2l6V1Y2b2RGUllwbUJzMVNOeUkwb210ODB0RmxyMlQzL3VING8KLS0tIExPUjZBRU5jall5dmxPVXBHUVIxYVZxRHhScmNNVHBadG9WS29SOXJyc0UK6O8+HzEg5WyqJ+ZEbj/qlPrW/UcfVrUrwPcSGl+BQaqN9Pkv8uPn1NnNLWXDqzPQHE1SDslsxz1bDspuIjXNdecO4h5UwdCNsK34JVWvUoILvGV/mGjICl41FcnNs7SMsDV8EsI8237SFQ==\",\"check\":\"ea630d0827110bf05e63fd2b5d5f97804bfd0445241dbfad11799d8011c85f59\"}",
+  "check": "ea630d0827110bf05e63fd2b5d5f97804bfd0445241dbfad11799d8011c85f59",
+  "rowKeys": [
+    {
+      "label": "keyring-check",
+      "key": "ea630d0827110bf05e63fd2b5d5f97804bfd0445241dbfad11799d8011c85f59"
+    },
+    {
+      "label": "account:you@example.com|org-1111",
+      "key": "9216c6695d5721dafb9b51579087bae1c64ac592c01daaf3425722155ceb1110"
+    },
+    {
+      "label": "credential:token@example.com|",
+      "key": "04b91106b6c401977bc910a374745a012d6663d6080da957fa47a333cbe5842f"
+    },
+    {
+      "label": "usage:9b2e5c1a-4f0d-4a67-8d3e-1c7a5b0e2f91:2026-11",
+      "key": "4584d8e48c06009b33f3df495a4e842715555bf19186e082c3dabaeb71754821"
+    },
+    {
+      "label": "profile:work",
+      "key": "b79ace96f7da7f8cc878fe86e07f6caab62b9297d469220c31c9188189584f22"
+    },
+    {
+      "label": "profile:Hồ sơ 🦊",
+      "key": "1490eee0490ca6b4241ec30e6310df883e1aa70a349f84274dde8c608726e72a"
+    },
+    {
+      "label": "",
+      "key": "1d38fffe1ae6613a2f7d8120461037e8943ca158c82cef9ca1dfbd8b0dc873e1"
+    }
+  ],
+  "rows": [
+    {
+      "kind": "settings",
+      "key": "",
+      "version": 3,
+      "body": "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBpUzJ1azJUYS83WlA2REtmMHM3TFZUZnR3RlFUUDRmbjgweTBPbGIzUjJVCk1weEFSOXR2N2xwRzBiZU5zS1AwVjJvdll4bStlVHRkNnRsNkZtNEFVTXMKLT4gOy0waEBscHotZ3JlYXNlIHNXaTdDNCBlYCd8fiArQ01tIllxIHw0dF85CkhROVJ5cThrOFlsd08rUVJJNWNoaUJFc1RDK1JGV3MrdGN6ZDhXQXBMV1V6SEpqNjJlVnZrSHFQb1N2bDBkbWMKaUhzQWxmd2FYUlZWNituOCs0TVZtYkFnT3NsM203ZDJ5S3EzeXo3L01OK01jRUlBSGxRCi0tLSA5VDRIdURQZ2NnSXdRczJuU05wMlVQZFdTVGlsNTNFczlDNzQwcUdNZkhNCorrPax7rMYt/bssJ6PaOnLaZ+u6ef0Duv7pC60ntjz05frpPhPIJeqwGZi+q64igITMkdeG+ie4fwe9HWOORD3BY0F80rkkrotgY4I7hWhupp33Mzf9v/72qN6Y7FcmJUGX6p2NpVnpRvNK97F/GFhmuRKzjh/IadT4dAMPtuTtHFYzSTHEki/4Xpo=",
+      "plain": "{\"kind\":\"settings\",\"key\":\"\",\"version\":3,\"values\":{\"autoSwitch\":true,\"threshold\":90},\"changedAt\":1795600000}",
+      "namesItself": true
+    },
+    {
+      "kind": "account",
+      "key": "9216c6695d5721dafb9b51579087bae1c64ac592c01daaf3425722155ceb1110",
+      "version": 2,
+      "body": "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBrazB5RGx3V01tb0JhOGJMOGczVkJNbjFjS05JUTFwdkJnbHpOanNwMXowCjlybHpZbTlUbTVlUmorUXFnU3NxVlpqRytwSTlLdXdIQ1cycGcrY0xMMEEKLT4gRFM+RGBcay1ncmVhc2UgT2YgVWt8IEAmJm4vIGwKUWlQc1FRVnpkVTJyK1Z5V3ZaS284M28zNVNGY3EwZTd5a1ovWGc2TjZVSXBHbGYxZk9IS2lMcGdHdUtYajAvYgpyNU0KLS0tIFNicmRrbm05VVBCL0FDSzZhQThhbTZWWUowNWVrTEJjL214eGhGbis1NlUKTobeVNmAKefqDcL++Ny+NGMtYcQzcJEZCCIlgOiy5rtBnxYM83js2U2JDevNiWkLRks4xYEId3gosGW5g4GLxDxrPexJS7Xri6sTKPoW8FvLCL8TxEBvt/nhfRoZ5mUJ5VS0vMIu93MijAQQ1ZIym73qyV7EZ5x/BcyZBGthHbMakKwqF5SjQuGUZgBPSmTvJ0mNxleOPWEOwGEIQW37qab3Ucd02J0aLCOJeZvC3OqfNzMKwAjXueRUzd9isThd90HAFxru7rPdJ715XyTNRXgiix+aun893frJ4uii5oEjmuP7LTSyoDLbNquNqIoh+OVu+/XQ8iH69DvRwPjtZscyuu4DsfN3U8oo97Fs2a76zsihZnf2a+rwwYcLhqtz0g==",
+      "plain": "{\"kind\":\"account\",\"key\":\"9216c6695d5721dafb9b51579087bae1c64ac592c01daaf3425722155ceb1110\",\"version\":2,\"values\":{\"alias\":\"Work\",\"email\":\"you@example.com\",\"organizationName\":\"Nguyễn's Org\",\"organizationUuid\":\"org-1111\",\"priority\":1},\"changedAt\":1795600000}",
+      "namesItself": true
+    },
+    {
+      "kind": "credential",
+      "key": "04b91106b6c401977bc910a374745a012d6663d6080da957fa47a333cbe5842f",
+      "version": 1,
+      "body": "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBHNmovUXhPdFF6YU84R3FINFZHR0ZldUJNTm9yWDE5YW1ueG5aOVNva0ZNCk5LTkVOMkFzc2RPWHAwdDdyNHdlejE1Z0dBSVFxbjBuWWYyZkY5ME1OVmMKLT4gYHt5Oi1ncmVhc2UKc0lOeTNNc0hOL3QrOGtjNmR4cmpQcDd0NVpBREZxTmtQbkdpdFcrdmc1TTJ0NXVVUEw5MkZLbXYvVkVWRW9SYQpSa1VpYVFrM093anlzTTZEUnV4cEF2SHNSdGozWWlOamtHRk1NQXZQOERmS3JSTjlQUTk2MVd2bEpBWko0QQotLS0gSnFDS3FkWWxLa2M2MlNlaVp3SGd0NHNkQmE5MlpUS2FSaDFLM2Y4QVdSdwq5eTlsa0wa1O5oZvJ+39TLPyQpFs0jtVZQmAdc2v3Wi4XhIPbEiMteWg2L6AMrakJt5+5vPWZE3BS2Kqe0rYjmRKIQuf4V9D87JU6UvXOvrs4llEhv+qjT1ORdupWlaTKbxIO+IqSIx0sOLqU+oCNS3ZzxPJTCcm0lWYAE4KQ3PSseK7L06Ydg5GwZYGqAyJqPMI9qZEDoigkGrrgWawXyrLxCtvOuFnICHxC6khIDdCk15TQie1ZW3M7iWPWE7aAcnzEVMZlQqVFxNxYHRjNU0eVEE57Wnme40Tq5CGU6MLLtbSYf0qFl9ddbpHMZQQk=",
+      "plain": "{\"kind\":\"credential\",\"key\":\"04b91106b6c401977bc910a374745a012d6663d6080da957fa47a333cbe5842f\",\"version\":1,\"values\":{\"email\":\"token@example.com\",\"token\":\"sk-ant-oat01-fixture-not-real\"},\"changedAt\":1795600000}",
+      "namesItself": true
+    },
+    {
+      "kind": "usage",
+      "key": "4584d8e48c06009b33f3df495a4e842715555bf19186e082c3dabaeb71754821",
+      "version": 1,
+      "body": "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBFT3lBNXEyRm9pejZrWFl3RE10N1BaZGg3WmlySEx1ZVIyZDZiRjVwQUFNCncyT2x3MU1odXJnWkFOcVlMcmF6SURmTGd2ZkUyQUNCbDNWajVWZVA4TkUKLT4gKHRmVlotZ3JlYXNlIEg6eTsgPm87cm5AUSBpICIiMW4KOGtRR2JGam1EanN2VXhjNVVPQmptYWl2a1hKVjZLdU1DcFFwc2hyNHdXeWtFOUkzR0VpUDVKNGVUR3E1L0d6LwpxK1dzWTR6ZUtaRHNuUWVIQmVNVDhZVXJtVGdrMEJQQ1ZHb0U2QitXSUEKLS0tIEhJbHNzcUhpTllEblRXdWJKYlJLOTllTTNlbC9oUUhoTkdBWWF3RFVUNVUKnccSTqSoe+JX6wtCAOsV1gky2O1Vfx6UCCaqv9b9D7DuN0orGR2LnuScyr7QJ1I310MEiQSHdEioYcYqluoKqc4W12hMojgrbCv5FbUQvsrOAI7te+X3No/g6dboLjaa7UhmnqhAS3UrpF6z4tGn1GgY5w4N2ZuLPcbYB/SFQZ2bAacEumDDE7grrKr258uF87lL/gugSou6aOQlIFteJz7gniRb7M0uVA/yIZyOLPAJSVLbO28f3XpOC3U/vffw4tb9mzEjFFMr7lIL6DF7LRt4AombOtEGnpbuO/O02qvK08Q6yn9ckSfmH4kWup85VwL1KWrtC9LmF2Go5rfPIZuFeVbdFkHQapWzJIvGGpGHoEktzybDXmMLcO+sNAhIDtMD2Iv957JH8UAlCLl0nPlKL2bYMmT0oA53BV85v7sviRCiUwbqR5/5QIH/KqmgMuFSbhxZxrjNAOejdOyWPwUTGGjv2Ix8M3vRds40/v5CnBO6FmkjpWOcYycsuqOFY0nokSOybnkWgtQOlWgvK2E6vMD8Eitu9t9cbFBUNtfmUXxK9d/kDAcsW2XOSRrBI4KfO5m/sT4R6dw9cCnmDmznsg7Lvf/l20OvhZc5ArrXq/ZnXDHEri9dW1Lppz5tuSsMtBD4TS+5SaG2GAcANEjXkqVxn+Pep+0n06wGPtcoUm61W+F4ehQODVW8SOWbOKuVgEpQx4eyyXbgXUuMJWgWF5LbledGr9D1PZgROtusj5Xa2jvRSGz3xLWkQvYU++oa5+lbxX5uGA==",
+      "plain": "{\"schema\":1,\"machineId\":\"9b2e5c1a-4f0d-4a67-8d3e-1c7a5b0e2f91\",\"month\":\"2026-11\",\"updatedAt\":\"2026-11-25T10:00:00Z\",\"days\":[{\"day\":\"2026-11-24\",\"account\":\"you@example.com\",\"model\":\"claude-opus-4-5\",\"replies\":120,\"input\":2100,\"output\":410000,\"cacheRead\":61000000,\"cacheWrite5m\":1500000,\"cacheWrite1h\":0},{\"day\":\"2026-11-24\",\"account\":null,\"model\":\"claude-sonnet-5\",\"replies\":12,\"input\":30,\"output\":5000,\"cacheRead\":120000,\"cacheWrite5m\":9000,\"cacheWrite1h\":0}],\"quota\":[{\"at\":1795600800,\"account\":\"you@example.com\",\"fiveHourPct\":42.5,\"sevenDayPct\":null}]}",
+      "namesItself": false
+    },
+    {
+      "kind": "account",
+      "key": "04b91106b6c401977bc910a374745a012d6663d6080da957fa47a333cbe5842f",
+      "version": 2,
+      "body": "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBSTzlvYXQ3Y0xmbmNOZVZnWkY1NkRtM2NQMC80T0N3QWZkb0lLWEdWaFhZCnhBY09zRlVlS0JBVEdNNmpoVG5zTDduZ0hFSU5pa0dJNmFScHNLeUVyRG8KLT4gN0wtZ3JlYXNlIGstNCAiV1oqX3ggLXYgaT9mNQpoUUNpQkxDMVZJVWIvMWJHcHA2ZHBVc2R6aHgxVEIzTVJWU05Eek5JY3NnOCtZdldUR3pCVVRLWGdGUGcKLS0tIGRSRVFpVVc2Yjh2NkFsWTJTeWVkTnpWWGhqLzh5Z3NCcU5KamdrOEhxOVUKs9m/zNau/tkWBM2RKS3YGe4to9LDBWUoaYckzpVrvGkNzweQTRCX2AER4bROt0ys2+Jy65Fl2XCmBQxeoqJ6E5JBfTfR9XGLlzRPQ4RAEe1d5BvrEEWApGJbSvPY4Df+To9E19Wz08bpfkPhSiQk4qEnRnSSLquPV98ksUKy0nb25K2jKR1oHDfyqNJgAyIs5ZirejULSVhWGKqdPoofxDaxr/80sfBhLd7nKcAqPlXRYczAC1pM9obIIlnERyZg0hABNoJxkP0Z8GS0jOfqjDfUndoQJaaBVxrS6N7Fq04daememDzSKe9udTq8Q6zE/0+mpLH20lF03ty7o4yma49tMJEL7m5ptW+9VbTifet+QcNcajrAR06/AoBlor6XOQ==",
+      "plain": "{\"kind\":\"account\",\"key\":\"9216c6695d5721dafb9b51579087bae1c64ac592c01daaf3425722155ceb1110\",\"version\":2,\"values\":{\"alias\":\"Work\",\"email\":\"you@example.com\",\"organizationName\":\"Nguyễn's Org\",\"organizationUuid\":\"org-1111\",\"priority\":1},\"changedAt\":1795600000}",
+      "namesItself": false
+    }
+  ],
+  "profile": {
+    "name": "work",
+    "objectKey": "b79ace96f7da7f8cc878fe86e07f6caab62b9297d469220c31c9188189584f22",
+    "file": "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBWeDI1OVBJNHhOVHFIbzdZNlZpZkJ6eVY5SGZUWnJWWmFoM0F3VTEzQ0VNCkszQXZDUmVNd0xSL1ZTZXhLSUxFV21NODhHT3JNT2h6RFAva2Zjc215d2cKLT4gUy1ncmVhc2UgIlJKKyBcayBPVUFxWUMxUQorSEF3L0o2aVFNdG1KUkx2eWI0YXFUcGFETitsZTRraTdZdHlvZVZFVXh2OUMzVzlmaDZMenF5WGVuM2E4RXVvCkZlVUYwbThhbjh1VDFIaE96bnFDblEKLS0tIFZxNjJUNFRSTXlQSi9zRENRMzlzVHVRMG5YRmovN1BjdkZ6RDFtWHp1MUEKQ/WxmjxEVr3OYpLeOPBZ9+NCXhOKfDTXsVbf86XM5Kn4URH1drfV7B77UgTlYTrY3YOtuWF3tPu8TGGqjP2y8V5fSyoVjbVVxGTBBPivJhCEXAU=",
+    "plain": "{\"profile\":\"work\",\"settings\":{}}"
+  }
+}

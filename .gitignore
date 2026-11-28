@@ -10,3 +10,10 @@ packaging/pypi/dist/
 
 # Impeccable scratch files
 .impeccable/tmp/
+
+# deploy/: the server setup (compose, nginx, realm steps, scripts) stays on the owner's machine
+# only; this repository is public.
+/deploy/
+
+# Playwright MCP captures
+.playwright-mcp/

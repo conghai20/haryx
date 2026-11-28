@@ -1,0 +1,7 @@
+# Only what apps/platform/Dockerfile copies; everything else stays out of the build context.
+**
+!apps/platform/**
+apps/platform/node_modules
+apps/platform/dist
+!apps/windows/src/**
+!packages/**

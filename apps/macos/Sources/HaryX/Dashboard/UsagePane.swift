@@ -4,7 +4,9 @@ import SwiftUI
 
 /// AI › Usage. First, will the week last: the CLI's rotation verdict and each account's Week Tide.
 /// Then where it went: tokens (or API-price cost) per day by account and the projects and sessions
-/// that used the most, from `haryx ai usage` once usage history is on. Everything stays on this Mac.
+/// that used the most, from `haryx ai usage` once usage history is on. It stays on this Mac unless
+/// the Sync consent is given and sync is on: then daily totals per account and model sync
+/// (`UsagePrivacy`); projects and sessions never leave.
 struct UsagePane: View {
     @Environment(AppStore.self) private var store
 
@@ -47,11 +49,12 @@ private struct HistoryOff: View {
 
 /// The first-open question.
 private struct ImportChoice: View {
+    @Environment(AppStore.self) private var store
     let model: UsageModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("HaryX can read your past Claude Code transcripts to show how each account, project and session used its quota. It reads token counts only, never the conversations, and keeps them on this Mac.")
+            Text("HaryX can read your past Claude Code transcripts to show how each account, project and session used its quota. It reads token counts only, never the conversations. \(UsagePrivacy.kept(device: "Mac", syncing: store.accountSync.usageSyncs))")
                 .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             HStack {
                 Button("Read Past Transcripts") { model.choose(importAll: true) }.buttonStyle(.glassProminent)
@@ -92,18 +95,30 @@ private struct UsageContent: View {
     /// One fixed colour per account for every chart and table here (`UsageChartSupport.palette`).
     private var colors: AccountColors { AccountColors(light: scheme == .light, name: name) }
 
+    /// One row when it fits; otherwise the range on its own line, as the Windows row wraps.
     private var controls: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack { rangePicker; accountRow }
+            VStack(alignment: .leading, spacing: 10) { rangePicker; accountRow }
+        }
+    }
+
+    private var rangePicker: some View {
+        Picker("Range", selection: $model.range) {
+            ForEach(UsageModel.Range.allCases) { Text($0.title).tag($0) }
+        }
+        .pickerStyle(.segmented).fixedSize()
+    }
+
+    private var accountRow: some View {
         HStack {
-            Picker("Range", selection: $model.range) {
-                ForEach(UsageModel.Range.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented).fixedSize()
+            // Not fixed-size: a long account name would set the pane's minimum width.
             Picker("Account", selection: $model.account) {
                 Text("All accounts").tag(Int?.none)
                 ForEach(store.accounts) { Text("\($0.number). \($0.displayName)").tag(Int?.some($0.number)) }
             }
-            .fixedSize()
-            Spacer()
+            .frame(minWidth: 160, maxWidth: 320)
+            Spacer(minLength: 8)
             Picker("Show", selection: $model.showCost) {
                 Text("Tokens").tag(false)
                 Text("API cost").tag(true)
@@ -198,7 +213,7 @@ private struct UsageContent: View {
                 .fixedSize()
                 Toggle("Weekly summary notification", isOn: $weeklySummary)
             }
-            Text("Costs are what the tokens would cost at Anthropic's API prices as of \(r.pricesAsOf); plans are flat-priced, so this is the value of your usage, not a bill. ~ marks days whose account was worked out from the switch log. Read from Claude Code's transcripts on this Mac; no conversation text is stored.")
+            Text("Costs are what the tokens would cost at Anthropic's API prices as of \(r.pricesAsOf); plans are flat-priced, so this is the value of your usage, not a bill. ~ marks days whose account was worked out from the switch log. Read from Claude Code's transcripts on this Mac; no conversation text is stored. \(UsagePrivacy.kept(device: "Mac", syncing: store.accountSync.usageSyncs))")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

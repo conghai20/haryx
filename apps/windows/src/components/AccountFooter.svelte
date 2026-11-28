@@ -3,7 +3,9 @@
   // signing in, progress and Cancel; signed in, who it is and a menu to manage the account.
   import Icon from "./Icon.svelte";
   import { onMount } from "svelte";
-  import { SIGN_IN_PROVIDERS, providerName, type SignInProvider } from "../lib/account";
+  import { SIGN_IN_LABEL, providerName } from "../lib/account";
+  import { api } from "../lib/api";
+  import { HARYX_WEB } from "../lib/consent";
   import { haryxAccount as acct } from "../lib/haryx.svelte";
   import { store } from "../lib/store.svelte";
 
@@ -45,9 +47,6 @@
     action();
   }
 
-  function signIn(provider: SignInProvider) {
-    choose(() => void acct.startSignIn(provider));
-  }
 </script>
 
 {#if acct.whoami}
@@ -57,6 +56,7 @@
         <div class="menu" role="menu" aria-label="HaryX account">
           <p class="menu-head caption tertiary">Signed in with {providerName(user.provider)}</p>
           <button role="menuitem" onclick={() => choose(onopen)}>Account &amp; sync…</button>
+          <button role="menuitem" onclick={() => choose(() => void api.openLink(HARYX_WEB).catch((e) => store.flash(String(e), true)))}>Open HaryX on the web</button>
           <button role="menuitem" onclick={() => choose(() => void acct.signOut())}>Sign out</button>
         </div>
       {/if}
@@ -71,37 +71,30 @@
     {:else if acct.signIn.phase === "waiting"}
       <div class="waiting" role="status">
         <span class="spinner" aria-hidden="true"></span>
-        <span class="caption secondary truncate">Signing in with {providerName(acct.signInProvider)}…</span>
+        <span class="caption secondary truncate">Signing in with WeCoAp…</span>
         {#if acct.signIn.hasLink}
           <button class="icon-button" aria-label="Open the sign-in page again" title="Open the sign-in page again" onclick={() => acct.openSignInPage()}><Icon name="external" size={12} /></button>
         {/if}
         <button class="icon-button" aria-label="Cancel sign-in" title="Cancel sign-in" onclick={() => acct.cancelSignIn()}><Icon name="close" size={12} /></button>
       </div>
     {:else}
+      {#if acct.signedOutFromWeb && acct.signIn.phase === "idle"}
+        <p class="caption amber" role="status">Signed out of HaryX from the web</p>
+      {/if}
       {#if acct.signIn.phase === "error"}
         <p class="caption error-text" role="alert">{acct.signIn.message}</p>
       {/if}
-      {#if open}
-        <div class="menu" role="menu" aria-label="Sign in to HaryX">
-          {#each SIGN_IN_PROVIDERS as p (p.id)}
-            <button role="menuitem" onclick={() => signIn(p.id)}>Continue with {p.label}</button>
-          {/each}
-        </div>
-      {/if}
-      <button
-        class="sign-in"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title="Sign in to sync settings between your machines"
-        onclick={() => (open = !open)}
-      >
-        <Icon name="account" />Sign in to HaryX<span class="chevron"><Icon name="chevronUp" size={12} /></span>
+      <button class="sign-in" title="Sign in to sync settings between your machines" onclick={() => void acct.startSignIn()}>
+        <Icon name="account" />{SIGN_IN_LABEL}
       </button>
     {/if}
   </div>
 {/if}
 
 <style>
+  .amber {
+    color: var(--amber);
+  }
   .footer {
     position: relative;
     display: flex;

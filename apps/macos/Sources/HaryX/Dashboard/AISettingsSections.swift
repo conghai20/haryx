@@ -6,6 +6,9 @@ import SwiftUI
 
 struct UsageDisplaySection: View {
     @Environment(AppStore.self) private var store
+    /// The CLI's usage.* keys, which read usage and so belong with the app's own usage settings.
+    let readings: [ConfigEntry]
+    @Binding var unsaved: Set<String>
     @AppStorage(Prefs.refreshSeconds) private var refreshSeconds = 60.0
     @AppStorage(Prefs.menuBarPercent) private var menuBarPercent = true
 
@@ -21,6 +24,7 @@ struct UsageDisplaySection: View {
             Toggle("Show animated mascot in the menu bar", isOn: Binding(
                 get: { store.menuBarMascot }, set: { store.setMenuBarMascot($0) }))
                 .help("Replaces the HaryX mark with the active account's mascot, which walks while Claude runs. Costs a little CPU while it walks.")
+            ConfigRows(entries: readings, unsaved: $unsaved)
         }
     }
 }
@@ -41,7 +45,8 @@ struct TerminalSettingsSection: View {
             }
             LabeledContent("Default folder") {
                 HStack {
-                    Text((claudeFolder as NSString).abbreviatingWithTildeInPath).lineLimit(1).truncationMode(.head)
+                    Text(claudeFolder == NSHomeDirectory() ? "Home folder" : (claudeFolder as NSString).abbreviatingWithTildeInPath)
+                        .lineLimit(1).truncationMode(.head)
                     Button("Choose…") { if let dir = AppStore.chooseFolder() { claudeFolder = dir } }
                 }
             }
@@ -63,9 +68,11 @@ struct DesktopSettingsSection: View {
         Section {
             Toggle("Claude Desktop per account", isOn: $desktopFollows)
                 .onChange(of: desktopFollows) { Task { await store.reloadDesktop() } }
-            Toggle("Ask before quitting Claude Desktop", isOn: Binding(
-                get: { !desktopSkipConfirm }, set: { desktopSkipConfirm = !$0 }))
-                .disabled(!desktopFollows)
+            Toggle(isOn: Binding(get: { !desktopSkipConfirm }, set: { desktopSkipConfirm = !$0 })) {
+                Text("Ask before quitting Claude Desktop")
+                Text("Open Desktop on a card quits the running Claude Desktop first.")
+            }
+            .disabled(!desktopFollows)
         } header: { Text("Claude Desktop") } footer: {
             Text("Each account gets its own Claude Desktop folder: sign in once with Set Up Desktop on its card, then Open Desktop reopens Claude Desktop as that account. Use, auto-switch and AI Wake never quit or open Desktop. Each folder takes about 750 MB.")
         }

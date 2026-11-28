@@ -88,7 +88,7 @@ export const actions = {
     if (ok) await store.run("Removing", ["remove", ref(a)], { stdin: "y\n", success: `Removed ${a.email}` });
   },
 
-  /** The inspector's Force Switch asks first, as on macOS; the flyout menu's does not. */
+  /** Force Switch asks first, from the inspector and the flyout row menu alike (as on macOS). */
   async forceUse(a: Account) {
     const ok = await ask("Activates the stored credentials without first backing up the current login.", {
       title: `Force switch to ${displayName(a)}?`,

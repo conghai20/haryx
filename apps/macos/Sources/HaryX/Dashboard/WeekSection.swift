@@ -10,15 +10,29 @@ struct WeekSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             verdict
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 0) {
-                ForEach(rows) { account in
-                    WeekRow(account: account, counted: store.rotation?.accounts.contains(account.number) == true)
-                    if account.id != rows.last?.id {
-                        Divider().gridCellUnsizedAxes(.horizontal)
+            // One almanac line per account when the pane is wide enough; otherwise each account
+            // stacks (name and %, then the tide, then pace and reset), as the Windows app does.
+            ViewThatFits(in: .horizontal) {
+                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 0) {
+                    ForEach(rows) { account in
+                        WeekRow(account: account, counted: counted(account), compact: false)
+                        if account.id != rows.last?.id {
+                            Divider().gridCellUnsizedAxes(.horizontal)
+                        }
+                    }
+                }
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(rows) { account in
+                        WeekRow(account: account, counted: counted(account), compact: true)
+                        if account.id != rows.last?.id { Divider() }
                     }
                 }
             }
         }
+    }
+
+    private func counted(_ account: Account) -> Bool {
+        store.rotation?.accounts.contains(account.number) == true
     }
 
     /// Subscription accounts in switch order; API-key accounts have no week.
@@ -61,43 +75,63 @@ private struct WeekRow: View {
     /// In the verdict: auto-switch may use it and it has a reading.
     let counted: Bool
 
+    /// Stacked layout for a narrow pane.
+    let compact: Bool
+
+    private var week: UsageWindow? { account.usage?.sevenDay?.withPace(windowSeconds: UsageWindow.sevenDaySeconds) }
+
     var body: some View {
-        let week = account.usage?.sevenDay?.withPace(windowSeconds: UsageWindow.sevenDaySeconds)
-        let pace = WeeklyPace(account.usage?.sevenDay)
-        GridRow(alignment: .center) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(account.displayName).lineLimit(1).truncationMode(.middle)
-                    .foregroundStyle(account.isDisabled ? .secondary : .primary)
-                if let note {
-                    Text(note).font(.caption).foregroundStyle(.secondary)
-                }
+        if compact {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline) { who; Spacer(); percent }
+                tide
+                HStack(alignment: .firstTextBaseline) { paceText; Spacer(); reset }
             }
-            .frame(width: 230, alignment: .leading)
-            WeekTideView(window: week, readings: store.weekReadings[account.number] ?? [],
-                         off: account.isDisabled, height: 22)
-                .frame(minWidth: 160, maxWidth: 420)
-            Text(week?.pct.map { "\(Int($0))%" } ?? "—")
-                .font(.body.monospacedDigit().weight(.medium))
-                .foregroundStyle((week?.pct ?? 0) >= 85 ? AnyShapeStyle(Brand.usageFill(week)) : AnyShapeStyle(.primary))
-                .frame(width: 44, alignment: .trailing)
-            Text(pace?.text(runOut: WeekSection.clock) ?? (week == nil ? "No reading yet" : "Pace from tomorrow"))
-                .font(.callout.monospacedDigit())
-                .foregroundStyle(pace?.isAhead == true ? Brand.warn : .secondary)
-                .lineLimit(1)
-                .gridColumnAlignment(.leading)
-            Text(week?.resetsAt.map { "resets \(WeekSection.clock($0))" } ?? "")
-                .font(.callout.monospacedDigit()).foregroundStyle(.secondary)
-                .gridColumnAlignment(.trailing)
+            .modifier(OpensAccount(account: account))
+        } else {
+            GridRow(alignment: .center) {
+                who.frame(width: 230, alignment: .leading)
+                tide.frame(minWidth: 160, maxWidth: 420)
+                percent.frame(width: 44, alignment: .trailing)
+                paceText.gridColumnAlignment(.leading)
+                reset.gridColumnAlignment(.trailing)
+            }
+            .modifier(OpensAccount(account: account))
         }
-        .padding(.vertical, 8)
-        .contentShape(.rect)
-        .onTapGesture {
-            DashboardRouter.shared.section = .accounts
-            DashboardRouter.shared.showDetails(account.number)
+    }
+
+    private var who: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(account.displayName).lineLimit(1).truncationMode(.middle)
+                .foregroundStyle(account.isDisabled ? .secondary : .primary)
+            if let note {
+                Text(note).font(.caption).foregroundStyle(.secondary)
+            }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityHint("Opens this account's details")
+    }
+
+    private var tide: some View {
+        WeekTideView(window: week, readings: store.weekReadings[account.number] ?? [],
+                     off: account.isDisabled, height: 22)
+    }
+
+    private var percent: some View {
+        Text(week?.pct.map { "\(Int($0))%" } ?? "—")
+            .font(.body.monospacedDigit().weight(.medium))
+            .foregroundStyle((week?.pct ?? 0) >= 85 ? AnyShapeStyle(Brand.usageFill(week)) : AnyShapeStyle(.primary))
+    }
+
+    private var paceText: some View {
+        let pace = WeeklyPace(account.usage?.sevenDay)
+        return Text(pace?.text(runOut: WeekSection.clock) ?? (week == nil ? "No reading yet" : "Pace from tomorrow"))
+            .font(.callout.monospacedDigit())
+            .foregroundStyle(pace?.isAhead == true ? Brand.warn : .secondary)
+            .lineLimit(1)
+    }
+
+    private var reset: some View {
+        Text(week?.resetsAt.map { "resets \(WeekSection.clock($0))" } ?? "")
+            .font(.callout.monospacedDigit()).foregroundStyle(.secondary)
     }
 
     /// Why a row sits outside the verdict.
@@ -106,5 +140,23 @@ private struct WeekRow: View {
         if account.needsRelogin { return "Signed out" }
         if !counted && account.usage?.sevenDay != nil { return "Not used by auto-switch" }
         return nil
+    }
+}
+
+/// A week row's padding and click: it opens the account's details.
+private struct OpensAccount: ViewModifier {
+    let account: Account
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.vertical, 8)
+            .contentShape(.rect)
+            .onTapGesture {
+                DashboardRouter.shared.section = .accounts
+                DashboardRouter.shared.showDetails(account.number)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("Opens this account's details")
     }
 }

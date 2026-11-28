@@ -1,37 +1,45 @@
+# The landing site (apps/landing) on GitHub Pages, served at https://haryx.wecoap.com through the
+# server's nginx. It always deploys from main: the github-pages environment only accepts main, so a
+# run started by a release tag was refused. A published release (whose version and downloads the
+# page shows) starts this workflow on main through publish.yml instead.
 name: Site
 
 on:
   push:
     branches: [main]
     paths:
-      - "site/**"
+      - "apps/landing/**"
       - ".github/workflows/pages.yml"
-  release:
-    types: [published]
+  pull_request:
+    paths:
+      - "apps/landing/**"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: withastro/action@v6
         with:
-          path: ./site
+          path: ./apps/landing
           package-manager: npm
 
   deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

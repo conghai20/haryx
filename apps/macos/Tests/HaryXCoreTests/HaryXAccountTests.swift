@@ -25,13 +25,25 @@ private func failure<T>(_ r: Result<T, HaryXFailure>) -> HaryXFailure? {
     #expect(try decode(WhoAmI.self, #"{"signedIn": false, "user": null}"#).get() == .signedOut)
 }
 
+@Test func decodesTheConsentMachineAndWhoAmIConsentFixtures() throws {
+    let w = try HaryXFailure.decode(WhoAmI.self, stdout: fixture("whoami.json"), status: 0, stderr: "").get()
+    #expect(w.consents?.map(\.purpose) == ["sync", "machines"])
+    #expect(w.consents?[1].version == nil)
+    let c = try HaryXFailure.decode(Consents.self, stdout: fixture("consents.json"), status: 0, stderr: "").get()
+    #expect(c.consents[1].granted == false)
+    #expect(c.consents[1].history.map(\.action) == ["grant", "withdraw"])
+    let m = try HaryXFailure.decode(HaryXMachines.self, stdout: fixture("machines.json"), status: 0, stderr: "").get()
+    #expect(m.machines[0].isThisMachine && !m.machines[1].signedIn)
+    #expect(m.machines[0].lastSeenAt == "2026-11-25T10:00:00Z")
+}
+
 @Test func parsesLoginEventLines() throws {
     let lines = try JSONSerialization.jsonObject(with: fixture("login-events.json")) as? [[String: Any]] ?? []
     let events = try lines.map { try JSONSerialization.data(withJSONObject: $0) }
         .compactMap { LoginEvent.parse(line: String(decoding: $0, as: UTF8.self)) }
     #expect(events.count == 3)
     guard case .browser(let url, let opened) = events[0] else { Issue.record("not browser"); return }
-    #expect(url?.host() == "ygvcznwlugaxqqmlsssh.supabase.co")
+    #expect(url?.host() == "sso.wecoap.com")
     #expect(opened)
     guard case .signedIn(let user) = events[1] else { Issue.record("not signed_in"); return }
     #expect(user.provider == "github")
@@ -75,7 +87,8 @@ private func failure<T>(_ r: Result<T, HaryXFailure>) -> HaryXFailure? {
 }
 
 @Test(arguments: [
-    ("not_signed_in", SyncProblem.signedOut), ("signed_out", .signedOut), ("locked", .locked),
+    ("not_signed_in", SyncProblem.signedOut), ("signed_out", .signedOutFromWeb), ("consent_required", .consentRequired),
+    ("locked", .locked),
     ("key_changed", .keyChanged), ("busy", .busy), ("network", .unavailable), ("server", .unavailable),
     ("local", .failed("disk full")),
 ])
@@ -83,6 +96,61 @@ func mapsSyncFailureCodes(code: String, expected: SyncProblem) {
     let problem = SyncProblem(HaryXFailure(code: code, message: "disk full"))
     #expect(problem == expected)
     #expect(problem.needsUnlock == (code == "locked" || code == "key_changed"))
+    #expect(problem.isSignedOut == (code == "not_signed_in" || code == "signed_out"))
+}
+
+// MARK: - consents
+
+@Test func readsConsentsFromWhoAmI() throws {
+    let w = try HaryXFailure.decode(WhoAmI.self, stdout: fixture("whoami.json"), status: 0, stderr: "").get()
+    #expect(w.consent(.sync) == true)
+    #expect(w.consent(.machines) == false)
+    let offline = try decode(WhoAmI.self, #"{"signedIn":true,"user":{"id":"1","email":"a@b.c","provider":"email"}}"#).get()
+    #expect(offline.consent(.sync) == nil, "no consents: unknown, never false")
+    #expect(offline.user?.providerName == "Email")
+    #expect(WhoAmI.signedOut.consent(.sync) == nil)
+    let partial = try decode(WhoAmI.self, #"{"signedIn":true,"user":null,"consents":[{"purpose":"sync","granted":true,"version":"2026-11-01"}]}"#).get()
+    #expect(partial.consent(.machines) == false, "a purpose the server did not list is not granted")
+}
+
+@Test func aConsentReplyUpdatesWhoAmI() throws {
+    let w = try HaryXFailure.decode(WhoAmI.self, stdout: fixture("whoami.json"), status: 0, stderr: "").get()
+    let reply = try HaryXFailure.decode(Consents.self, stdout: fixture("consents.json"), status: 0, stderr: "").get()
+    let updated = w.with(reply)
+    #expect(updated.user == w.user)
+    #expect(updated.consent(.sync) == true && updated.consent(.machines) == false)
+    #expect(updated.consents?.first?.version == "2026-11-01")
+}
+
+@Test func consentArgumentsNameTheSource() {
+    #expect(ConsentKind.sync.arguments(grant: true, source: "macos")
+        == ["account", "consent", "grant", "sync", "--yes", "--source", "macos", "--json"])
+    #expect(ConsentKind.machines.arguments(grant: false, source: "macos")
+        == ["account", "consent", "withdraw", "machines", "--yes", "--source", "macos", "--json"])
+}
+
+@Test func consentSheetsNameWhatTheyCover() {
+    let sync = ConsentKind.sync.points(device: "Mac").joined(separator: " ")
+    #expect(sync.contains("end-to-end encrypted") && sync.contains("Vietnam"))
+    #expect(ConsentKind.machines.title(device: "Mac") == "Show this Mac on HaryX web?")
+    #expect(ConsentKind.sync.withdrawMessage.contains("deletes HaryX's server copy"))
+    #expect(ConsentKind.machines.withdrawMessage.contains("deletes your machines from HaryX web"))
+    #expect(privacyPolicyVersion == "2026-11-01")
+    #expect(HaryXLinks.web.absoluteString == "https://haryx.wecoap.com/platform/")
+    #expect(HaryXLinks.privacyPolicy.absoluteString == "https://www.wecoap.com/en/privacy-policy/")
+}
+
+@Test func decodesTheExportReply() throws {
+    #expect(try decode(ExportResult.self, #"{"ok":true,"path":"/tmp/haryx-export.json"}"#).get().path == "/tmp/haryx-export.json")
+    let unsupported = decode(ExportResult.self, #"{"ok":false,"code":"consent_required","message":"no"}"#, status: 1)
+    #expect(failure(unsupported)?.code == "consent_required")
+}
+
+@Test func usageCopyDependsOnTheSyncConsent() {
+    #expect(UsagePrivacy.kept(device: "Mac", syncing: false) == "It stays on this Mac.")
+    let syncing = UsagePrivacy.kept(device: "Mac", syncing: true)
+    #expect(syncing.contains("end-to-end encrypted") && syncing.contains("HaryX web"))
+    #expect(!syncing.contains("It stays on this Mac."))
 }
 
 @Test func passphraseRules() {

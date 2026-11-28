@@ -6,13 +6,14 @@
 
 use std::io::{BufRead as _, IsTerminal as _, Read as _};
 
-use haryx_core::account::{Backend, Session, SessionStore};
+use haryx_core::account::api as account_api;
+use haryx_core::account::{AccountError, Backend, Session, SessionStore};
 use haryx_core::printer::{accent, dimmed, warning};
 use haryx_core::profile::{Category, ProfileEnv};
 use haryx_core::switcher::{Switcher, prompt, prompt_secret};
 use haryx_core::sync::merge::{Side, Values};
-use haryx_core::sync::profiles::{self, Storage};
-use haryx_core::sync::remote::Postgrest;
+use haryx_core::sync::profiles;
+use haryx_core::sync::remote::Api;
 use haryx_core::sync::{self, Context, Report, SyncError, sources};
 use haryx_core::{PROG, paths};
 use serde_json::{Value, json};
@@ -49,7 +50,7 @@ fn wants_json(action: &SyncAction) -> bool {
     }
 }
 
-fn failure(err: &SyncError, json: bool) -> CommandError {
+pub(super) fn failure(err: &SyncError, json: bool) -> CommandError {
     if json {
         println!(
             "{}",
@@ -67,7 +68,7 @@ fn local(err: impl std::fmt::Display) -> SyncError {
     SyncError::Local(err.to_string())
 }
 
-fn now() -> i64 {
+pub(super) fn now() -> i64 {
     jiff::Timestamp::now().as_second()
 }
 
@@ -75,8 +76,8 @@ fn store_root() -> Result<std::path::PathBuf, SyncError> {
     paths::store_root().map_err(local)
 }
 
-/// The session for the compiled-in (or configured) project, renewed if needed.
-fn session(store: &SessionStore, backend: &Backend) -> Result<Session, SyncError> {
+/// The session for the compiled-in (or configured) issuer, renewed if needed.
+pub(super) fn session(store: &SessionStore, backend: &Backend) -> Result<Session, SyncError> {
     store.current(backend, now())?.ok_or(SyncError::NotSignedIn)
 }
 
@@ -86,22 +87,24 @@ fn with_session(action: &SyncAction, debug: bool) -> Result<(), SyncError> {
     let store = SessionStore::for_store(&root);
     let backend = Backend::from_env();
     let session = session(&store, &backend)?;
-    let remote = Postgrest::new(backend.base(), backend.key(), &session.access_token);
-    let objects = Storage::new(backend.base(), backend.key(), &session.access_token);
+    let api = Api::new(&backend, &store, &session.access_token);
     let ctx = Context {
         root: &root,
         switcher: &switcher,
         vault: store.vault(),
-        remote: &remote,
-        objects: &objects,
+        remote: &api,
+        objects: &api,
         user: &session.user.id,
-        project: backend.base(),
+        project: backend.issuer(),
         now: now(),
     };
     match action {
-        SyncAction::Run { json } => run_sync(&ctx, *json),
+        SyncAction::Run { json } => {
+            heartbeat(&api, &root)?;
+            run_sync(&ctx, *json)
+        }
         SyncAction::HasPassphrase { .. } => {
-            let has = sync::has_passphrase(&remote)?;
+            let has = sync::has_passphrase(&api)?;
             println!("{}", json!({"ok": true, "hasPassphrase": has}));
             Ok(())
         }
@@ -143,6 +146,18 @@ fn with_session(action: &SyncAction, debug: bool) -> Result<(), SyncError> {
 }
 
 // --- sync -------------------------------------------------------------------------------------
+
+/// Once per `sync`: tell the machine registry this machine is here, when the user lets HaryX show
+/// it on the web. Only a sign-out stops the sync; anything else is logged.
+fn heartbeat(api: &Api, root: &std::path::Path) -> Result<(), SyncError> {
+    match account_api::heartbeat(api, root) {
+        Ok(true) => log::debug!("machine heartbeat sent"),
+        Ok(false) => log::debug!("machine heartbeat skipped: the machines consent is off"),
+        Err(err @ SyncError::Account(AccountError::SignedOut(_))) => return Err(err),
+        Err(err) => log::warn!("could not update this machine on HaryX web: {err}"),
+    }
+    Ok(())
+}
 
 fn run_sync(ctx: &Context<'_>, json: bool) -> Result<(), SyncError> {
     let report = sync::run(ctx)?;
@@ -209,12 +224,12 @@ fn status(json: bool) -> Result<(), SyncError> {
     let backend = Backend::from_env();
     let signed_in = store
         .load()?
-        .filter(|s| s.project == backend.base())
+        .filter(|s| s.issuer == backend.issuer())
         .map(|s| s.user.id);
     let status = sync::status(
         &root,
         store.vault(),
-        signed_in.as_deref().map(|u| (u, backend.base())),
+        signed_in.as_deref().map(|u| (u, backend.issuer())),
     );
     if json {
         println!("{}", serde_json::to_value(&status).map_err(local)?);

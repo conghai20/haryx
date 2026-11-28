@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-24T12:00:00Z",
+  "generatedAt": "2026-11-28T12:00:00Z",
   "title": "Design System: HaryX",
   "extensions": {
     "colorMeta": {
@@ -125,7 +125,7 @@
           "#CBD5E1",
           "#F1F5F9"
         ],
-        "note": "site/ --ink-2, light theme: ledes, captions."
+        "note": "apps/landing/ --ink-2, light theme: ledes, captions."
       },
       "web-ink-3": {
         "role": "neutral",
@@ -141,7 +141,7 @@
           "#CBD5E1",
           "#F1F5F9"
         ],
-        "note": "site/ --ink-3, light theme: notes, column heads, inactive OS label (5.0:1 on Soft White)."
+        "note": "apps/landing/ --ink-3, light theme: notes, column heads, inactive OS label (5.0:1 on Soft White)."
       },
       "web-ink-2-dark": {
         "role": "neutral",
@@ -157,7 +157,7 @@
           "#CBD5E1",
           "#F1F5F9"
         ],
-        "note": "site/ --ink-2 on the navy ground."
+        "note": "apps/landing/ --ink-2 on the navy ground."
       },
       "web-ink-3-dark": {
         "role": "neutral",
@@ -173,7 +173,7 @@
           "#CBD5E1",
           "#F1F5F9"
         ],
-        "note": "site/ --ink-3 on the navy ground (6.1:1)."
+        "note": "apps/landing/ --ink-3 on the navy ground (6.1:1)."
       },
       "web-amber-text-light": {
         "role": "tertiary",
@@ -189,7 +189,7 @@
           "#FFD08A",
           "#FFEBCC"
         ],
-        "note": "site/ --amber, light theme: the amber figure in the tide illustration (display size only)."
+        "note": "apps/landing/ --amber, light theme: the amber figure in the tide illustration (display size only)."
       },
       "web-rule": {
         "role": "neutral",
@@ -318,6 +318,214 @@
           "#CFFAFE"
         ],
         "note": "Fill of the 'active' badge on navy."
+      },
+      "platform-amber-text-light": {
+        "role": "tertiary",
+        "displayName": "Platform Amber Text Light",
+        "canonical": "#A85700",
+        "tonalRamp": [
+          "#5C2E00",
+          "#7A3E00",
+          "#A85700",
+          "#C26A00",
+          "#FF9F0A",
+          "#FFB340",
+          "#FFD08A",
+          "#FFF1DC"
+        ],
+        "note": "apps/platform --amber-text, light: amber figures and cells at 85%+ (deeper than apps/landing/ #C26A00)."
+      },
+      "platform-amber-text-dark": {
+        "role": "tertiary",
+        "displayName": "Platform Amber Text Dark",
+        "canonical": "#FFB340",
+        "tonalRamp": [
+          "#5C2E00",
+          "#7A3E00",
+          "#A85700",
+          "#C26A00",
+          "#FF9F0A",
+          "#FFB340",
+          "#FFD08A",
+          "#FFF1DC"
+        ],
+        "note": "apps/platform --amber-text, dark."
+      },
+      "platform-red-text-light": {
+        "role": "tertiary",
+        "displayName": "Platform Red Text Light",
+        "canonical": "#C4261C",
+        "tonalRamp": [
+          "#5C0F0A",
+          "#8A1A12",
+          "#C4261C",
+          "#D92D20",
+          "#E5342A",
+          "#FF453A",
+          "#FF6961",
+          "#FFE4E1"
+        ],
+        "note": "apps/platform --red-text, light: figures at 100%, errors, destructive-outline text."
+      },
+      "platform-red-text-dark": {
+        "role": "tertiary",
+        "displayName": "Platform Red Text Dark",
+        "canonical": "#FF6961",
+        "tonalRamp": [
+          "#5C0F0A",
+          "#8A1A12",
+          "#C4261C",
+          "#D92D20",
+          "#E5342A",
+          "#FF453A",
+          "#FF6961",
+          "#FFE4E1"
+        ],
+        "note": "apps/platform --red-text, dark."
+      },
+      "platform-red-fill-light": {
+        "role": "tertiary",
+        "displayName": "Platform Red Fill Light",
+        "canonical": "#D92D20",
+        "tonalRamp": [
+          "#5C0F0A",
+          "#8A1A12",
+          "#C4261C",
+          "#D92D20",
+          "#E5342A",
+          "#FF453A",
+          "#FF6961",
+          "#FFE4E1"
+        ],
+        "note": "apps/platform --destructive, light: solid confirm button in alert dialogs, white text."
+      },
+      "platform-red-fill-dark": {
+        "role": "tertiary",
+        "displayName": "Platform Red Fill Dark",
+        "canonical": "#E5342A",
+        "tonalRamp": [
+          "#5C0F0A",
+          "#8A1A12",
+          "#C4261C",
+          "#D92D20",
+          "#E5342A",
+          "#FF453A",
+          "#FF6961",
+          "#FFE4E1"
+        ],
+        "note": "apps/platform --destructive, dark."
+      },
+      "platform-popover-light": {
+        "role": "neutral",
+        "displayName": "Platform Popover Light",
+        "canonical": "#F8FAFC",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "apps/platform menus, dialogs, command palette (light)."
+      },
+      "platform-popover-dark": {
+        "role": "neutral",
+        "displayName": "Platform Popover Dark",
+        "canonical": "#172033",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "apps/platform menus, dialogs, command palette (dark)."
+      },
+      "platform-wash": {
+        "role": "neutral",
+        "displayName": "Platform Wash",
+        "canonical": "rgb(16 24 39 / 0.06)",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "apps/platform --secondary/--accent light: menu item focus, secondary button."
+      },
+      "platform-wash-dark": {
+        "role": "neutral",
+        "displayName": "Platform Wash Dark",
+        "canonical": "rgb(241 245 249 / 0.08)",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "apps/platform --secondary/--accent dark."
+      },
+      "platform-muted": {
+        "role": "neutral",
+        "displayName": "Platform Muted",
+        "canonical": "rgb(16 24 39 / 0.05)",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "apps/platform --muted light: row hover, skeletons, expanded usage day."
+      },
+      "platform-muted-dark": {
+        "role": "neutral",
+        "displayName": "Platform Muted Dark",
+        "canonical": "rgb(241 245 249 / 0.06)",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "apps/platform --muted dark."
+      },
+      "platform-scrim": {
+        "role": "neutral",
+        "displayName": "Platform Scrim",
+        "canonical": "rgb(16 24 39 / 0.4)",
+        "tonalRamp": [
+          "#0B1120",
+          "#101827",
+          "#1E293B",
+          "#334155",
+          "#64748B",
+          "#94A3B8",
+          "#CBD5E1",
+          "#F1F5F9"
+        ],
+        "note": "apps/platform: navy scrim behind the sheet and dialogs, both themes."
       }
     },
     "typographyMeta": {
@@ -355,43 +563,91 @@
       },
       "web-display": {
         "displayName": "Web Display",
-        "purpose": "site/: hero headline only."
+        "purpose": "apps/landing/: hero headline only."
       },
       "web-close": {
         "displayName": "Web Close",
-        "purpose": "site/: closing 'Install HaryX.' headline."
+        "purpose": "apps/landing/: closing 'Install HaryX.' headline."
       },
       "web-headline": {
         "displayName": "Web Headline",
-        "purpose": "site/: section titles."
+        "purpose": "apps/landing/: section titles."
       },
       "web-figure": {
         "displayName": "Web Figure",
-        "purpose": "site/: percentages in the tide illustration (tabular)."
+        "purpose": "apps/landing/: percentages in the tide illustration (tabular)."
       },
       "web-title": {
         "displayName": "Web Title",
-        "purpose": "site/: platform names."
+        "purpose": "apps/landing/: platform names."
       },
       "web-statement": {
         "displayName": "Web Statement",
-        "purpose": "site/: the claim on each 'What it does' line (Geist 450)."
+        "purpose": "apps/landing/: the claim on each 'What it does' line (Geist 450)."
       },
       "web-lede": {
         "displayName": "Web Lede",
-        "purpose": "site/: paragraph under a headline, secondary ink."
+        "purpose": "apps/landing/: paragraph under a headline, secondary ink."
       },
       "web-body": {
         "displayName": "Web Body",
-        "purpose": "site/: running text, tabular figures."
+        "purpose": "apps/landing/: running text, tabular figures."
       },
       "web-small": {
         "displayName": "Web Small",
-        "purpose": "site/: notes, requirements, sample-data line."
+        "purpose": "apps/landing/: notes, requirements, sample-data line."
       },
       "web-command": {
         "displayName": "Web Command",
-        "purpose": "site/: runnable commands only (Geist Mono)."
+        "purpose": "apps/landing/: runnable commands only (Geist Mono)."
+      },
+      "platform-signin-display": {
+        "displayName": "Sign-in Display",
+        "purpose": "apps/platform: signed-out headline only."
+      },
+      "platform-hero-name": {
+        "displayName": "Hero Name",
+        "purpose": "apps/platform: last-used account name in the hero, two lines max (2-2.5rem, one line on phones)."
+      },
+      "platform-hero-figure": {
+        "displayName": "Hero Figure",
+        "purpose": "apps/platform: hero 5-hour percentage (32px on phones)."
+      },
+      "platform-section": {
+        "displayName": "Section",
+        "purpose": "apps/platform: one heading per section, the section name."
+      },
+      "platform-sheet-title": {
+        "displayName": "Sheet Title",
+        "purpose": "apps/platform: account name in the side sheet."
+      },
+      "platform-figure": {
+        "displayName": "Figure",
+        "purpose": "apps/platform: row figures (28px); 32px in the sheet, 40px for month token totals."
+      },
+      "platform-row-name": {
+        "displayName": "Row Name",
+        "purpose": "apps/platform: account, profile and machine names in hairline rows."
+      },
+      "platform-tab": {
+        "displayName": "Tab",
+        "purpose": "apps/platform: section tabs."
+      },
+      "platform-body": {
+        "displayName": "Body",
+        "purpose": "apps/platform: running text, tabular figures."
+      },
+      "platform-small": {
+        "displayName": "Small",
+        "purpose": "apps/platform: metadata (tertiary), labels over figures (secondary), button text."
+      },
+      "platform-column-head": {
+        "displayName": "Column Head",
+        "purpose": "apps/platform: sentence-case list and table heads, tertiary."
+      },
+      "platform-command": {
+        "displayName": "Command",
+        "purpose": "apps/platform: runnable commands on empty states only."
       }
     },
     "shadows": [
@@ -403,7 +659,12 @@
       {
         "name": "web-none",
         "value": "none",
-        "purpose": "site/ is flat: no shadows, gradients, glass or content fills; hairline rules only."
+        "purpose": "apps/landing/ is flat: no shadows, gradients, glass or content fills; hairline rules only."
+      },
+      {
+        "name": "platform-floating",
+        "value": "Tailwind shadow-md + 1px ink ring at 10%",
+        "purpose": "apps/platform: dropdown and select menus only. In-page surfaces, the sheet and dialogs carry no shadow (sheet: 1px rule on its open edge; dialogs: 1px ink ring at 10%; both over a 40% navy scrim)."
       }
     ],
     "motion": [
@@ -420,12 +681,12 @@
       {
         "name": "web-ease-out",
         "value": "cubic-bezier(0.16, 1, 0.3, 1)",
-        "purpose": "site/ state transitions (links, OS underline 0.45s, Copy 0.25s, badge and dot 0.4s) and the mark's fill flood."
+        "purpose": "apps/landing/ state transitions (links, OS underline 0.45s, Copy 0.25s, badge and dot 0.4s) and the mark's fill flood."
       },
       {
         "name": "web-ease-draw",
         "value": "cubic-bezier(0.65, 0, 0.35, 1)",
-        "purpose": "site/ stroke drawing: mark trace 1.7s, tide line 2.4s, route 0.9s."
+        "purpose": "apps/landing/ stroke drawing: mark trace 1.7s, tide line 2.4s, route 0.9s."
       },
       {
         "name": "web-mark-entrance",
@@ -446,6 +707,26 @@
         "name": "web-still",
         "value": "?still query",
         "purpose": "Zeroes every animation duration and delay to render settled end states for captures."
+      },
+      {
+        "name": "platform-tide-draw",
+        "value": "stroke-dashoffset 1 to 0, 1.8s cubic-bezier(0.16, 1, 0.3, 1), 0.2s delay, once",
+        "purpose": "apps/platform tide line draws in from the left, then holds still (no swell). Reduced motion: drawn."
+      },
+      {
+        "name": "platform-unlock-bar",
+        "value": "translateX(-100% to 300%), 1.1s cubic-bezier(0.65, 0, 0.35, 1), infinite",
+        "purpose": "apps/platform: 3px cyan bar on an 80px track while the passphrase unlocks."
+      },
+      {
+        "name": "platform-overlay",
+        "value": "fade/zoom 100ms; sheet slide 200ms ease-in-out",
+        "purpose": "apps/platform: menus, dialogs and the side sheet."
+      },
+      {
+        "name": "platform-reduced",
+        "value": "animation and transition durations 0.01ms",
+        "purpose": "apps/platform: prefers-reduced-motion zeroes all motion globally."
       }
     ],
     "breakpoints": [
@@ -480,6 +761,22 @@
       {
         "name": "web-narrow",
         "value": "560px (header keeps one link)"
+      },
+      {
+        "name": "platform-row-detail",
+        "value": "640px (rows gain week tide and machines; 32px gutter)"
+      },
+      {
+        "name": "platform-jump",
+        "value": "768px (Jump to field appears)"
+      },
+      {
+        "name": "platform-split",
+        "value": "1024px (40% sticky hero / sections split; 56px gutter; tide line fixed under the 80px tab bar)"
+      },
+      {
+        "name": "platform-columns",
+        "value": "1280px (account rows become five fixed columns with a head row)"
       }
     ]
   },
@@ -568,7 +865,7 @@
       "name": "Web Install Switch",
       "kind": "input",
       "refersTo": "web-command-field",
-      "description": "site/ primary action: OS text switch with a growing cyan underline, mono command field with a cyan prompt, and Copy.",
+      "description": "apps/landing/ primary action: OS text switch with a growing cyan underline, mono command field with a cyan prompt, and Copy.",
       "html": "<div class=\"ds-web ds-inst\"><div class=\"ds-inst-sw\"><button class=\"ds-os\" aria-pressed=\"true\">macOS</button><button class=\"ds-os\" aria-pressed=\"false\">Windows</button></div><div class=\"ds-inst-row\"><code class=\"ds-inst-line\"><span>$</span>curl -fsSL https://…/install.sh | sh</code><button class=\"ds-copy\">Copy</button></div><p class=\"ds-inst-note\">Terminal. macOS 26 or later.</p></div>",
       "css": ":host,.ds-web{--ground:#F1F5F9;--ink:#101827;--ink-2:#3D4A5E;--ink-3:#5B6A80;--rule:rgb(16 24 39/.14);--rule-strong:rgb(16 24 39/.32);--live:#0E7490;--live-fill:#0891B2;--live-wash:rgb(8 145 178/.12);--track:rgb(16 24 39/.08);--amber:#C26A00;--amber-fill:#FF9F0A}.ds-inst{display:grid;gap:14px;max-width:560px;background:var(--ground);color:var(--ink);font:400 17px/1.6 'Geist Variable','Geist',system-ui,sans-serif;padding:16px}.ds-inst-sw{display:flex;gap:22px}.ds-os{appearance:none;border:0;background:none;padding:6px 0;font:inherit;font-size:15px;color:var(--ink-3);position:relative;cursor:pointer}.ds-os::after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--live);transform:scaleX(0);transform-origin:left;transition:transform .45s cubic-bezier(.16,1,.3,1)}.ds-os:hover,.ds-os[aria-pressed=true]{color:var(--ink)}.ds-os[aria-pressed=true]::after{transform:scaleX(1)}.ds-os:focus-visible,.ds-copy:focus-visible{outline:2px solid var(--live);outline-offset:3px}.ds-inst-row{display:grid;grid-template-columns:1fr auto;gap:10px}.ds-inst-line{display:flex;gap:12px;padding:14px 16px;border:1px solid var(--rule-strong);border-radius:2px;font:14px/1.5 'Geist Mono Variable','Geist Mono',ui-monospace,monospace;min-width:0;overflow-wrap:anywhere}.ds-inst-line span{color:var(--live);user-select:none}.ds-copy{border:0;border-radius:2px;padding:0 22px;min-height:48px;background:var(--ink);color:var(--ground);font:500 15px 'Geist Variable','Geist',system-ui,sans-serif;cursor:pointer;transition:background-color .25s cubic-bezier(.16,1,.3,1)}.ds-copy:hover{background:#22D3EE;color:#101827}.ds-copy:active{transform:translateY(1px)}.ds-inst-note{margin:0;font-size:14px;color:var(--ink-3)}"
     },
@@ -576,7 +873,7 @@
       "name": "Web Tide Staff Row",
       "kind": "custom",
       "refersTo": "web-tide-staff",
-      "description": "site/ sample-data illustration row: dot, name, active badge, 6px staff with ink pace tick and dashed threshold, Space Grotesk figure, between hairlines.",
+      "description": "apps/landing/ sample-data illustration row: dot, name, active badge, 6px staff with ink pace tick and dashed threshold, Space Grotesk figure, between hairlines.",
       "html": "<div class=\"ds-web ds-tr\"><div class=\"ds-tr-row\"><span class=\"ds-tr-dot\"></span><span class=\"ds-tr-name\">work <b class=\"ds-tr-badge\">active</b></span><span class=\"ds-tr-c\"><span class=\"ds-tr-staff\"><i style=\"width:62%\"></i><em style=\"left:71%\"></em><s style=\"left:90%\"></s></span><small>Week 41%</small></span><span class=\"ds-tr-pct\">62<small>%</small></span></div><p class=\"ds-tr-fine\">Illustration with sample accounts, not live data.</p></div>",
       "css": ":host,.ds-web{--ground:#F1F5F9;--ink:#101827;--ink-2:#3D4A5E;--ink-3:#5B6A80;--rule:rgb(16 24 39/.14);--rule-strong:rgb(16 24 39/.32);--live:#0E7490;--live-fill:#0891B2;--live-wash:rgb(8 145 178/.12);--track:rgb(16 24 39/.08);--amber:#C26A00;--amber-fill:#FF9F0A}.ds-tr{width:560px;background:var(--ground);color:var(--ink);font:400 17px/1.6 'Geist Variable','Geist',system-ui,sans-serif;padding:16px}.ds-tr-row{position:relative;display:grid;grid-template-columns:28px 9rem 1fr 5rem;align-items:center;column-gap:20px;height:84px;border-top:1px solid var(--rule-strong);border-bottom:1px solid var(--rule)}.ds-tr-dot{width:10px;height:10px;border-radius:50%;background:var(--live);margin-left:9px;transform:scale(1.25)}.ds-tr-name{display:flex;gap:10px;align-items:center}.ds-tr-badge{font-size:12px;font-weight:600;color:var(--live);padding:2px 8px;border-radius:999px;background:var(--live-wash)}.ds-tr-c{display:grid;gap:6px}.ds-tr-c small{font-size:12px;color:var(--ink-3)}.ds-tr-staff{position:relative;display:block;height:6px;border-radius:1.5px;background:var(--track)}.ds-tr-staff i{position:absolute;left:0;top:0;bottom:0;border-radius:1.5px;background:var(--live-fill)}.ds-tr-staff em{position:absolute;top:-4px;bottom:-4px;width:2px;border-radius:1px;background:var(--ink)}.ds-tr-staff s{position:absolute;top:-7px;bottom:-7px;border-left:1px dashed var(--ink-3)}.ds-tr-pct{text-align:right;font:500 40px/1 'Space Grotesk Variable','Space Grotesk',system-ui;letter-spacing:-.02em;font-variant-numeric:tabular-nums}.ds-tr-pct small{font:400 17px 'Geist Variable',system-ui;color:var(--ink-3);margin-left:2px}.ds-tr-fine{margin:22px 0 0;font-size:14px;color:var(--ink-3)}"
     },
@@ -584,7 +881,7 @@
       "name": "Web Drawn Mark and Tide Line",
       "kind": "custom",
       "refersTo": "brand-tile",
-      "description": "site/ hero signature: the Wing H halves on the bare ground (cyan over ink), with a full-bleed cyan tide line passing behind.",
+      "description": "apps/landing/ hero signature: the Wing H halves on the bare ground (cyan over ink), with a full-bleed cyan tide line passing behind.",
       "html": "<div class=\"ds-web ds-hero\"><svg class=\"ds-hero-tide\" viewBox=\"0 0 1440 80\" preserveAspectRatio=\"none\"><path d=\"M0 50 C 180 50, 300 18, 520 20 S 860 70, 1080 62 S 1340 30, 1440 34\"/></svg><svg class=\"ds-hero-mark\" viewBox=\"-22 -30 44 60\"><g transform=\"scale(1.228)\"><g transform=\"rotate(180) scale(1.05 1.2)\" fill=\"var(--ink)\"><path d=\"M-16 -19 L-9.1 -19 L-9.1 -11.7 L-3.8 -5.4 C3 -10.5 11.5 -12.8 16 -19 C14 -12.5 7 -6.2 -4.5 2.5 L-16 -11.7 Z\"/></g><g transform=\"scale(1.05 1.2)\" fill=\"#22D3EE\"><path d=\"M-16 -19 L-9.1 -19 L-9.1 -11.7 L-3.8 -5.4 C3 -10.5 11.5 -12.8 16 -19 C14 -12.5 7 -6.2 -4.5 2.5 L-16 -11.7 Z\"/></g></g></svg><h1>Route your AI accounts like water.</h1></div>",
       "css": ":host,.ds-web{--ground:#F1F5F9;--ink:#101827;--ink-2:#3D4A5E;--ink-3:#5B6A80;--rule:rgb(16 24 39/.14);--rule-strong:rgb(16 24 39/.32);--live:#0E7490;--live-fill:#0891B2;--live-wash:rgb(8 145 178/.12);--track:rgb(16 24 39/.08);--amber:#C26A00;--amber-fill:#FF9F0A}.ds-hero{position:relative;isolation:isolate;width:560px;height:300px;background:var(--ground);color:var(--ink);overflow:hidden}.ds-hero-mark{position:absolute;z-index:-1;right:24px;top:12px;height:260px}.ds-hero-tide{position:absolute;z-index:-2;left:0;width:100%;top:150px;height:50px}.ds-hero-tide path{fill:none;stroke:var(--live);stroke-width:2.25px;stroke-linecap:round;vector-effect:non-scaling-stroke}.ds-hero h1{position:absolute;left:24px;bottom:16px;margin:0;max-width:11ch;font:500 44px/.96 'Space Grotesk Variable','Space Grotesk',system-ui;letter-spacing:-.04em}"
     },
@@ -592,9 +889,65 @@
       "name": "Web Captioned Line",
       "kind": "custom",
       "refersTo": "web-command-field",
-      "description": "site/ 'What it does' row: Geist statement and caption left, real commands right with a cyan $; hairline below, no card.",
+      "description": "apps/landing/ 'What it does' row: Geist statement and caption left, real commands right with a cyan $; hairline below, no card.",
       "html": "<ul class=\"ds-web ds-cl\"><li><div><h3>Choose which account Claude Code is logged in as.</h3><p>By number, email or alias, or let HaryX pick.</p></div><div class=\"ds-cl-cmds\"><code>haryx ai switch 2</code><code>haryx ai switch --strategy best</code></div></li></ul>",
       "css": ":host,.ds-web{--ground:#F1F5F9;--ink:#101827;--ink-2:#3D4A5E;--ink-3:#5B6A80;--rule:rgb(16 24 39/.14);--rule-strong:rgb(16 24 39/.32);--live:#0E7490;--live-fill:#0891B2;--live-wash:rgb(8 145 178/.12);--track:rgb(16 24 39/.08);--amber:#C26A00;--amber-fill:#FF9F0A}.ds-cl{list-style:none;margin:0;padding:16px;width:640px;background:var(--ground);color:var(--ink);font:400 17px/1.6 'Geist Variable','Geist',system-ui,sans-serif}.ds-cl li{display:grid;grid-template-columns:7fr 4fr;gap:24px;padding:32px 0;border-top:1px solid var(--rule-strong);border-bottom:1px solid var(--rule)}.ds-cl h3{margin:0 0 10px;font-weight:450;font-size:24px;line-height:1.2;letter-spacing:-.015em}.ds-cl p{margin:0;color:var(--ink-2)}.ds-cl-cmds{display:grid;gap:8px;align-content:start;padding-top:6px}.ds-cl-cmds code{font:14px 'Geist Mono Variable','Geist Mono',ui-monospace,monospace;color:var(--ink-2)}.ds-cl-cmds code::before{content:'$ ';color:var(--live)}"
+    },
+    {
+      "name": "Platform Primary Button",
+      "kind": "button",
+      "refersTo": "platform-button-primary",
+      "description": "apps/platform: ink-filled button; cyan is never a button fill.",
+      "html": "<div class=\"ds-pf\" style=\"padding:16px\"><button class=\"ds-pf-btn ds-pf-primary\">Sign in with WeCoAp</button></div>",
+      "css": ":host,.ds-pf{--ground:#F1F5F9;--ink:#101827;--ink-2:#3D4A5E;--ink-3:#5B6A80;--rule:rgb(16 24 39/.14);--rule-strong:rgb(16 24 39/.32);--track:rgb(16 24 39/.08);--live:#0891B2;--live-text:#0E7490;--amber:#FF9F0A;--amber-text:#A85700;--red:#FF453A;--red-text:#C4261C;--red-fill:#D92D20;--muted:rgb(16 24 39/.05)}.ds-pf{font:400 15px/1.5 \"Geist Variable\",\"Geist\",system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--ground)}.ds-pf-btn{display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:2px;border:1px solid transparent;font:500 14px \"Geist Variable\",\"Geist\",system-ui,sans-serif;cursor:pointer;transition:background .15s,border-color .15s}.ds-pf-btn:focus-visible{outline:none;border-color:var(--live);box-shadow:0 0 0 3px rgb(8 145 178/.5)}.ds-pf-primary{background:var(--ink);color:var(--ground)}.ds-pf-primary:hover{background:rgb(16 24 39/.8)}"
+    },
+    {
+      "name": "Platform Outline Button",
+      "kind": "button",
+      "refersTo": "platform-button-outline",
+      "description": "apps/platform: secondary action, 1px rule, muted wash on hover.",
+      "html": "<div class=\"ds-pf\" style=\"padding:16px\"><button class=\"ds-pf-btn ds-pf-outline\">Download my data</button></div>",
+      "css": ":host,.ds-pf{--ground:#F1F5F9;--ink:#101827;--ink-2:#3D4A5E;--ink-3:#5B6A80;--rule:rgb(16 24 39/.14);--rule-strong:rgb(16 24 39/.32);--track:rgb(16 24 39/.08);--live:#0891B2;--live-text:#0E7490;--amber:#FF9F0A;--amber-text:#A85700;--red:#FF453A;--red-text:#C4261C;--red-fill:#D92D20;--muted:rgb(16 24 39/.05)}.ds-pf{font:400 15px/1.5 \"Geist Variable\",\"Geist\",system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--ground)}.ds-pf-btn{display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:2px;border:1px solid transparent;font:500 14px \"Geist Variable\",\"Geist\",system-ui,sans-serif;cursor:pointer;transition:background .15s,border-color .15s}.ds-pf-btn:focus-visible{outline:none;border-color:var(--live);box-shadow:0 0 0 3px rgb(8 145 178/.5)}.ds-pf-outline{background:var(--ground);color:var(--ink);border-color:var(--rule)}.ds-pf-outline:hover{background:var(--muted)}"
+    },
+    {
+      "name": "Platform Destructive Pair",
+      "kind": "button",
+      "refersTo": "platform-button-destructive",
+      "description": "apps/platform: red-outline first step on the page; solid red confirm inside the alert dialog.",
+      "html": "<div class=\"ds-pf\" style=\"padding:16px;display:flex;gap:8px\"><button class=\"ds-pf-btn ds-pf-dout\">Withdraw</button><button class=\"ds-pf-btn ds-pf-dest\">Withdraw and erase</button></div>",
+      "css": ":host,.ds-pf{--ground:#F1F5F9;--ink:#101827;--ink-2:#3D4A5E;--ink-3:#5B6A80;--rule:rgb(16 24 39/.14);--rule-strong:rgb(16 24 39/.32);--track:rgb(16 24 39/.08);--live:#0891B2;--live-text:#0E7490;--amber:#FF9F0A;--amber-text:#A85700;--red:#FF453A;--red-text:#C4261C;--red-fill:#D92D20;--muted:rgb(16 24 39/.05)}.ds-pf{font:400 15px/1.5 \"Geist Variable\",\"Geist\",system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--ground)}.ds-pf-btn{display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:2px;border:1px solid transparent;font:500 14px \"Geist Variable\",\"Geist\",system-ui,sans-serif;cursor:pointer;transition:background .15s,border-color .15s}.ds-pf-btn:focus-visible{outline:none;border-color:var(--live);box-shadow:0 0 0 3px rgb(8 145 178/.5)}.ds-pf-dout{background:transparent;color:var(--red-text);border-color:var(--rule-strong)}.ds-pf-dout:hover{background:rgb(255 69 58/.1);border-color:var(--red-text)}.ds-pf-dest{background:var(--red-fill);color:#fff}.ds-pf-dest:hover{background:#BF271C}"
+    },
+    {
+      "name": "Platform Input",
+      "kind": "input",
+      "refersTo": "platform-input",
+      "description": "apps/platform: 40px field, strong rule, 2px, cyan focus border and ring, cyan caret.",
+      "html": "<div class=\"ds-pf\" style=\"padding:16px\"><input class=\"ds-pf-input\" placeholder=\"Filter by name, email or organization\"></div>",
+      "css": ":host,.ds-pf{--ground:#F1F5F9;--ink:#101827;--ink-2:#3D4A5E;--ink-3:#5B6A80;--rule:rgb(16 24 39/.14);--rule-strong:rgb(16 24 39/.32);--track:rgb(16 24 39/.08);--live:#0891B2;--live-text:#0E7490;--amber:#FF9F0A;--amber-text:#A85700;--red:#FF453A;--red-text:#C4261C;--red-fill:#D92D20;--muted:rgb(16 24 39/.05)}.ds-pf{font:400 15px/1.5 \"Geist Variable\",\"Geist\",system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--ground)}.ds-pf-input{height:40px;width:320px;padding:4px 12px;border:1px solid var(--rule-strong);border-radius:2px;background:transparent;color:var(--ink);font:400 14px \"Geist Variable\",\"Geist\",system-ui,sans-serif;caret-color:var(--live);outline:none;transition:border-color .15s,box-shadow .15s}.ds-pf-input::placeholder{color:var(--ink-3)}.ds-pf-input:focus-visible{border-color:var(--live);box-shadow:0 0 0 3px rgb(8 145 178/.5)}"
+    },
+    {
+      "name": "Platform Section Tabs",
+      "kind": "nav",
+      "refersTo": "platform-account-row",
+      "description": "apps/platform: text tabs, current one ink with a 2px ink underline on the bar edge.",
+      "html": "<nav class=\"ds-pf ds-pf-tabs\"><a aria-current=\"page\">Accounts</a><a>Usage</a><a>Profiles</a><a>Machines</a><a>Privacy</a></nav>",
+      "css": ":host,.ds-pf{--ground:#F1F5F9;--ink:#101827;--ink-2:#3D4A5E;--ink-3:#5B6A80;--rule:rgb(16 24 39/.14);--rule-strong:rgb(16 24 39/.32);--track:rgb(16 24 39/.08);--live:#0891B2;--live-text:#0E7490;--amber:#FF9F0A;--amber-text:#A85700;--red:#FF453A;--red-text:#C4261C;--red-fill:#D92D20;--muted:rgb(16 24 39/.05)}.ds-pf{font:400 15px/1.5 \"Geist Variable\",\"Geist\",system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--ground)}.ds-pf-tabs{display:flex;gap:32px;padding:16px 16px 0;border-bottom:1px solid var(--rule)}.ds-pf-tabs a{padding-bottom:16px;margin-bottom:-1px;border-bottom:2px solid transparent;font:500 15px \"Geist Variable\",\"Geist\",system-ui,sans-serif;color:var(--ink-3);cursor:pointer;transition:color .15s}.ds-pf-tabs a:hover{color:var(--ink)}.ds-pf-tabs a[aria-current]{color:var(--ink);border-color:var(--ink)}"
+    },
+    {
+      "name": "Platform Account Row",
+      "kind": "custom",
+      "refersTo": "platform-account-row",
+      "description": "apps/platform signature: hairline row, cyan dot for the last-used account, 28px figure over a Tide Staff with no pace tick, week tide over the last 7 days, read-when line.",
+      "html": "<ul class=\"ds-pf ds-pf-rows\"><li><button><span><b><i class=\"ds-pf-dot\"></i>work</b><small>Acme Org</small></span><span class=\"ds-pf-c\"><em>62%</em><span class=\"ds-pf-staff\"><s style=\"width:62%;background:var(--live)\"></s></span></span><span class=\"ds-pf-c\"><small class=\"ds-pf-wk\">Week 41%</small><svg height=\"22\" viewBox=\"0 0 160 22\" preserveAspectRatio=\"none\"><path d=\"M0 20 L40 17 L80 14 L120 12 L160 13 L160 22 L0 22Z\" fill=\"#3D4A5E\" fill-opacity=\".16\"/><path d=\"M0 20 L40 17 L80 14 L120 12 L160 13\" fill=\"none\" stroke=\"#3D4A5E\" stroke-width=\"1.25\"/></svg></span><span class=\"ds-pf-m\">MacBook Pro<small>read 10 min ago</small></span></button></li><li><button><span><b>side</b><small>Personal</small></span><span class=\"ds-pf-c\"><em class=\"ds-pf-amb\">91%</em><span class=\"ds-pf-staff\"><s style=\"width:91%;background:var(--amber)\"></s></span></span><span class=\"ds-pf-c\"><small class=\"ds-pf-wk ds-pf-amb\">Week 86%</small><svg height=\"22\" viewBox=\"0 0 160 22\" preserveAspectRatio=\"none\"><path d=\"M0 12 L60 8 L160 3 L160 22 L0 22Z\" fill=\"#FF9F0A\" fill-opacity=\".16\"/><path d=\"M0 12 L60 8 L160 3\" fill=\"none\" stroke=\"#FF9F0A\" stroke-width=\"1.25\"/></svg></span><span class=\"ds-pf-m\">3 machines<small>read 2 hr ago</small></span></button></li></ul>",
+      "css": ":host,.ds-pf{--ground:#F1F5F9;--ink:#101827;--ink-2:#3D4A5E;--ink-3:#5B6A80;--rule:rgb(16 24 39/.14);--rule-strong:rgb(16 24 39/.32);--track:rgb(16 24 39/.08);--live:#0891B2;--live-text:#0E7490;--amber:#FF9F0A;--amber-text:#A85700;--red:#FF453A;--red-text:#C4261C;--red-fill:#D92D20;--muted:rgb(16 24 39/.05)}.ds-pf{font:400 15px/1.5 \"Geist Variable\",\"Geist\",system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--ground)}.ds-pf-rows{list-style:none;margin:0;padding:16px;width:760px;border-bottom:1px solid var(--rule)}.ds-pf-rows li{border-top:1px solid var(--rule)}.ds-pf-rows button{all:unset;box-sizing:border-box;display:grid;grid-template-columns:1.4fr 9rem 9rem 1fr;gap:24px;align-items:center;width:100%;padding:24px 0;cursor:pointer;transition:background .15s}.ds-pf-rows button:hover{background:var(--muted)}.ds-pf-rows button:focus-visible{outline:2px solid var(--live);outline-offset:2px}.ds-pf-rows b{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:600}.ds-pf-rows small{display:block;font-size:14px;color:var(--ink-3)}.ds-pf-dot{width:8px;height:8px;border-radius:50%;background:var(--live)}.ds-pf-c{display:grid;gap:8px}.ds-pf-c em{font:500 28px/1 \"Space Grotesk Variable\",\"Space Grotesk\",system-ui,sans-serif;letter-spacing:-.04em;font-style:normal}.ds-pf-staff{display:block;height:5px;border-radius:1.5px;background:var(--track);overflow:hidden}.ds-pf-staff s{display:block;height:100%;border-radius:1.5px}.ds-pf-wk{font-weight:500;color:var(--ink)!important}.ds-pf-amb{color:var(--amber-text)!important}.ds-pf-c svg{display:block;width:100%;background:var(--track);border-radius:1.5px}.ds-pf-m{font-size:14px;color:var(--ink-2)}.ds-pf-m small{font-size:12px}"
+    },
+    {
+      "name": "Platform Command Field",
+      "kind": "input",
+      "refersTo": "platform-command-field",
+      "description": "apps/platform: runnable command with a cyan $; Copy stays ink, becomes outline \"Copied\".",
+      "html": "<div class=\"ds-pf\" style=\"padding:16px;display:flex;gap:8px;max-width:520px\"><div class=\"ds-pf-cmd\"><span>$</span><code>haryx sync on</code></div><button class=\"ds-pf-btn ds-pf-primary\">Copy</button></div>",
+      "css": ":host,.ds-pf{--ground:#F1F5F9;--ink:#101827;--ink-2:#3D4A5E;--ink-3:#5B6A80;--rule:rgb(16 24 39/.14);--rule-strong:rgb(16 24 39/.32);--track:rgb(16 24 39/.08);--live:#0891B2;--live-text:#0E7490;--amber:#FF9F0A;--amber-text:#A85700;--red:#FF453A;--red-text:#C4261C;--red-fill:#D92D20;--muted:rgb(16 24 39/.05)}.ds-pf{font:400 15px/1.5 \"Geist Variable\",\"Geist\",system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--ground)}.ds-pf-btn{display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:2px;border:1px solid transparent;font:500 14px \"Geist Variable\",\"Geist\",system-ui,sans-serif;cursor:pointer;transition:background .15s,border-color .15s}.ds-pf-btn:focus-visible{outline:none;border-color:var(--live);box-shadow:0 0 0 3px rgb(8 145 178/.5)}.ds-pf-primary{background:var(--ink);color:var(--ground)}.ds-pf-primary:hover{background:rgb(16 24 39/.8)}.ds-pf-cmd{flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--rule-strong);border-radius:2px;font:400 13px \"Geist Mono Variable\",\"Geist Mono\",ui-monospace,monospace}.ds-pf-cmd span{color:var(--live-text);user-select:none}"
     }
   ],
   "narrative": {
@@ -606,7 +959,8 @@
       "Space Grotesk only for the wordmark, large percentages and reset clocks; SF Pro everywhere else.",
       "Tabular figures in every number that sits in a column or updates in place.",
       "1pt hairline rules divide sections; flat fills, no gradients, no authored shadows.",
-      "Web (site/) only: navy ground in dark, Soft White paper in light; drawn mark and full-bleed tide line as the only illustration; Space Grotesk headlines and figures, Geist text, Geist Mono for real commands; hairlines, no cards."
+      "Web (apps/landing/) only: navy ground in dark, Soft White paper in light; drawn mark and full-bleed tide line as the only illustration; Space Grotesk headlines and figures, Geist text, Geist Mono for real commands; hairlines, no cards.",
+      "HaryX web (apps/platform) only: the apps/landing/ world as a split console (40% sticky hero with the last-used account at display size, hairline account rows beside it); shadcn-svelte themed to 2px, hairlines and ink buttons; amber and red readings ship; no pace anywhere; every figure says when and on which machine it was read."
     ],
     "rules": [
       {
@@ -636,39 +990,69 @@
       },
       {
         "name": "The Navy Ground Rule (web only)",
-        "body": "In the dark theme the whole page ground is Midnight Navy with Soft White ink; in the light theme it is Soft White paper with Midnight Navy ink. This is a deliberate exception, for `site/` only, to the app's rule that Midnight Navy is only the mark's tile. App surfaces keep the system appearance and never use navy as a surface.",
+        "body": "In the dark theme the whole page ground is Midnight Navy with Soft White ink; in the light theme it is Soft White paper with Midnight Navy ink. This is a deliberate exception, for `apps/landing/` only, to the app's rule that Midnight Navy is only the mark's tile. App surfaces keep the system appearance and never use navy as a surface.",
         "section": "colors",
-        "scope": "site/"
+        "scope": "apps/landing/"
       },
       {
         "name": "The One Accent Rule (web)",
         "body": "Cyan is the page's only accent: the tide line, the active account and the route in the tide illustration, the `$`/`>` prompt before a command, the selected OS underline, link-hover underlines, the focus ring (2px, 3px offset), and the Copy button's hover and copied fill. Amber appears only inside the tide illustration, as a staff fill and its figure. No red ships on the page.",
         "section": "colors",
-        "scope": "site/"
+        "scope": "apps/landing/"
       },
       {
         "name": "The Web Display Rule",
         "body": "On the web, Space Grotesk carries headlines, figures, reset times and platform names, wider than the app's Display-Only Rule, which stays in force for the app. Running text, statements, buttons, the OS switch and nav stay in Geist.",
         "section": "typography",
-        "scope": "site/"
+        "scope": "apps/landing/"
       },
       {
         "name": "The Real Command Rule",
         "body": "Geist Mono is for commands a visitor can run (the install lines, the `haryx …` commands beside each feature, the cswap import line) and nothing else: no mono labels, captions or decorative code.",
         "section": "typography",
-        "scope": "site/"
+        "scope": "apps/landing/"
       },
       {
         "name": "The Hairline, Not Card Rule",
         "body": "Lists are divided by 1px rules: a strong rule at the head of a list, a light rule under each row. Nothing is boxed as a card. The only outlined element is the command field.",
         "section": "elevation",
-        "scope": "site/"
+        "scope": "apps/landing/"
       },
       {
         "name": "The Sample Data Rule",
         "body": "Any usage reading on the web is an illustration and says so on the page, next to it, in plain words.",
         "section": "components",
-        "scope": "site/"
+        "scope": "apps/landing/"
+      },
+      {
+        "name": "The Last-Used Cyan Rule",
+        "body": "Cyan marks the one account read most recently (a cyan dot before its name in the hero and in its row, and a cyan fill on its Tide Staffs), keyboard focus and the input caret, the `$` prompt of a command, and a small set of in-text states: a consent that is \"On\", and inline links into another section (Privacy center, Download my data). Every other account's staff fills in secondary ink. Cyan is never a button fill and never a heading.",
+        "section": "colors",
+        "scope": "apps/platform"
+      },
+      {
+        "name": "The Three Readings Rule",
+        "body": "Unlike `apps/landing/`, where no red ships, amber and red readings ship here because the readings are real: a figure and its staff turn amber at 85% and red at 100%, in table cells too. Under 85% a figure stays ink. The web has no pace, so there is no \"ahead of pace\" amber.",
+        "section": "colors",
+        "scope": "apps/platform"
+      },
+      {
+        "name": "The Sentence-Case Label Rule",
+        "body": "Labels, column heads and metadata are Geist in sentence case. No tracked uppercase mono eyebrows sit over headings or figures; the hero carries no \"Last used\" kicker, the cyan dot says it.",
+        "section": "typography",
+        "scope": "apps/platform"
+      },
+      {
+        "name": "The Tide Line Seat Rule",
+        "body": "On desktop the tide line sits fixed just under the tab bar (top at 80px + 16px, 24px tall), full viewport width, so it crosses both halves of the split in the band where the sections column's header meets its content. It is behind interaction (no pointer events) and over the hero's rule.",
+        "section": "layout",
+        "scope": "apps/platform"
+      },
+      {
+        "name": "The Synced, Not Live Rule",
+        "body": "Every reading on the web is history carried by sync, never live: no \"in use now\", no rotation verdict, no pace and no reset time. Every figure carries when it was read and on which machine, next to it in plain words (\"Read 10 hr ago on <machine>\", \"read N ago\" in each row, \"newest reading\" in the sheet).",
+        "section": "components",
+        "scope": "apps/platform"
       }
     ],
     "dos": [
@@ -677,12 +1061,18 @@
       "**Do** use tabular figures for every percentage, clock and countdown.",
       "**Do** divide panel sections with 1pt system-separator rules and 10pt of space on each side.",
       "**Do** use the system label tiers for all neutral text, keep content on flat system fills, and show selection as the accent fill at 18%.",
-      "**Do** use the navy ground in dark and Soft White paper in light on `site/`, and only there.",
+      "**Do** use the navy ground in dark and Soft White paper in light on `apps/landing/`, and only there.",
       "**Do** let the drawn mark and the tide line be the page's only illustration, with the tide line full-bleed and behind the mark.",
       "**Do** divide every list with 1px hairlines and leave sections separated by space.",
       "**Do** label every usage illustration as sample data, in plain words beside it.",
       "**Do** keep the install command, with its OS switch and Copy, above the fold and repeat it at the close.",
-      "**Do** honour reduced motion: every entrance resolves to its end state, and `?still` renders that end state for captures."
+      "**Do** honour reduced motion: every entrance resolves to its end state, and `?still` renders that end state for captures.",
+      "**Do** set the last-used account at Hero Name size on the left and every account as a hairline row on the right, with the cyan dot marking the last-used one in both places.",
+      "**Do** say when and on which machine every reading was taken, beside the figure.",
+      "**Do** colour a reading amber at 85% and red at 100%, in figures, staffs and table cells.",
+      "**Do** fill buttons with ink, and make the confirming button of a destructive dialog solid red after a red-outline first step.",
+      "**Do** theme every shadcn-svelte component to 2px corners, hairline rules and the ground colour before it ships.",
+      "**Do** seat the tide line under the tab bar so it crosses both halves of the split, and keep the X mark at 14% behind the hero."
     ],
     "donts": [
       "**Don't** set labels, buttons, headings or table text in Space Grotesk; it is reserved for the wordmark, large figures and clocks.",
@@ -694,7 +1084,12 @@
       "**Don't** box content in cards, add shadows, gradients or glass, or fill a section band.",
       "**Don't** set anything but a runnable command in Geist Mono.",
       "**Don't** add a second accent: cyan is the only one, amber lives only inside the tide illustration.",
-      "**Don't** present a usage figure as live data."
+      "**Don't** present a usage figure as live data.",
+      "**Don't** draw a pace tick, a pace diagonal, a threshold line or a reset time on the web; sync carries none of them.",
+      "**Don't** present a synced reading as live (\"now\", \"in use\", \"running\").",
+      "**Don't** fill a button with cyan or set a heading in cyan.",
+      "**Don't** add shadows, cards or fills to in-page surfaces; only floating menus carry a shadow.",
+      "**Don't** put a tracked uppercase eyebrow or kicker over a heading or figure; labels are sentence-case Geist."
     ]
   }
 }

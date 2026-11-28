@@ -37,6 +37,7 @@ struct ProfilesPane: View {
     @State private var sheet: ProfileSheet?
     @State private var confirmDelete = false
     @State private var confirmRollback = false
+    @State private var toggled: Set<String> = []
 
     var body: some View {
         Group {
@@ -61,29 +62,47 @@ struct ProfilesPane: View {
     }
 
     private var content: some View {
-        VStack(spacing: 0) {
-            header.padding(16)
-            Divider()
-            inventoryList
+        Form {
+            if model.profiles.isEmpty, !model.loading, model.error == nil { intro }
+            header
+            inventorySections
         }
+        .formStyle(.grouped)
+        .paneFrame()
         .toolbar {
             ToolbarItemGroup {
-                Button { sheet = .save } label: { Label("Save Snapshot", systemImage: "square.and.arrow.down.on.square") }
+                Button("Save Snapshot…") { sheet = .save }
                     .help("Save the live ~/.claude as a named profile")
-                Button { sheet = .export } label: { Label("Export", systemImage: "square.and.arrow.up") }
+                Button("Export…") { sheet = .export }
                     .help("Write a .haryx-profile file for another machine")
-                Button { importFile() } label: { Label("Import", systemImage: "square.and.arrow.down") }
+                Button("Import…") { importFile() }
                     .help("Store a .haryx-profile file from another machine")
                 Button { Task { await model.reload(store.cli) } } label: {
                     Label("Refresh", systemImage: "arrow.clockwise").spinning(model.loading)
                 }
+                .help("Read the profiles again")
                 .disabled(model.loading)
             }
         }
     }
 
+    /// Shown until the first profile is saved or imported: what a profile is, and the two ways to get one.
+    private var intro: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("A profile is a saved copy of your Claude Code setup: settings, hooks, MCP servers and plugins. Save one to restore it later, or export it to set up another machine.")
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Button("Save Snapshot…") { sheet = .save }.buttonStyle(.glassProminent)
+                    Button("Import…") { importFile() }.buttonStyle(.glass)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
     private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
+        Section {
             Picker("Profile", selection: $model.selected) {
                 Text("default (live ~/.claude)").tag(ProfileJSON.defaultName)
                 if !model.profiles.isEmpty { Divider() }
@@ -91,43 +110,64 @@ struct ProfilesPane: View {
                     Text(p.lastApplied ? "\(p.name) (last applied)" : p.name).tag(p.name)
                 }
             }
-            .frame(maxWidth: 320)
             if let s = model.selectedSummary {
-                Text("\(profileByteString(s.totalBytes)) · from \(s.sourceOs) · secrets \(s.secrets)\(s.hasCredentials ? " · credentials" : "")")
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                LabeledContent("Contains", value: "\(profileByteString(s.totalBytes)) · from \(s.sourceOs) · secrets \(s.secrets)\(s.hasCredentials ? " · credentials" : "")")
             }
-            Spacer()
-            if model.loading { ProgressView().controlSize(.small) }
-            if model.selected != ProfileJSON.defaultName {
-                Button("Diff") { sheet = .diff(model.selected) }
-                    .buttonStyle(.glass)
-                    .help("Compare this profile with the live ~/.claude")
-                Button("Apply…") { sheet = .apply(model.selected) }.buttonStyle(.glassProminent)
-                Button(role: .destructive) { confirmDelete = true } label: { Image(systemName: "trash") }
-                    .help("Delete this saved profile")
+            if model.selected != ProfileJSON.defaultName || hasAppliedProfile {
+                HStack {
+                    if model.selected != ProfileJSON.defaultName {
+                        Button("Apply…") { sheet = .apply(model.selected) }.buttonStyle(.glassProminent)
+                        Button("Diff") { sheet = .diff(model.selected) }
+                            .buttonStyle(.glass)
+                            .help("Compare this profile with the live ~/.claude")
+                    }
+                    Spacer()
+                    if hasAppliedProfile {
+                        Button("Undo Last Apply…") { confirmRollback = true }.buttonStyle(.glass)
+                    }
+                    if model.selected != ProfileJSON.defaultName {
+                        Button("Delete…", role: .destructive) { confirmDelete = true }
+                            .buttonStyle(.glass).tint(.red)
+                            .help("Delete this saved profile")
+                    }
+                }
             }
-            Button { confirmRollback = true } label: { Image(systemName: "arrow.uturn.backward") }
-                .help("Undo the last apply")
         }
     }
 
-    @ViewBuilder private var inventoryList: some View {
+    /// The last apply left a backup to restore: some profile is marked last applied.
+    private var hasAppliedProfile: Bool { model.profiles.contains(where: \.lastApplied) }
+
+    @ViewBuilder private var inventorySections: some View {
         if let error = model.error {
-            ContentUnavailableView("Could not read the profile", systemImage: "exclamationmark.triangle", description: Text(error))
+            Section { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red) }
         } else if let inventory = model.inventory {
-            List {
-                ForEach(inventory.grouped, id: \.category) { group in
-                    Section {
+            ForEach(inventory.grouped, id: \.category) { group in
+                Section {
+                    Fold(isExpanded: expansion(group.category, startsOpen: group.items.contains(where: \.isProblem))) {
+                        LabeledContent(categoryTitle(group.category), value: ProfileInventory.summary(group.items))
+                    } content: {
                         ForEach(group.items) { ProfileItemRow(item: $0) }
-                    } header: {
-                        let optional = ProfileCategory.all.first { $0.name == group.category }?.defaultOn == false
-                        Text(ProfileCategory.title(of: group.category) + (optional ? " (opt-in)" : ""))
                     }
                 }
             }
         } else {
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            Section { ProgressView().frame(maxWidth: .infinity) }
         }
+    }
+
+    private func categoryTitle(_ category: String) -> String {
+        let optional = ProfileCategory.all.first { $0.name == category }?.defaultOn == false
+        return ProfileCategory.title(of: category) + (optional ? " (opt-in)" : "")
+    }
+
+    /// Categories start closed, except one holding an item that needs attention; `toggled` holds the
+    /// categories the user has flipped from that starting state.
+    private func expansion(_ category: String, startsOpen: Bool) -> Binding<Bool> {
+        Binding(
+            get: { startsOpen != toggled.contains(category) },
+            set: { open in toggled = open == startsOpen ? toggled.subtracting([category]) : toggled.union([category]) }
+        )
     }
 
     private func importFile() {
@@ -174,11 +214,13 @@ struct ProfileItemRow: View {
                         .font(.caption).foregroundStyle(.secondary).monospacedDigit()
                 }
             }
-            ForEach(item.detail, id: \.self) { line in
-                Text(Self.shortDetail(line)).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
+            // A hook registered for several events reads the same each time: show it once, with a count.
+            ForEach(ProfileInventory.counted(item.detail.map(Self.shortDetail)), id: \.line) { entry in
+                Text(entry.count > 1 ? "\(entry.line) ×\(entry.count)" : entry.line)
+                    .font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
                     .truncationMode(.middle)
                     .padding(.leading, 26)
-                    .help(HookSummary.tilde(line))
+                    .help(fullDetail(entry.line))
             }
         }
     }
@@ -189,6 +231,11 @@ struct ProfileItemRow: View {
         let prefix = "hook: "
         guard line.hasPrefix(prefix) else { return HookSummary.tilde(line) }
         return prefix + HookSummary.short(String(line.dropFirst(prefix.count)))
+    }
+
+    /// The first full line behind a shortened one, for the hover help.
+    private func fullDetail(_ short: String) -> String {
+        HookSummary.tilde(item.detail.first { Self.shortDetail($0) == short } ?? short)
     }
 
     private var icon: String {

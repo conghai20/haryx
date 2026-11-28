@@ -9,9 +9,6 @@ export const MIN_PASSPHRASE = 12;
 export const PASSPHRASE_WARNING =
   "HaryX cannot recover this passphrase. Any Mac or PC that is still unlocked can set a new one.";
 
-export const DELETE_CONFIRM =
-  "Delete your HaryX account? This removes everything synced, on every machine. Your Claude accounts on this PC are not touched.";
-
 /** A command's JSON whatever its exit code (failures print `{"ok": false, …}` and exit 1). */
 export function parseCli<T extends object>(r: RunResult): T | CliFailure {
   try {
@@ -41,6 +38,10 @@ export interface SyncProblem {
   unlock: boolean;
   /** The HaryX session is gone: show the sign-in. */
   signedOut: boolean;
+  /** The sign-in server ended this PC's session (from HaryX on the web or the WeCoAp account page). */
+  fromWeb?: boolean;
+  /** The HaryX ID has not given (or withdrew) its consent to sync: ask for it. */
+  consent?: boolean;
 }
 
 export function syncProblem(f: CliFailure): SyncProblem {
@@ -49,7 +50,9 @@ export function syncProblem(f: CliFailure): SyncProblem {
     case "not_signed_in":
       return problem("Sign in to sync.", false, true);
     case "signed_out":
-      return problem("Signed out of HaryX. Sign in again to sync.", false, true);
+      return { ...problem("Signed out of HaryX from the web.", false, true), fromWeb: true };
+    case "consent_required":
+      return { ...problem("Sync is off for your HaryX account. Turn it on to sync."), consent: true };
     case "locked":
       return problem("Enter your sync passphrase to unlock this PC.", true);
     case "key_changed":
@@ -89,14 +92,10 @@ export function syncedAgo(iso: string | null, now: number): string {
   return `Synced ${new Date(at).toLocaleString()}`;
 }
 
-/** The ways to sign in to HaryX; the id is `haryx login --provider`. */
-export const SIGN_IN_PROVIDERS = [
-  { id: "github", label: "GitHub" },
-  { id: "google", label: "Google" },
-] as const;
-
-export type SignInProvider = (typeof SIGN_IN_PROVIDERS)[number]["id"];
+/** The one way into HaryX: `haryx login`, whose WeCoAp SSO page offers every method. */
+export const SIGN_IN_LABEL = "Sign in with WeCoAp";
 
 export function providerName(provider: string): string {
-  return provider === "github" ? "GitHub" : provider === "google" ? "Google" : provider;
+  const names: Record<string, string> = { github: "GitHub", google: "Google", apple: "Apple", email: "Email" };
+  return names[provider] ?? provider;
 }

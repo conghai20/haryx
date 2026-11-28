@@ -27,7 +27,7 @@ struct AccountFooter: View {
             case .waiting(let url, _):
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
-                    Text("Signing in with \(sync.signInProvider.label)…")
+                    Text("Signing in with WeCoAp…")
                         .font(.callout).foregroundStyle(.secondary).lineLimit(1)
                     Spacer(minLength: 0)
                     if let url {
@@ -39,31 +39,29 @@ struct AccountFooter: View {
                         .help("Cancel sign-in")
                 }
             case .idle, .failed:
+                if sync.signedOutFromWeb, sync.signIn == .idle {
+                    Label("Signed out of HaryX from the web", systemImage: "person.crop.circle.badge.xmark")
+                        .font(.caption).foregroundStyle(Brand.warn).lineLimit(2)
+                }
                 if case .failed(let message) = sync.signIn {
                     Label(message, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption).foregroundStyle(Brand.warn).lineLimit(3)
                 }
-                SignInMenu(sync: sync, title: "Sign in to HaryX")
-                    .menuStyle(.button).buttonStyle(.glass)
+                SignInButton(sync: sync, title: AccountSync.signInTitle)
+                    .buttonStyle(.glass)
                     .frame(maxWidth: .infinity)
             }
         }
     }
 }
 
-/// A menu of the ways to sign in to HaryX. Unavailable providers are listed, disabled.
-struct SignInMenu: View {
+/// Sign in to HaryX through WeCoAp SSO; its page offers every sign-in method.
+struct SignInButton: View {
     let sync: AccountSync
     let title: String
 
     var body: some View {
-        Menu {
-            ForEach(AccountSync.SignInProvider.allCases) { provider in
-                Button("Continue with \(provider.label)") {
-                    sync.signIn(with: provider)
-                }
-            }
-        } label: {
+        Button { sync.startSignIn() } label: {
             Label(title, systemImage: "person.crop.circle")
                 .frame(maxWidth: .infinity)
         }
@@ -80,6 +78,7 @@ private struct SignedInMenu: View {
         Menu {
             Section("Signed in with \(user.providerName)") {
                 Button("Account & Sync…") { DashboardRouter.shared.section = .haryxAccount }
+                Link("Open HaryX on the Web", destination: HaryXLinks.web)
                 Button("Sign Out") { Task { error = await sync.signOut() } }
             }
         } label: {

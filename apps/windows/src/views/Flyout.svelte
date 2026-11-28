@@ -6,31 +6,50 @@
   import { api } from "../lib/api";
   import { store } from "../lib/store.svelte";
   import ClaudeSetupBanner from "../components/ClaudeSetupBanner.svelte";
-  import { accountGroups, groupLabel, groupNames, groupSections, groupsInUse, isInGroup } from "../lib/groups";
+  import { accountGroups, groupNames, groupSections, groupsInUse, isInGroup, listSections } from "../lib/groups";
   import { bestTarget, exhausted, resting } from "../lib/handoff";
   import {
     FIVE_HOUR_S,
     HIGH_PCT,
     SEVEN_DAY_S,
     displayName,
+    middleEllipsis,
     needsRelogin,
     paceLine,
     pctLabel,
+    plansVary,
+    rowName,
     shortName,
     statusNote,
     tier,
     canRelogin,
+    weekIsTighter,
   } from "../lib/tide";
+  import type { Account } from "../lib/types";
+  import Icon from "../components/Icon.svelte";
   import Lockup from "../components/Lockup.svelte";
   import Mascot from "../components/Mascot.svelte";
   import TideStaff from "../components/TideStaff.svelte";
 
   let active = $derived(store.active);
+  // The 5-hour window leads; the week sits under it and turns amber when it is the tighter limit.
   let five = $derived(active?.usage?.fiveHour ?? null);
   let week = $derived(active?.usage?.sevenDay ?? null);
+  let fiveTier = $derived(tier(five, FIVE_HOUR_S, store.now));
+  let weekWarn = $derived((week?.pct ?? 0) >= HIGH_PCT || weekIsTighter(active?.usage));
   let pace = $derived(paceLine(five, store.now));
+  // Each group once with switch order inside it; accounts held out of rotation are never next, so
+  // they fold into one line at the bottom (macOS NextInLine).
+  let sections = $derived(listSections(store.others.filter((a) => !a.disabled), active ?? null));
+  let heldOut = $derived(store.others.filter((a) => a.disabled));
+  let showHeldOut = $state(false);
+  let showsPlan = $derived(plansVary(store.accounts));
+  /** Middle-cut row names: local parts often differ only at the end ("…claude03"). */
+  // ponytail: a character count, not a measured width; measure the cell if names still clip.
+  const ROW_NAME_CHARS = 18;
   let running = $derived(active ? store.runningFor(active) : 0);
-  let next = $derived(store.others.find((a) => !a.disabled) ?? null);
+  // The best account, not the first row: every row already has its own Use (macOS QuickActions).
+  let best = $derived(bestTarget(store.accounts, active?.number ?? null));
   let terminalOpen = $state(false);
   /** The account row whose action menu is open. */
   let rowMenu = $state<number | null>(null);
@@ -56,12 +75,85 @@
 
 <svelte:window onkeydown={onKey} />
 
+{#snippet accountRow(a: Account)}
+  {@const f = a.usage?.fiveHour}
+  {@const w = a.usage?.sevenDay}
+  <!-- Only an account held out of rotation is dimmed; one at its limit keeps its red figure. -->
+  <div class="grid row-item" class:off={a.disabled}>
+    <button
+      class="identity plain"
+      title={a.email}
+      aria-haspopup="menu"
+      aria-expanded={rowMenu === a.number}
+      onclick={() => (rowMenu = rowMenu === a.number ? null : a.number)}
+    >
+      <Mascot account={a} size={18} />
+      <span class="truncate">
+        {middleEllipsis(rowName(a, store.accounts), ROW_NAME_CHARS)}
+        {#if showsPlan && a.plan?.label}<span class="caption tertiary">{a.plan.label}</span>{/if}
+      </span>
+    </button>
+    <span class="num" class:warn-text={(f?.pct ?? 0) >= HIGH_PCT}>{pctLabel(f?.pct)}</span>
+    <span class="num" class:warn-text={(w?.pct ?? 0) >= HIGH_PCT}>{pctLabel(w?.pct)}</span>
+    <span class="num tertiary">{f?.clock ?? f?.countdown ?? ""}</span>
+    <button
+      class="mini"
+      disabled={!!store.busy || resting(a)}
+      title={exhausted(a) ? `${displayName(a)} is at its limit` : undefined}
+      onclick={() => actions.use(a)}
+      aria-label="Use {displayName(a)}">Use</button
+    >
+  </div>
+  {#if rowMenu === a.number}
+    <!-- macOS AccountActionMenu: Info, Sign In Again, Switch, Force Switch, Group, Remove. -->
+    <div class="menu row-menu" role="menu" aria-label="{displayName(a)} actions">
+      <button role="menuitem" onclick={() => rowAction(() => api.openDashboard("accounts", a.number))}>Info</button>
+      {#if canRelogin(a)}
+        <div class="sep" role="separator"></div>
+        <button role="menuitem" onclick={() => rowAction(() => actions.signIn(a))}>Sign In Again…</button>
+      {/if}
+      <div class="sep" role="separator"></div>
+      <button role="menuitem" disabled={a.active || !!store.busy} onclick={() => rowAction(() => actions.use(a))}>Switch</button>
+      <!-- Named and confirmed as in the inspector: it skips backing up the current login. -->
+      <button role="menuitem" disabled={!!store.busy} onclick={() => rowAction(() => actions.forceUse(a))}
+        >Switch Without Saving Current Login…</button
+      >
+      <div class="sep" role="separator"></div>
+      <p class="caption tertiary menu-head" aria-hidden="true">Groups</p>
+      {#each groupNames(store.accounts) as name (name)}
+        {@const member = isInGroup(a, name)}
+        <button
+          role="menuitemcheckbox"
+          aria-checked={member}
+          disabled={!!store.busy}
+          onclick={() => rowAction(() => (member ? actions.removeFromGroup(a, name) : actions.addToGroup(a, name)))}
+          >{member ? "✓ " : ""}{name}</button
+        >
+      {/each}
+      <!-- The flyout has no room for the New Group dialog: it opens the dashboard on this account,
+           whose details panel has its Groups field. -->
+      <button role="menuitem" onclick={() => rowAction(() => api.openDashboard("accounts", a.number))}>New Group…</button>
+      {#if accountGroups(a).length > 1}
+        <button role="menuitem" disabled={!!store.busy} onclick={() => rowAction(() => actions.clearGroups(a))}>Remove from All Groups</button>
+      {/if}
+      <div class="sep" role="separator"></div>
+      <button role="menuitem" disabled={!!store.busy} onclick={() => rowAction(() => actions.remove(a))}>Remove…</button>
+    </div>
+  {/if}
+{/snippet}
+
 <main class="flyout">
   <header>
     <Lockup size={18} />
-    <span class="caption auto" title="Auto-switch">
-      {#if store.autoRunning}<span class="dot"></span> Auto-switch on{:else}Auto-switch off{/if}
-    </span>
+    <!-- A switch, as on macOS: it reads as a control and shows its state. -->
+    <button
+      class="plain caption auto"
+      class:on={store.autoRunning}
+      role="switch"
+      aria-checked={store.autoRunning}
+      title={store.autoRunning ? "Stop auto-switch" : "Start auto-switch"}
+      onclick={() => store.toggleAuto()}
+    ><span class="track" aria-hidden="true"><span class="knob"></span></span>Auto-switch</button>
     <span class="spacer"></span>
     <button class="plain" title="Refresh" aria-label="Refresh" onclick={() => api.refresh()}>⟳</button>
     <button class="plain" title="Add the current Claude Code login" aria-label="Add account" onclick={() => actions.addCurrent()}>＋</button>
@@ -83,10 +175,17 @@
         {/if}
       </div>
       <div class="reading">
-        <span class="display big" class:warn={tier(five, FIVE_HOUR_S, store.now) === "warn"} class:limit={tier(five, FIVE_HOUR_S, store.now) === "limit"}>
+        <span class="display big" class:warn={fiveTier === "warn"} class:limit={fiveTier === "limit"}>
           {pctLabel(five?.pct)}
         </span>
-        <span class="clock display">{five?.clock ?? five?.countdown ?? ""}</span>
+        <span class="secondary figure">of 5-hour window</span>
+        <span class="spacer"></span>
+        {#if five?.clock ?? five?.countdown}
+          <span class="clock display">{five?.clock ?? five?.countdown}</span>
+        {:else}
+          <!-- A window with no reset has not started. -->
+          <span class="caption secondary">starts on first use</span>
+        {/if}
       </div>
       <TideStaff window={five} windowS={FIVE_HOUR_S} now={store.now} height={6} label="5-hour usage" />
       <div class="caption pace">
@@ -94,7 +193,7 @@
         {#if five?.countdown}<span class="tertiary"> · resets in {five.countdown}</span>{/if}
       </div>
       <div class="caption week-line">
-        <span class:warn-text={(week?.pct ?? 0) >= HIGH_PCT}>Week {pctLabel(week?.pct)}</span>
+        <span class:warn-text={weekWarn}>Week {pctLabel(week?.pct)}</span>
         {#if week?.countdown}<span class="tertiary"> · resets in {week.countdown}</span>{/if}
       </div>
       <TideStaff window={week} windowS={SEVEN_DAY_S} now={store.now} height={3} label="Weekly usage" />
@@ -118,75 +217,29 @@
       <span>Next in line</span><span class="num">5h</span><span class="num">7d</span><span class="num">Resets</span><span></span>
     </div>
     <div class="rows">
-      {#each store.others as a, i (a.number)}
-        {@const f = a.usage?.fiveHour}
-        {@const prev = store.others[i - 1]}
-        <!-- The list keeps switch order, so the groups are named wherever the run changes. -->
-        {#if groupsInUse(store.accounts) && (!prev || groupLabel(a) !== groupLabel(prev))}
-          <p class="caption secondary group-row" role="heading" aria-level="3">{groupLabel(a)}</p>
+      {#each sections as section (section.key)}
+        {#if groupsInUse(store.accounts)}
+          <p class="caption tertiary group-row" role="heading" aria-level="3">{section.name ?? "Ungrouped"}</p>
         {/if}
-        {@const w = a.usage?.sevenDay}
-        <div class="grid row-item" class:off={resting(a)}>
-          <button
-            class="identity plain"
-            title={a.email}
-            aria-haspopup="menu"
-            aria-expanded={rowMenu === a.number}
-            onclick={() => (rowMenu = rowMenu === a.number ? null : a.number)}
-          >
-            <Mascot account={a} size={18} />
-            <span class="truncate">
-              {displayName(a)}
-              {#if a.plan?.label}<span class="caption tertiary">{a.plan.label}</span>{/if}
-            </span>
-          </button>
-          <span class="num" class:warn-text={(f?.pct ?? 0) >= HIGH_PCT}>{pctLabel(f?.pct)}</span>
-          <span class="num" class:warn-text={(w?.pct ?? 0) >= HIGH_PCT}>{pctLabel(w?.pct)}</span>
-          <span class="num tertiary">{f?.clock ?? f?.countdown ?? ""}</span>
-          <button
-            class="mini"
-            disabled={!!store.busy || resting(a)}
-            title={exhausted(a) ? `${displayName(a)} is at its limit` : undefined}
-            onclick={() => actions.use(a)}
-            aria-label="Use {displayName(a)}">Use</button
-          >
-        </div>
-        {#if rowMenu === a.number}
-          <!-- macOS AccountActionMenu: Info, Sign In Again, Switch, Force Switch, Group, Remove. -->
-          <div class="menu row-menu" role="menu" aria-label="{displayName(a)} actions">
-            <button role="menuitem" onclick={() => rowAction(() => api.openDashboard("accounts", a.number))}>Info</button>
-            {#if canRelogin(a)}
-              <div class="sep" role="separator"></div>
-              <button role="menuitem" onclick={() => rowAction(() => actions.signIn(a))}>Sign In Again…</button>
-            {/if}
-            <div class="sep" role="separator"></div>
-            <button role="menuitem" disabled={a.active || !!store.busy} onclick={() => rowAction(() => actions.use(a))}>Switch</button>
-            <button role="menuitem" disabled={!!store.busy} onclick={() => rowAction(() => actions.use(a, true))}>Force Switch</button>
-            <div class="sep" role="separator"></div>
-            <p class="caption tertiary menu-head" aria-hidden="true">Groups</p>
-            {#each groupNames(store.accounts) as name (name)}
-              {@const member = isInGroup(a, name)}
-              <button
-                role="menuitemcheckbox"
-                aria-checked={member}
-                disabled={!!store.busy}
-                onclick={() => rowAction(() => (member ? actions.removeFromGroup(a, name) : actions.addToGroup(a, name)))}
-                >{member ? "✓ " : ""}{name}</button
-              >
-            {/each}
-            <!-- The flyout has no room for the New Group dialog: it opens the dashboard on this account,
-                 whose details panel has its Groups field. -->
-            <button role="menuitem" onclick={() => rowAction(() => api.openDashboard("accounts", a.number))}>New Group…</button>
-            {#if accountGroups(a).length > 1}
-              <button role="menuitem" disabled={!!store.busy} onclick={() => rowAction(() => actions.clearGroups(a))}>Remove from All Groups</button>
-            {/if}
-            <div class="sep" role="separator"></div>
-            <button role="menuitem" disabled={!!store.busy} onclick={() => rowAction(() => actions.remove(a))}>Remove…</button>
-          </div>
-        {/if}
-      {:else}
-        <p class="caption tertiary">No other accounts.</p>
+        {#each section.accounts as a (a.number)}{@render accountRow(a)}{/each}
       {/each}
+      {#if heldOut.length > 0}
+        <button
+          class="plain caption tertiary held-toggle"
+          aria-expanded={showHeldOut}
+          title="Accounts held out of rotation: auto-switch and Switch never pick them"
+          onclick={() => (showHeldOut = !showHeldOut)}
+        >
+          <span class="chevron" class:open={showHeldOut} aria-hidden="true"><Icon name="chevronRight" size={12} /></span>
+          Held out ({heldOut.length})
+        </button>
+        {#if showHeldOut}
+          {#each heldOut as a (a.number)}{@render accountRow(a)}{/each}
+        {/if}
+      {/if}
+      {#if store.others.length === 0}
+        <p class="caption tertiary">No other accounts.</p>
+      {/if}
     </div>
   </section>
 
@@ -225,8 +278,13 @@
   {/if}
 
   <footer>
-    <button class="primary switch" disabled={!next || !!store.busy} onclick={() => actions.next()}>
-      {next ? `Switch to ${shortName(next)}` : "Switch"}
+    <button
+      class="primary switch"
+      disabled={!!store.busy}
+      title={best ? `Switch to ${best.email}, the account with most headroom` : "Switch to the account with most headroom"}
+      onclick={() => (best ? actions.use(best) : actions.next())}
+    >
+      {best ? `Switch to ${shortName(best)}` : "Switch"}
     </button>
     <button title="Open the dashboard" aria-label="Open the dashboard" onclick={() => api.openDashboard()}>▦</button>
     <div class="split">
@@ -283,9 +341,36 @@
   .spacer {
     flex: 1;
   }
-  .auto .dot,
   .running .dot {
     margin-right: 4px;
+  }
+  .auto {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--label-2);
+    font-weight: 500;
+  }
+  .auto.on {
+    color: var(--cyan-text);
+  }
+  .track {
+    width: 22px;
+    height: 12px;
+    padding: 1px;
+    border-radius: 6px;
+    background: var(--track);
+    display: inline-flex;
+  }
+  .auto.on .track {
+    background: var(--cyan-ink);
+    justify-content: flex-end;
+  }
+  .knob {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #fff;
   }
   .name {
     flex: 1;
@@ -295,8 +380,11 @@
     margin-left: 6px;
   }
   .reading {
-    justify-content: space-between;
+    align-items: baseline;
     margin: 6px 0 8px;
+  }
+  .figure {
+    font-size: 12px;
   }
   .big {
     font-size: 44px;
@@ -352,6 +440,26 @@
   .group-row {
     margin: 6px 8px 0;
     font-weight: 500;
+  }
+  .held-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: 8px 0 2px;
+    padding: 2px 8px;
+    font-weight: 500;
+  }
+  .chevron {
+    display: inline-flex;
+    transition: transform 120ms ease-out;
+  }
+  .chevron.open {
+    transform: rotate(90deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chevron {
+      transition: none;
+    }
   }
   .row-item:hover {
     background: color-mix(in srgb, var(--fill-strong) 50%, transparent);

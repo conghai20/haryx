@@ -4,6 +4,7 @@ import {
   accountGroups,
   groupLabel,
   isInGroup,
+  listSections,
   groupNames,
   groupOrdered,
   groupSections,
@@ -98,6 +99,18 @@ describe("account groups", () => {
     const active = multi(1, ["Work"], true);
     const others = [multi(2, ["Home", "Work"]), multi(3, ["Home"]), multi(4, [])];
     expect(groupOrdered(others, active).map((x) => x.number)).toEqual([2, 3, 4]);
+  });
+
+  it("names each group once in the flyout list, the active group first (macOS listSections)", () => {
+    const active = multi(9, ["Phung's"], true);
+    // Switch order interleaves the groups: Personal, Phung's, Personal, Phung's.
+    const others = [multi(1, ["Personal"]), multi(2, ["Phung's"]), multi(3, ["Personal"]), multi(4, ["Phung's", "Personal"]), multi(5, [])];
+    const sections = listSections(others, active);
+    expect(sections.map((s) => s.name)).toEqual(["Phung's", "Personal", null]);
+    expect(sections[0]?.accounts.map((x) => x.number)).toEqual([2, 4]);
+    expect(sections[1]?.accounts.map((x) => x.number)).toEqual([1, 3]);
+    expect(listSections([acct(1, null), acct(2, null)], null)).toEqual([{ key: "", name: null, accounts: [acct(1, null), acct(2, null)] }]);
+    expect(listSections([], null)).toEqual([]);
   });
 
   it("reads an older CLI's single group", () => {

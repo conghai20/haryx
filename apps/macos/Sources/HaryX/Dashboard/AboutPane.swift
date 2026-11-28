@@ -17,10 +17,6 @@ struct AboutPane: View {
                         Text("Version \(updates.appVersion)").foregroundStyle(.secondary)
                     }
                 }
-                LabeledContent("Command-line backend", value: store.version.isEmpty ? "not found" : store.version)
-                if let path = store.cli?.executable.path {
-                    LabeledContent("Using", value: (path as NSString).abbreviatingWithTildeInPath)
-                }
                 HStack {
                     Link("GitHub", destination: URL(string: "https://github.com/conghai20/haryx")!)
                     Link("All releases", destination: URL(string: "https://github.com/conghai20/haryx/releases")!)
@@ -29,6 +25,7 @@ struct AboutPane: View {
             }
 
             UpdateSection(updates: updates)
+            CLISection()
 
             if let check = updates.check, let notes = check.notes, !notes.isEmpty {
                 Section {
@@ -44,6 +41,26 @@ struct AboutPane: View {
         .formStyle(.grouped)
         .paneFrame()
         .task { if updates.check == nil { await updates.checkNow(refresh: false) } }
+    }
+}
+
+/// The command-line backend the app drives: which one, where, and its upgrade, data folder and log.
+private struct CLISection: View {
+    @Environment(AppStore.self) private var store
+
+    var body: some View {
+        Section(store.cli?.flavor == .cswap ? "cswap CLI" : "HaryX CLI") {
+            LabeledContent("Version", value: store.version.isEmpty ? "not found" : store.version)
+            LabeledContent("Executable", value: store.cli.map { ($0.executable.path as NSString).abbreviatingWithTildeInPath } ?? "not found")
+            HStack {
+                Button("Upgrade \(store.cli?.flavor.rawValue ?? "haryx")") { Task { await store.upgrade() } }
+                    .disabled(store.cli == nil)
+                Button("Open Data Folder") { NSWorkspace.shared.open(URL(fileURLWithPath: CSwapCLI.backupRoot)) }
+                Button("Show Log") {
+                    NSWorkspace.shared.selectFile(CSwapCLI.backupRoot + "/" + CSwapCLI.selectedFlavor.logFileName, inFileViewerRootedAtPath: "")
+                }
+            }
+        }
     }
 }
 

@@ -29,7 +29,8 @@ struct UpdateLine: View {
         HStack {
             Label(title, systemImage: systemImage).font(.caption.weight(.medium)).foregroundStyle(.tint)
             Spacer()
-            Button(action, action: perform).controlSize(.small)
+            // The panel's one inline-action style, as on the Desktop line.
+            Button(action, action: perform).buttonStyle(.glass).controlSize(.mini)
         }
         .padding(.top, 8)
     }

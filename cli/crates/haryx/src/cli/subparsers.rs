@@ -204,8 +204,9 @@ struct AutoArgs {
     #[arg(long, overrides_with = "include_api_key_accounts")]
     no_include_api_key_accounts: bool,
 
-    /// Target selection: 'best' (most quota left; default), 'weekly-first' (switch at the threshold
-    /// like best, onto the account whose weekly window resets soonest), 'consume-first'
+    /// Target selection: 'best' (most quota left, and among accounts within the hysteresis of
+    /// that, the one whose weekly window resets soonest; default), 'weekly-first' (switch at the
+    /// threshold like best, onto the account whose weekly window resets soonest), 'consume-first'
     /// (proactively use the account whose weekly window resets soonest), or
     /// 'priority-consume-first' (highest account priority, then soonest weekly reset; only targets
     /// below all switch lines)

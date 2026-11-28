@@ -15,7 +15,8 @@ struct StuckSessionsLine: View {
                     .lineLimit(1)
                 Spacer()
                 Button("Continue on \(target.number)") { store.continueStuck() }
-                    .controlSize(.small)
+                    .buttonStyle(.glass)
+                    .controlSize(.mini)
                     .help("Ends \(stuck.count == 1 ? "it" : "them") and resumes the same conversation\(stuck.count == 1 ? "" : "s") on \(target.displayName).")
             }
             .padding(.top, 8)

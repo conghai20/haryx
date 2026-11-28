@@ -100,6 +100,20 @@ export function groupOrdered(others: Account[], active: Account | null): Account
     .filter((a) => a !== active && !seen.has(a.number) && (seen.add(a.number), true));
 }
 
+/**
+ * The flyout list's sections, as macOS `AccountGroups.listSections`: `others` (in switch order)
+ * under each group once, the active account's groups first, an account in several groups at its
+ * first section only. A list with no groups is one unnamed section.
+ */
+export function listSections(others: Account[], active: Account | null): GroupSection[] {
+  const all = active ? [active, ...others] : others;
+  if (!groupsInUse(all)) return others.length > 0 ? [{ key: "", name: null, accounts: others }] : [];
+  const seen = new Set<number>();
+  return groupSections(all, true)
+    .map((s) => ({ ...s, accounts: s.accounts.filter((a) => !seen.has(a.number) && (seen.add(a.number), true)) }))
+    .filter((s) => s.accounts.length > 0);
+}
+
 /** The CLI's longest group name (`GROUP_MAX_CHARS`). */
 export const GROUP_MAX_CHARS = 32;
 

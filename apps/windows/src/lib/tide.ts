@@ -88,8 +88,8 @@ export function cardWeeklyPace(
 }
 
 /** The panel's pace line: "N pts ahead of pace", "N pts under pace", "on pace", or nothing. */
-export function paceLine(w: UsageWindow | null | undefined, now: number): PaceLine | null {
-  const d = paceDelta(w, FIVE_HOUR_S, now);
+export function paceLine(w: UsageWindow | null | undefined, now: number, windowS: number = FIVE_HOUR_S): PaceLine | null {
+  const d = paceDelta(w, windowS, now);
   if (d == null) return null;
   if (d >= PACE_THRESHOLD) return { text: `${d} pts ahead of pace`, warn: true };
   if (d <= -PACE_THRESHOLD) return { text: `${-d} pts under pace`, warn: false };
@@ -107,6 +107,36 @@ export function displayName(a: Account): string {
 /** The short name a Switch button uses: the alias, else the email's local part. */
 export function shortName(a: Account): string {
   return a.alias && a.alias.length > 0 ? a.alias : (a.email.split("@")[0] ?? a.email);
+}
+
+/**
+ * An almanac row's name, as macOS `AccountNames.rowName`: the alias, else the email's local part,
+ * else (when another account shares that local part) the whole email.
+ */
+export function rowName(a: Account, accounts: Account[]): string {
+  if (a.alias && a.alias.length > 0) return a.alias;
+  const local = (e: string) => e.split("@")[0] ?? e;
+  const mine = local(a.email).toLowerCase();
+  const shared = accounts.some((o) => o.number !== a.number && local(o.email).toLowerCase() === mine);
+  return shared ? a.email : local(a.email);
+}
+
+/** Below this the week is never flagged as the tighter limit (macOS `Usage.tighterWeekFloor`). */
+export const TIGHTER_WEEK_FLOOR = 50;
+
+/**
+ * The week has less left than the 5-hour window, past `TIGHTER_WEEK_FLOOR`: the flyout leads with
+ * the 5-hour figure and turns the week line amber instead (macOS `Usage.weekIsTighter`).
+ */
+export function weekIsTighter(usage: Account["usage"]): boolean {
+  const week = usage?.sevenDay?.pct;
+  if (week == null || week < TIGHTER_WEEK_FLOOR) return false;
+  return week > (usage?.fiveHour?.pct ?? 0);
+}
+
+/** Whether rows need their plan label: only when the accounts do not all share one plan (macOS `AccountNames.plansVary`). */
+export function plansVary(accounts: Account[]): boolean {
+  return new Set(accounts.map((a) => a.plan?.label ?? "")).size > 1;
 }
 
 export function needsRelogin(a: Account): boolean {

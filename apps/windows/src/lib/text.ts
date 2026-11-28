@@ -49,18 +49,28 @@ export function wakeResultText(code: string | null | undefined): string {
 
 /**
  * A hook command for display: the home folder as ~, and a long command reduced to the name of the
- * script it runs plus its arguments. The full command belongs in the tooltip.
+ * script it runs plus its arguments up to the first flag. The full command belongs in the tooltip.
  */
 export function hookSummary(command: string, limit = 60): string {
   const text = command.replace(/[A-Za-z]:[\\/]Users[\\/][^\\/\s'"]+|\/Users\/[^/\s'"]+|\/home\/[^/\s'"]+/g, "~");
   if (text.length <= limit) return text;
   const tokens = text.split(" ").map((t) => t.replace(/^['"]+|['"]+$/g, ""));
+  const isPath = (t: string) => t.includes("/") || t.includes("\\");
+  const lastName = (t: string) => t.split(/[\\/]/).pop() ?? "";
+  // The script the command runs: the last path that is not a flag's value (`--node /x/node`).
   let pathIndex = -1;
+  let anyPath = -1;
   tokens.forEach((t, i) => {
-    if (t.includes("/") || t.includes("\\")) pathIndex = i;
+    if (!isPath(t)) return;
+    anyPath = i;
+    if (!(tokens[i - 1] ?? "").startsWith("-")) pathIndex = i;
   });
+  if (pathIndex === -1) pathIndex = anyPath;
   if (pathIndex === -1) return `${text.slice(0, limit)}…`;
-  const name = tokens[pathIndex]!.split(/[\\/]/).pop() ?? "";
-  const args = tokens.slice(pathIndex + 1).join(" ");
+  // Its arguments up to the first flag, paths by their last part.
+  const rest = tokens.slice(pathIndex + 1);
+  const flag = rest.findIndex((t) => t.startsWith("-"));
+  const args = (flag === -1 ? rest : rest.slice(0, flag)).map((t) => (isPath(t) ? lastName(t) : t)).join(" ");
+  const name = lastName(tokens[pathIndex]!);
   return args ? `${name} ${args}` : name;
 }

@@ -46,23 +46,17 @@ struct ConfigRow: View {
         "history.keepDays": Copy(label: "Keep usage history for", caption: "0 keeps everything.", unit: "days"),
     ]
 
-    /// The Auto-switch rules in the order they read best: when, how often, which account.
-    static let ruleOrder = [
-        "autoswitch.threshold", "autoswitch.weeklyThreshold", "autoswitch.strategy", "autoswitch.hysteresisPct",
-        "autoswitch.intervalSeconds", "autoswitch.cooldownSeconds", "autoswitch.unhealthyTicks",
-        "autoswitch.includeApiKeyAccounts", "autoswitch.model",
-    ]
-
     @FocusState private var focused: Bool
 
     var body: some View {
         LabeledContent {
             HStack {
-                editor
+                // Before the control, so every control keeps the trailing edge the app's own rows use.
                 if entry.isSet {
                     Button { Task { await store.configUnset(entry.key) } } label: { Image(systemName: "arrow.uturn.backward") }
                         .buttonStyle(.borderless).help("Reset to default")
                 }
+                editor.disabled(ConfigLayout.isBlocked(entry.key, in: store.config))
             }
         } label: {
             VStack(alignment: .leading, spacing: 2) {
@@ -79,7 +73,7 @@ struct ConfigRow: View {
     @ViewBuilder private var editor: some View {
         if let options = Self.choices[entry.key] {
             Picker("", selection: Binding(get: { entry.value.description }, set: { v in Task { await store.configSet(entry.key, v) } })) {
-                ForEach(options, id: \.self) { Text($0).tag($0) }
+                ForEach(options, id: \.self) { Text(ConfigLayout.choiceLabel(entry.key, $0)).tag($0) }
             }
             .labelsHidden().fixedSize()
         } else if case .bool(let on) = entry.value {
@@ -113,28 +107,30 @@ struct ConfigRow: View {
     }
 }
 
-/// A form section of config rows that records which keys hold an unsaved text edit in `unsaved`.
+/// Config rows in `ConfigLayout` order, recording which keys hold an unsaved text edit in `unsaved`.
+struct ConfigRows: View {
+    let entries: [ConfigEntry]
+    @Binding var unsaved: Set<String>
+
+    var body: some View {
+        ForEach(ConfigLayout.ordered(entries)) { entry in
+            ConfigRow(entry: entry) { isUnsaved in
+                unsaved = isUnsaved ? unsaved.union([entry.key]) : unsaved.subtracting([entry.key])
+            }
+        }
+    }
+}
+
+/// A form section of config rows; nothing at all when there are no entries.
 struct ConfigSection: View {
     let title: String
     let entries: [ConfigEntry]
     @Binding var unsaved: Set<String>
 
     var body: some View {
-        Section(title) {
-            ForEach(entries.sorted(by: Self.order)) { entry in
-                ConfigRow(entry: entry) { isUnsaved in
-                    unsaved = isUnsaved ? unsaved.union([entry.key]) : unsaved.subtracting([entry.key])
-                }
-            }
+        if !entries.isEmpty {
+            Section(title) { ConfigRows(entries: entries, unsaved: $unsaved) }
         }
-    }
-}
-
-extension ConfigSection {
-    /// Known keys in `ConfigRow.ruleOrder`, the rest after them in key order.
-    static func order(_ a: ConfigEntry, _ b: ConfigEntry) -> Bool {
-        let rank = { (k: String) in ConfigRow.ruleOrder.firstIndex(of: k) ?? Int.max }
-        return (rank(a.key), a.key) < (rank(b.key), b.key)
     }
 }
 
@@ -162,17 +158,20 @@ struct ConfigPane: View {
     @State private var unsaved: Set<String> = []
 
     var body: some View {
+        // Ordered by task: what you watch, what tells you, what runs Claude, then the command line.
+        // The autoswitch.* rules live in Auto-switch only.
+        let groups = ConfigLayout.groups(store.config)
+        let cli = { (title: String) in groups.first { $0.title == title }?.entries ?? [] }
         Form {
-            UsageDisplaySection()
-            TerminalSettingsSection()
-            DesktopSettingsSection()
+            UsageDisplaySection(readings: cli("Usage & menu bar"), unsaved: $unsaved)
             NotificationSettingsSection()
-            // The autoswitch.* rules live in Auto-switch only.
-            let groups = Dictionary(grouping: store.config.filter { !$0.key.hasPrefix("autoswitch.") }) {
-                String($0.key.split(separator: ".").first ?? "")
-            }
-            ForEach(groups.keys.sorted(), id: \.self) { group in
-                ConfigSection(title: Self.groupTitle(group), entries: groups[group] ?? [], unsaved: $unsaved)
+            ConfigSection(title: "Usage history", entries: cli("Usage history"), unsaved: $unsaved)
+            TerminalSettingsSection()
+            ConfigSection(title: "Run", entries: cli("Run"), unsaved: $unsaved)
+            DesktopSettingsSection()
+            ConfigSection(title: "Command line", entries: cli("Command line"), unsaved: $unsaved)
+            ForEach(groups.filter { !ConfigLayout.knownTitles.contains($0.title) }) { group in
+                ConfigSection(title: group.title, entries: group.entries, unsaved: $unsaved)
             }
             Section {
                 LabeledContent("File", value: store.configPath)
@@ -186,20 +185,6 @@ struct ConfigPane: View {
         .paneFrame()
         .overlay(alignment: .bottomTrailing) { UnsavedConfigNotice(keys: unsaved) }
         .animation(.default, value: unsaved)
-    }
-}
-
-extension ConfigPane {
-    /// Section titles for the CLI's setting groups, in sentence case.
-    static func groupTitle(_ group: String) -> String {
-        switch group {
-        case "history": "Usage history"
-        case "usage": "Usage readings"
-        case "run": "Run"
-        case "ui": "Command-line display"
-        case "updates": "Updates"
-        default: group.prefix(1).uppercased() + group.dropFirst()
-        }
     }
 }
 

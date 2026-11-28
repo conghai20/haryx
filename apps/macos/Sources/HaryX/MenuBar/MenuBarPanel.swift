@@ -53,14 +53,13 @@ struct MenuBarPanel: View {
                 Text(busy).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 4)
-            Button {
-                store.toggleAuto()
-            } label: {
-                Text(store.auto.isRunning ? "Auto-switch on" : "Auto-switch off")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(store.auto.isRunning ? Brand.cyanText : .secondary)
-            }
-            .help(store.auto.isRunning ? "Stop auto-switch" : "Start auto-switch")
+            // A switch, so it reads as a control and its state at once (a text button read as a label).
+            Toggle("Auto-switch", isOn: Binding(get: { store.auto.isRunning }, set: { _ in store.toggleAuto() }))
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(store.auto.isRunning ? Brand.cyanText : .secondary)
+                .help(store.auto.isRunning ? "Stop auto-switch" : "Start auto-switch")
             Group {
                 Button { Task { await store.refresh() } } label: {
                     Image(systemName: "arrow.clockwise").spinning(store.isRefreshing)
@@ -99,7 +98,8 @@ private struct Hairline: View {
 }
 
 /// The active account read like a tide table: observed use against the predicted pace, the
-/// next reset as the next low water.
+/// next reset as the next low water. The 5-hour window leads; the week sits under it and turns amber
+/// when it is the tighter limit (`Usage.weekIsTighter`).
 private struct ActiveTide: View {
     @Environment(AppStore.self) private var store
     let account: Account
@@ -134,14 +134,20 @@ private struct ActiveTide: View {
                     Text("of 5-hour window").font(.callout).foregroundStyle(.secondary)
                     Spacer(minLength: 8)
                     VStack(alignment: .trailing, spacing: 0) {
-                        Text(five?.clock ?? "—").font(Brand.display(18, weight: .medium, relativeTo: .title3).monospacedDigit())
+                        if let clock = five?.clock {
+                            Text(clock).font(Brand.display(18, weight: .medium, relativeTo: .title3).monospacedDigit())
+                        } else {
+                            // A window with no reset has not started; a bare dash read as a minus.
+                            Text("starts on first use").font(.caption).foregroundStyle(.secondary)
+                        }
                         if let c = five?.countdown { Text("reset in \(c)").font(.caption).foregroundStyle(.secondary) }
                     }
                 }
                 .accessibilityElement(children: .combine)
                 TideStaff(window: five)
                 paceLine(five).font(.caption)
-                WeekStaff(window: account.usage?.sevenDay).padding(.top, 2)
+                WeekStaff(window: account.usage?.sevenDay, tighter: account.usage?.weekIsTighter ?? false)
+                    .padding(.top, 2)
             } else if let note = account.statusNote {
                 Text(note).font(.callout).foregroundStyle(Brand.warn)
             }
@@ -151,6 +157,7 @@ private struct ActiveTide: View {
         .onTapGesture { AccountActionMenu.show(for: account, store: store) }
         .help("\(account.fullIdentity)\nClick for account actions")
         .contextMenu { AccountContextMenu(account: account) }
+        .accessibilityAction(named: "Account Actions") { AccountActionMenu.show(for: account, store: store) }
     }
 
     @ViewBuilder private func paceLine(_ w: UsageWindow?) -> some View {
@@ -166,13 +173,16 @@ private struct ActiveTide: View {
     }
 }
 
-/// The other accounts as an almanac: in switch order, columns that never move.
+/// The other accounts as an almanac: each group once, switch order inside it, columns that never
+/// move. Accounts held out of rotation are never next, so they fold into one line at the bottom.
 private struct NextInLine: View {
     @Environment(AppStore.self) private var store
     let accounts: [Account]
+    @State private var showsHeldOut = false
     private static let rowHeight: CGFloat = 30
-    /// About two and a half rows: the cut-off row shows there is more to scroll to.
-    private static let maxListHeight: CGFloat = 140
+    /// DESIGN.md's 300 pt cap: about eight rows with group headers before it scrolls. At 140 pt a
+    /// grouped list showed two accounts.
+    private static let maxListHeight: CGFloat = 300
     static let space = "nextInLine"
     /// Rows sit inside the hover fill, not flush with its edges.
     private static let rowInset: CGFloat = 8
@@ -206,20 +216,24 @@ private struct NextInLine: View {
                 .font(.caption2.weight(.medium)).foregroundStyle(.tertiary)
                 .padding(.bottom, 2)
                 .accessibilityHidden(true)
-                let grouped = AccountGroups.inUse(accounts)
-                ForEach(Array(accounts.enumerated()), id: \.element.number) { i, a in
-                    // The list keeps switch order, so the groups are named wherever the run changes.
-                    if grouped, i == 0 || a.groupLabel != accounts[i - 1].groupLabel {
+                let grouped = AccountGroups.inUse(store.accounts)
+                let showsPlan = AccountNames.plansVary(store.accounts)
+                let sections = AccountGroups.listSections(accounts.filter { !$0.isDisabled }, active: store.active)
+                ForEach(Array(sections.enumerated()), id: \.element.id) { i, section in
+                    if grouped {
                         GridRow {
-                            Text(a.groupLabel)
-                                .font(.caption2.weight(.medium)).foregroundStyle(.secondary)
+                            Text(section.name ?? "Ungrouped")
+                                .font(.caption2.weight(.medium)).foregroundStyle(.tertiary)
                                 .gridCellColumns(5)
                                 .padding(.top, i == 0 ? 0 : 4)
                                 .accessibilityAddTraits(.isHeader)
                         }
                     }
-                    AccountRow(account: a) { band in rowBands[a.number] = band }
+                    ForEach(section.accounts) { a in
+                        AccountRow(account: a, showsPlan: showsPlan) { band in rowBands[a.number] = band }
+                    }
                 }
+                heldOutRows(showsPlan: showsPlan)
             }
             .padding(.horizontal, Self.rowInset)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { gridHeight = $0 }
@@ -241,6 +255,37 @@ private struct NextInLine: View {
         // Rows are not all one line tall, so size to the measured grid; estimate until measured.
         .frame(height: min(gridHeight > 0 ? gridHeight : CGFloat(accounts.count + 1) * Self.rowHeight,
                            Self.maxListHeight))
+    }
+
+    /// "Held out (N)" with a disclosure chevron, then (when open) those accounts in switch order.
+    @ViewBuilder private func heldOutRows(showsPlan: Bool) -> some View {
+        let heldOut = accounts.filter(\.isDisabled)
+        if !heldOut.isEmpty {
+            GridRow {
+                Button {
+                    // Closing drops their bands, so the hover fill never lands where a row used to be.
+                    if showsHeldOut { heldOut.forEach { rowBands[$0.number] = nil } }
+                    showsHeldOut.toggle()
+                } label: {
+                    Label("Held out (\(heldOut.count))", systemImage: showsHeldOut ? "chevron.down" : "chevron.right")
+                        .labelStyle(.titleAndIcon)
+                        .imageScale(.small)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .font(.caption2.weight(.medium)).foregroundStyle(.tertiary)
+                .padding(.top, 6).padding(.bottom, 2)
+                .gridCellColumns(5)
+                .help("Accounts held out of rotation: auto-switch and Switch never pick them")
+                .accessibilityValue(showsHeldOut ? "expanded" : "collapsed")
+            }
+            if showsHeldOut {
+                ForEach(heldOut) { a in
+                    AccountRow(account: a, showsPlan: showsPlan) { band in rowBands[a.number] = band }
+                }
+            }
+        }
     }
 
     @ViewBuilder private var hoverFill: some View {
@@ -280,6 +325,8 @@ private struct NextInLine: View {
 struct AccountRow: View {
     @Environment(AppStore.self) private var store
     let account: Account
+    /// Off when every account shares one plan: the label then says nothing and takes the name's room.
+    var showsPlan = true
     /// Reports the row's vertical band (from its tallest cell) in the grid's coordinate space.
     let onBand: (CGRect) -> Void
 
@@ -288,11 +335,21 @@ struct AccountRow: View {
             if account.showsSignInRow { signInRow } else { usageRow }
         }
         .font(.callout.monospacedDigit())
-        .opacity(account.isResting ? 0.5 : 1)
+        // Only an account held out of rotation is dimmed; one at its limit keeps its red figure.
+        .opacity(account.isDisabled ? 0.5 : 1)
         .contextMenu { AccountContextMenu(account: account) }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
+        .accessibilityHint(account.email)
+        // The grid opens the menu from the pointer's row, which VoiceOver never sets.
+        .accessibilityAction { AccountActionMenu.show(for: account, store: store) }
+        .accessibilityAction(named: "Use") {
+            guard store.busy == nil, !account.isResting else { return }
+            Task { await store.switchTo(account) }
+        }
     }
+
+    private var name: String { AccountNames.rowName(account, among: store.accounts) }
 
     private var usageRow: some View {
         GridRow {
@@ -312,8 +369,8 @@ struct AccountRow: View {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 1) {
                     identity
-                    // The name is the email unless the account has an alias; then name both.
-                    if account.alias != nil {
+                    // The row name drops the domain (or is the alias); then name the full email too.
+                    if name != account.email {
                         Text(account.email)
                             .font(.caption).foregroundStyle(.secondary)
                             .lineLimit(1).truncationMode(.middle)
@@ -340,8 +397,9 @@ struct AccountRow: View {
         HStack(spacing: 6) {
             MascotView(style: store.style(for: account), mood: store.mood(for: account), size: 18,
                        phase: store.phase(for: account))
-            Text(account.displayName).lineLimit(1).truncationMode(.middle)
-            if let plan = account.plan?.label { Text(plan).font(.caption2).foregroundStyle(.tertiary) }
+            // Middle-cut: local parts often differ only at the end ("…claude03", "…claude04").
+            Text(name).lineLimit(1).truncationMode(.middle)
+            if showsPlan, let plan = account.plan?.label { Text(plan).font(.caption2).foregroundStyle(.tertiary) }
         }
     }
 
@@ -382,6 +440,7 @@ struct AccountRow: View {
         // Not a glass style: glass draws outside the scroll view's clip, over the panel's buttons.
         Button("Use") { Task { await store.switchTo(account) } }
             .buttonStyle(.borderedProminent)
+            .tint(account.isResting ? .gray : nil) // DESIGN.md: grey when it cannot be used
             .controlSize(.mini)
             .font(.caption.weight(.semibold))
             .disabled(store.busy != nil || account.isResting)
@@ -431,17 +490,19 @@ private struct QuickActions: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            let next = store.nextInLine.first(where: { !$0.isDisabled && !$0.needsRelogin })
+            // The best account, not the first row: every row already carries its own Use, so the one
+            // prominent action names the account with headroom (in the active account's group first).
+            let best = store.bestTarget(excluding: store.active?.number)
             Button {
-                if let next { Task { await store.switchTo(next) } } else { Task { await store.switchNext(.best) } }
+                if let best { Task { await store.switchTo(best) } } else { Task { await store.switchNext(.best) } }
             } label: {
-                Text(next.map { "Switch to \($0.shortName)" } ?? "Switch")
+                Text(best.map { "Switch to \($0.shortName)" } ?? "Switch")
                     .lineLimit(1).truncationMode(.tail)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.glassProminent)
             .disabled(store.busy != nil)
-            .help(next.map { "Switch to \($0.email)" } ?? "Switch to the account with most headroom")
+            .help(best.map { "Switch to \($0.email), the account with most headroom" } ?? "Switch to the account with most headroom")
 
             Menu {
                 ForEach(DashboardGroup.allCases) { group in

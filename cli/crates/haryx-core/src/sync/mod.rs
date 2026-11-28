@@ -17,6 +17,7 @@ pub mod profiles;
 pub mod remote;
 pub mod sources;
 pub mod state;
+pub mod usage;
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -61,6 +62,13 @@ pub enum SyncError {
     KeyChanged,
     #[error("Another machine kept changing the same data. Run 'haryx sync' again.")]
     Busy,
+    /// The API answered 403 `consent_required`: this HaryX ID has not granted (or withdrew) the
+    /// Sync consent, so the server keeps none of its data.
+    #[error(
+        "Sync is off for your HaryX ID: it has not given its consent to sync. Run 'haryx account \
+         consent grant sync' to turn it on."
+    )]
+    ConsentRequired,
     #[error("{0}")]
     Invalid(String),
     #[error("{0}")]
@@ -80,6 +88,7 @@ impl SyncError {
             SyncError::WrongPassphrase => "wrong_passphrase",
             SyncError::KeyChanged => "key_changed",
             SyncError::Busy => "busy",
+            SyncError::ConsentRequired => "consent_required",
             SyncError::Invalid(_) => "invalid",
             SyncError::Local(_) => "local",
             SyncError::Server(_) => "server",
@@ -352,7 +361,8 @@ pub fn run(ctx: &Context<'_>) -> Result<Report, SyncError> {
             return Err(SyncError::KeyChanged);
         }
         match pass(ctx, &key, &mut state, &rows) {
-            Ok(Some(report)) => {
+            Ok(Some(mut report)) => {
+                report.pushed += usage::push(ctx, &key, &rows, &jiff::tz::TimeZone::system());
                 state.last_sync_at = Some(ctx.now);
                 state.other_machine_accounts = report.other_machine_accounts.clone();
                 state.record(report.overwritten.clone());
@@ -789,5 +799,7 @@ pub fn status(root: &Path, vault: &Vault, signed_in_as: Option<(&str, &str)>) ->
     }
 }
 
+#[cfg(test)]
+mod api_tests;
 #[cfg(test)]
 mod tests;

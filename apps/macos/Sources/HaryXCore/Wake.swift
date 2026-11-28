@@ -80,6 +80,8 @@ public struct WakeAccount: Decodable, Sendable, Hashable {
         guard on else { return nil }
         if let r = lastResult, r.hasPrefix("failed:") { return "wake failed (\(r.dropFirst(7)))" }
         if lastResult == "skip:login" { return "wake needs sign-in" }
+        // The CLI writes "disabled" for any account it will not switch to, not only one held out.
+        if lastResult == "skip:disabled" { return "wake skipped: not switchable" }
         if let r = lastResult, r.hasPrefix("skip:") {
             return "wake skipped: " + r.dropFirst(5).replacingOccurrences(of: "-", with: " ")
         }

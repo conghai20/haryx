@@ -1,7 +1,7 @@
 <script lang="ts">
   // Backup & maintenance: export and import accounts, cswap and usage imports, unclaimed credentials,
-  // the CLI, and (last, on its own) erasing everything. Destructive actions ask first; purge also
-  // answers the CLI's own y/N prompt.
+  // and (last, on its own) erasing everything. The CLI's version and upgrade live in About & updates.
+  // Destructive actions ask first; purge also answers the CLI's own y/N prompt.
   import { onMount } from "svelte";
   import { ask, open, save } from "@tauri-apps/plugin-dialog";
   import { api } from "../lib/api";
@@ -19,8 +19,14 @@
 
   const JSON_FILTER = [{ name: "JSON", extensions: ["json"] }];
   const UNCLAIMED_RE = /^(\S+)\s+slot\s+(\S+)\s+(.*)$/;
-  const HOLD_MAX_S = 86_400;
-  const HOLD_STEP_S = 300;
+  /** How long imported usage readings stand in before this PC reads usage itself (as macOS). */
+  const HOLD_CHOICES: { seconds: number; label: string }[] = [
+    { seconds: 0, label: "Don't (read usage again now)" },
+    { seconds: 300, label: "5 minutes" },
+    { seconds: 900, label: "15 minutes" },
+    { seconds: 3600, label: "1 hour" },
+    { seconds: 86_400, label: "24 hours" },
+  ];
   /** Export rows: long emails are cut in the middle so shared starts stay apart. */
   const NAME_MAX = 44;
   const PURGE_WORD = "PURGE";
@@ -84,7 +90,7 @@
     try {
       const path = await pickJson();
       if (!path) return;
-      const hold = Math.max(0, Math.min(HOLD_MAX_S, Math.round(holdSeconds || 0)));
+      const hold = holdSeconds;
       await store.run("Importing usage", ["import-usage", path, ...(hold > 0 ? ["--hold", String(hold)] : [])]);
     } catch (e) {
       store.fail(e, "Couldn't import usage");
@@ -106,12 +112,6 @@
     await loadUnclaimed();
   }
 
-  const upgrade = () => store.run("Upgrading haryx", ["upgrade"]);
-
-  /** The data folder, or haryx.log selected in it, in Explorer. */
-  const reveal = (what: "store" | "log") =>
-    api.reveal(what).catch((e) => store.fail(e, what === "log" ? "Couldn't show the log" : "Couldn't open the data folder"));
-
   async function purgeAll() {
     const ok = await ask(
       "Every stored account, backup and setting is removed. Your current Claude Code login stays as it is. This can't be undone.",
@@ -129,8 +129,10 @@
     await loadUnclaimed();
   }
 
-  const holdLabel = (s: number) =>
-    s === 0 ? "Read usage again right after importing" : `Use the imported readings for ${s / 60} min before reading usage again`;
+  /** The folded account list's one line: all of them, some, or none. */
+  let exportSummary = $derived(
+    chosen.length === store.accounts.length ? `All ${chosen.length}` : `${chosen.length} of ${store.accounts.length}`,
+  );
 
   function toggleExport(n: number, on: boolean) {
     exportSlots = on ? [...chosen.filter((x) => x !== n), n].sort((a, b) => a - b) : chosen.filter((x) => x !== n);
@@ -141,27 +143,31 @@
 
 <section aria-labelledby="t-export">
   <h2 id="t-export">Export</h2>
+  <!-- Folded to one line: twenty accounts would push Export a screen down. -->
+  <details class="accounts">
+    <summary>
+      <span class="chevron" aria-hidden="true"><Icon name="chevronRight" size={12} /></span>
+      <span class="grow">Accounts</span>
+      <span class="caption" role="status">{exportSummary}</span>
+    </summary>
   <ul class="rows">
     {#each store.accounts as a (a.number)}
       <li>
-        <label for="exp-{a.number}" class="grow truncate" title={a.email}>{a.number}: {middleTruncate(displayName(a), NAME_MAX)}</label>
         <input
           id="exp-{a.number}"
           type="checkbox"
-          role="switch"
-          class="switch"
           checked={chosen.includes(a.number)}
           onchange={(e) => toggleExport(a.number, e.currentTarget.checked)}
         />
+        <label for="exp-{a.number}" class="grow truncate" title={a.email}>{a.number}: {middleTruncate(displayName(a), NAME_MAX)}</label>
       </li>
     {/each}
   </ul>
   <div class="line">
     <button onclick={() => (exportSlots = store.accounts.map((a) => a.number))}>Select all</button>
     <button onclick={() => (exportSlots = [])}>Select none</button>
-    <span class="spacer"></span>
-    <span class="caption" role="status">{chosen.length} of {store.accounts.length} selected</span>
   </div>
+  </details>
   <label class="line between">
     <span>Full export (whole .claude.json and credentials, same-machine backup)</span>
     <input type="checkbox" role="switch" class="switch" bind:checked={exportFull} />
@@ -171,7 +177,7 @@
 </section>
 
 <section aria-labelledby="t-import">
-  <h2 id="t-import">Import</h2>
+  <h2 id="t-import">Import accounts</h2>
   <label class="line between" title="Imports over an account with the same email instead of skipping it (--force).">
     <span>Replace accounts that already exist</span>
     <input type="checkbox" role="switch" class="switch" bind:checked={importForce} />
@@ -180,27 +186,21 @@
     <button disabled={!!store.busy} onclick={importAccounts}>Import accounts…</button>
     <button disabled={!!store.busy} onclick={importCswap} title="Copy the accounts stored by cswap into haryx">Import from cswap</button>
   </div>
+</section>
+
+<section aria-labelledby="t-import-usage">
+  <h2 id="t-import-usage">Import usage</h2>
   <div
     class="line between"
     title="Imported readings stand in for this long, so this PC doesn't also poll the usage endpoint (--hold)."
   >
-    <span id="hold-label">{holdLabel(holdSeconds)}</span>
-    <input
-      type="number"
-      class="num"
-      aria-labelledby="hold-label"
-      min="0"
-      max={HOLD_MAX_S}
-      step={HOLD_STEP_S}
-      bind:value={holdSeconds}
-      aria-valuetext={holdLabel(holdSeconds)}
-    />
+    <label for="hold">Use imported readings for</label>
+    <select id="hold" bind:value={holdSeconds}>
+      {#each HOLD_CHOICES as c (c.seconds)}<option value={c.seconds}>{c.label}</option>{/each}
+    </select>
   </div>
-  <div>
-    <button disabled={!!store.busy} onclick={importUsage} title="Feed haryx ai list --json output from another machine so both don't poll the usage endpoint"
-      >Import usage from another machine…</button
-    >
-  </div>
+  <div><button disabled={!!store.busy} onclick={importUsage}>Import usage from another machine…</button></div>
+  <p class="caption">Feed haryx ai list --json output from another machine so both don't poll the usage endpoint.</p>
 </section>
 
 <section aria-labelledby="t-unclaimed">
@@ -215,7 +215,7 @@
   {:else if unclaimed == null}
     <p class="secondary" role="status">Loading…</p>
   {:else if unclaimed.length === 0}
-    <p class="secondary">None</p>
+    <p class="secondary">None stashed</p>
   {:else}
     <ul class="rows">
       {#each unclaimed as u (u.id)}
@@ -229,24 +229,25 @@
       {/each}
     </ul>
   {/if}
-</section>
-
-<section aria-labelledby="t-haryx">
-  <h2 id="t-haryx">HaryX CLI</h2>
-  <p class="caption truncate" title={store.cliPath ?? ""}>Executable: {store.cliPath ?? "not found"}</p>
-  {#if store.storeRoot}<p class="caption truncate" title={store.storeRoot}>Data folder: {store.storeRoot}</p>{/if}
-  <div class="line">
-    <button disabled={!!store.busy || !store.cliPath} onclick={upgrade}>Upgrade haryx</button>
-    <button onclick={() => reveal("store")}>Open data folder</button>
-    <button onclick={() => reveal("log")}>Show log</button>
-  </div>
+  <p class="caption">
+    Safety copies of logins kept during a switch. HaryX never uses them on its own; purge one once its account signs in
+    normally.
+  </p>
 </section>
 
 <section aria-labelledby="t-purge" class="erase">
   <h2 id="t-purge">Erase</h2>
   <p class="caption">Removes every stored account, backup and setting. Your current Claude Code login stays as it is.</p>
   <div class="line">
-    <label>Type {PURGE_WORD} to confirm <input bind:value={purgeText} placeholder={PURGE_WORD} autocomplete="off" /></label>
+    <label>Type {PURGE_WORD} to confirm <input
+        bind:value={purgeText}
+        placeholder={PURGE_WORD}
+        autocomplete="off"
+        onkeydown={(e) => {
+          if (e.key === "Enter" && purgeText === PURGE_WORD && !store.busy) void purgeAll();
+          if (e.key === "Escape") purgeText = "";
+        }}
+      /></label>
     <button class="danger" disabled={purgeText !== PURGE_WORD || !!store.busy} onclick={purgeAll}>Purge all account data…</button>
   </div>
 </section>
@@ -273,8 +274,31 @@
     justify-content: space-between;
     flex-wrap: nowrap;
   }
-  .spacer {
-    flex: 1;
+  .accounts summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    cursor: pointer;
+    list-style: none;
+  }
+  .accounts summary::-webkit-details-marker {
+    display: none;
+  }
+  .accounts[open] summary {
+    margin-bottom: 8px;
+  }
+  .chevron {
+    display: inline-flex;
+    transition: transform 120ms ease-out;
+  }
+  .accounts[open] .chevron {
+    transform: rotate(90deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chevron {
+      transition: none;
+    }
   }
   .icon-btn {
     display: inline-flex;
@@ -287,9 +311,6 @@
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
-  }
-  .num {
-    width: 80px;
   }
   .mono {
     font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;

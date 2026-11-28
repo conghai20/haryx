@@ -309,12 +309,48 @@ impl AutoSwitchEngine<'_> {
             }
             qualifying.push((key, num.clone()));
         }
+        let mut qualifying = if settings.strategy == "best" && !all_above {
+            self.sooner_reset_breaks_near_ties(qualifying, usage, now)
+        } else {
+            qualifying
+        };
         qualifying.sort_by(|a, b| cmp_keys(&a.0, &b.0));
         (
             qualifying.into_iter().map(|(_, n)| n).collect(),
             any_known,
             active_reset_ts,
         )
+    }
+
+    /// `best`'s keys end in `-line_headroom`. Candidates within `hysteresis_pct` of the leader's
+    /// headroom are a wash on room, so among them the one whose 7-day window resets first wins:
+    /// its quota is the first to be lost unused. Candidates further back keep their headroom order.
+    fn sooner_reset_breaks_near_ties(
+        &self,
+        qualifying: Vec<(Vec<f64>, String)>,
+        usage: &UsageMap,
+        now: f64,
+    ) -> Vec<(Vec<f64>, String)> {
+        let leader = qualifying
+            .iter()
+            .filter_map(|(key, _)| key.last().copied())
+            .fold(f64::INFINITY, f64::min);
+        qualifying
+            .into_iter()
+            .map(|(key, num)| {
+                let Some((&neg_lh, head)) = key.split_last() else {
+                    return (key, num);
+                };
+                let near = neg_lh - leader < self.settings.hysteresis_pct;
+                let reset = seven_day_reset_ts(dict_of(usage, &num), now).unwrap_or(f64::INFINITY);
+                let key = head
+                    .iter()
+                    .copied()
+                    .chain([flag(!near), reset, neg_lh])
+                    .collect();
+                (key, num)
+            })
+            .collect()
     }
 }
 

@@ -12,7 +12,8 @@ extension AppStore {
     var desktopLine: DesktopLine? {
         guard desktopFollows, let desktop, let active else { return nil }
         return DesktopLine.make(run: desktopRun, status: desktop, active: active.number) { number in
-            accounts.first { $0.number == number }?.displayName ?? desktop.folder(number)?.email ?? "account \(number)"
+            accounts.first { $0.number == number }.map { AccountNames.rowName($0, among: accounts) }
+                ?? desktop.folder(number)?.email ?? "account \(number)"
         }
     }
 

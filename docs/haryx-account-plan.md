@@ -1,5 +1,9 @@
 # HaryX sign-in and encrypted sync across machines: plan
 
+> **Superseded for the backend** by [sso-platform-plan.md](sso-platform-plan.md): Supabase is gone;
+> sign-in is WeCoAp SSO (Keycloak) and the server is the HaryX API (`server/api/`). The sync engine,
+> its encryption and its merge rules below still hold.
+
 Status: built (2026-11-25) on `feat/haryx-account`; deployed to the hosted project `haryx-dev` the
 same day (both migrations, the `delete-account` function).
 - Phase 0: done (spike locally, GitHub end to end on the hosted project).

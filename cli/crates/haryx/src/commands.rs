@@ -8,6 +8,7 @@ mod desktop;
 mod doctor;
 mod guard;
 mod listing;
+mod privacy;
 mod profile;
 mod profile_view;
 mod sessions;

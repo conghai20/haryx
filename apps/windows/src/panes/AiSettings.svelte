@@ -1,14 +1,14 @@
 <script lang="ts">
-  // AI settings: the app's AI-side preferences (usage refresh, tray, terminal, notifications), then
-  // haryx's own settings (`haryx config`) in plain words, grouped as on macOS. The auto-switch rules
-  // live in Auto-switch only. Every control saves as it changes.
+  // AI settings: the app's AI-side preferences and haryx's own settings (`haryx config`) in plain
+  // words, grouped by task as on macOS: usage, notifications, usage history, terminal, run, command
+  // line. The auto-switch rules live in Auto-switch only. Every control saves as it changes.
   import { onMount } from "svelte";
   import { open } from "@tauri-apps/plugin-dialog";
   import { actions } from "../lib/actions";
   import { api } from "../lib/api";
   import { config } from "../lib/config.svelte";
   import { openPane } from "../lib/nav";
-  import { otherSections } from "../lib/settings";
+  import { otherSections, SECTION_ORDER, type SettingSection } from "../lib/settings";
   import { store } from "../lib/store.svelte";
   import type { Prefs, TerminalId } from "../lib/types";
   import ConfigRow from "../components/ConfigRow.svelte";
@@ -29,6 +29,9 @@
   ];
 
   let sections = $derived(otherSections(config.entries ?? []));
+  const cliSection = (id: string) => sections.find((s) => s.section === id);
+  /** A newer CLI's groups this page doesn't place yet: after the known ones. */
+  let otherGroups = $derived(sections.filter((s) => !SECTION_ORDER.includes(s.section)));
   let shells = $derived(store.terminals.filter((t) => TAB_SHELLS.includes(t.id)));
   let refreshChoices = $derived(
     store.prefs && !REFRESH_CHOICES.includes(store.prefs.refreshSeconds)
@@ -58,6 +61,32 @@
   onMount(() => void config.load());
 </script>
 
+{#snippet cliRows(s: SettingSection | undefined)}
+  {#if s}
+    <div class="rules">
+      {#each s.entries as entry (entry.key)}<ConfigRow {entry} />{/each}
+    </div>
+  {/if}
+{/snippet}
+
+{#snippet cliSectionBlock(s: SettingSection | undefined)}
+  {#if s}
+    <section aria-labelledby="s-{s.section}">
+      <h2 id="s-{s.section}">{s.title}</h2>
+      {@render cliRows(s)}
+    </section>
+  {/if}
+{/snippet}
+
+{#if config.error}
+  <div class="banner error" role="alert" title={config.errorDetail ?? ""}>
+    <span>{config.error}</span>
+    <button class="mini" onclick={() => config.load()}>Try again</button>
+  </div>
+{:else if !config.entries}
+  <p class="secondary status" role="status">Reading haryx's settings…</p>
+{/if}
+
 {#if store.prefs}
   {@const prefs = store.prefs}
   <section aria-labelledby="s-usage">
@@ -84,7 +113,28 @@
         onchange={(e) => store.savePrefs({ trayMascot: e.currentTarget.checked })}
       />
     </div>
+    {@render cliRows(cliSection("usage"))}
   </section>
+
+  <section aria-labelledby="s-notify">
+    <h2 id="s-notify">Notifications</h2>
+    {#each notifications as n (n.key)}
+      <div class="row">
+        <label for="n-{n.key}">{n.label}</label>
+        <input
+          id="n-{n.key}"
+          type="checkbox"
+          role="switch"
+          class="switch"
+          checked={Boolean(prefs[n.key])}
+          onchange={(e) => store.savePrefs({ [n.key]: e.currentTarget.checked })}
+        />
+      </div>
+    {/each}
+    <div><button onclick={testNotification}>Send test notification</button></div>
+  </section>
+
+  {@render cliSectionBlock(cliSection("history"))}
 
   <section aria-labelledby="s-terminal">
     <h2 id="s-terminal">Terminal</h2>
@@ -117,7 +167,7 @@
     <div class="row">
       <span class="label">Default folder</span>
       <span class="folder">
-        <span class="truncate secondary" title={prefs.claudeFolder ?? ""}>{prefs.claudeFolder ?? "Your home folder"}</span>
+        <span class="truncate secondary" title={prefs.claudeFolder ?? ""}>{prefs.claudeFolder ?? "Home folder"}</span>
         <button onclick={chooseFolder}>Choose…</button>
         {#if prefs.claudeFolder}<button class="plain" onclick={() => store.savePrefs({ claudeFolder: null })}>Reset</button>{/if}
       </span>
@@ -131,41 +181,12 @@
     {/if}
   </section>
 
-  <section aria-labelledby="s-notify">
-    <h2 id="s-notify">Notifications</h2>
-    {#each notifications as n (n.key)}
-      <div class="row">
-        <label for="n-{n.key}">{n.label}</label>
-        <input
-          id="n-{n.key}"
-          type="checkbox"
-          role="switch"
-          class="switch"
-          checked={Boolean(prefs[n.key])}
-          onchange={(e) => store.savePrefs({ [n.key]: e.currentTarget.checked })}
-        />
-      </div>
-    {/each}
-    <div><button onclick={testNotification}>Send test notification</button></div>
-  </section>
+  {@render cliSectionBlock(cliSection("run"))}
+  {@render cliSectionBlock(cliSection("commandLine"))}
+  {#each otherGroups as s (s.section)}{@render cliSectionBlock(s)}{/each}
 {/if}
 
-{#if config.error}
-  <div class="banner error" role="alert" title={config.errorDetail ?? ""}>
-    <span>{config.error}</span>
-    <button class="mini" onclick={() => config.load()}>Try again</button>
-  </div>
-{:else if !config.entries}
-  <p class="secondary" role="status">Reading haryx's settings…</p>
-{:else}
-  {#each sections as s (s.section)}
-    <section aria-labelledby="s-{s.section}">
-      <h2 id="s-{s.section}">{s.title}</h2>
-      <div class="rules">
-        {#each s.entries as entry (entry.key)}<ConfigRow {entry} />{/each}
-      </div>
-    </section>
-  {/each}
+{#if config.entries}
   <p class="caption">
     Auto-switch rules are in <button class="link" onclick={() => openPane("auto")}>Auto-switch</button>. Unknown keys and
     hand edits in <span title={config.path ?? ""}>haryx's settings file</span> are kept.
@@ -220,6 +241,9 @@
   }
   .banner span {
     flex: 1;
+  }
+  .status {
+    margin-bottom: 12px;
   }
   .link {
     background: none;

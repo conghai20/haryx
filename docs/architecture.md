@@ -6,11 +6,11 @@
 |---|---|---|
 | `apps/macos/` | HaryX macOS app (SwiftUI menu bar + dashboard) | shipping |
 | `cli/` | `haryx` Rust CLI, drop-in replacement for `cswap`; owns accounts and credentials on the device | in progress |
-| `server/supabase/` | HaryX account and encrypted sync: Supabase project (migrations, Edge Function, pgTAP) | built; hosted deploy pending |
-| `server/` (Go) | team view, API for web and mobile | future |
+| `server/api/` | HaryX API (Go): checks WeCoAp SSO tokens, keeps encrypted sync rows, profiles, consents and the machine registry in its own Postgres; plan in `docs/sso-platform-plan.md` | built; deployed at `haryx.wecoap.com` |
+| `apps/platform/` | HaryX web (Vite + Svelte 5) at `/platform/`: machines, privacy center, and accounts, usage and profiles unlocked in the browser | built |
+| `deploy/` | the server setup (compose, nginx site, realm steps, `cli-e2e.sh`, `release-platform.sh`): kept on the owner's machine, ignored by git because this repository is public | local only |
 | `apps/windows/` | HaryX Windows tray app (Tauri 2 + Svelte 5), plan in `docs/windows-app-plan.md` | built, untested on hardware |
 | `packages/mascots/` | mascot sprites exported from the macOS app for the Windows app | active |
-| `apps/web/` | web dashboard | future |
 | `apps/ios/`, `apps/android/` | native mobile apps | future |
 | `packages/contracts/` | language-neutral JSON fixtures/schemas shared by every part | active |
 | `packages/design-tokens/` | palette, type, spacing generated per platform | planned (after the palette is final) |

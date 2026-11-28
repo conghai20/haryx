@@ -12,34 +12,61 @@ use crate::switcher::test_support::{TestSwitcher, creds, sample};
 
 const FUTURE_MS: i64 = 9_999_999_999_000;
 
-/// Usage per access token: `at-1` → `five1`% of 5h, `at-2` → `five2`%.
-fn stub(five1: f64, five2: f64) -> Stub {
+const WEEK_RESET: &str = "2099-01-05T00:00:00Z";
+
+/// Usage per access token `at-N`: `rows[N-1]` is `(5h %, 7-day reset)`; the 7-day window is at 10%.
+fn stub(rows: Vec<(f64, &'static str)>) -> Stub {
     Stub::start(move |req| {
         if req.path.contains("profile") {
             return Reply::json(404, "{}");
         }
         let auth = req.header("Authorization").unwrap_or_default();
-        let five = if auth.contains("at-1") { five1 } else { five2 };
+        let (five, week_reset) = (1..=rows.len())
+            .rev()
+            .find(|n| auth.ends_with(&format!("at-{n}")))
+            .map_or(rows[0], |n| rows[n - 1]);
         Reply::json(
             200,
             &json!({"five_hour": {"utilization": five, "resets_at": "2099-01-01T00:00:00Z"},
-                    "seven_day": {"utilization": 10.0, "resets_at": "2099-01-05T00:00:00Z"}})
+                    "seven_day": {"utilization": 10.0, "resets_at": week_reset}})
             .to_string(),
         )
     })
 }
 
 fn setup(five1: f64, five2: f64) -> (TestSwitcher, Stub) {
-    let stub = stub(five1, five2);
-    let mut s = TestSwitcher::linux().with_roster(sample());
+    setup_rows(vec![(five1, WEEK_RESET), (five2, WEEK_RESET)])
+}
+
+/// One account per row, account 1 live.
+fn setup_rows(rows: Vec<(f64, &'static str)>) -> (TestSwitcher, Stub) {
+    let n = rows.len();
+    let stub = stub(rows);
+    let roster = if n == 2 {
+        sample()
+    } else {
+        let accounts: serde_json::Map<String, Value> = (1..=n)
+            .map(|i| {
+                let record = json!({"email": format!("account{i}@example.com"),
+                    "uuid": format!("uuid-{i}"), "added": "2024-01-01T00:00:00Z"});
+                (i.to_string(), record)
+            })
+            .collect();
+        json!({"activeAccountNumber": 1, "lastUpdated": "2024-01-01T00:00:00Z",
+            "sequence": (1..=n).collect::<Vec<_>>(), "accounts": accounts})
+    };
+    let mut s = TestSwitcher::linux().with_roster(roster);
     s.switcher.api = stub.api();
     s.set_live("account1@example.com", "");
     s.write_credentials(&creds("at-1", FUTURE_MS)).unwrap();
-    for (num, email, token) in [
-        ("1", "account1@example.com", "at-1"),
-        ("2", "account2@example.com", "at-2"),
-    ] {
-        s.write_account_credentials(num, email, &creds(token, FUTURE_MS))
+    for i in 1..=n {
+        let (num, email, token) = (
+            i.to_string(),
+            format!("account{i}@example.com"),
+            format!("at-{i}"),
+        );
+        let (num, email) = (num.as_str(), email.as_str());
+        s.write_account_credentials(num, email, &creds(&token, FUTURE_MS))
             .unwrap();
         let config = json!({"oauthAccount": {"emailAddress": email, "accountUuid": format!("uuid-{num}"),
             "organizationUuid": ""}});
@@ -163,4 +190,31 @@ fn all_exhausted_reports_earliest_reset() {
         if at == "2099-01-01T00:00:00Z"),
         "{last:?}"
     );
+}
+
+#[test]
+fn best_prefers_the_sooner_weekly_reset_among_near_ties() {
+    // Headroom 80 vs 75 is within the 10-point hysteresis: account 3's week resets first, so its
+    // quota is the one that would be lost unused.
+    let (s, _stub) = setup_rows(vec![
+        (95.0, WEEK_RESET),
+        (10.0, WEEK_RESET),
+        (15.0, "2099-01-02T00:00:00Z"),
+    ]);
+    let (outcome, events) = run_tick(&s, AutoSwitchSettings::default(), true);
+    assert_eq!(outcome, TickOutcome::Switched, "{events:?}");
+    assert_eq!(last_switch(&events).unwrap()["to"]["number"], 3);
+}
+
+#[test]
+fn best_keeps_most_headroom_beyond_the_hysteresis() {
+    // 80 vs 65: a clear gap, so headroom still wins over the sooner reset.
+    let (s, _stub) = setup_rows(vec![
+        (95.0, WEEK_RESET),
+        (10.0, WEEK_RESET),
+        (25.0, "2099-01-02T00:00:00Z"),
+    ]);
+    let (outcome, events) = run_tick(&s, AutoSwitchSettings::default(), true);
+    assert_eq!(outcome, TickOutcome::Switched, "{events:?}");
+    assert_eq!(last_switch(&events).unwrap()["to"]["number"], 2);
 }

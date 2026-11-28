@@ -10,6 +10,17 @@ permissions:
   contents: read
 
 jobs:
+  site:
+    # The landing page shows the latest release, so rebuild it now. Pages deploys only from main
+    # (pages.yml), so the run is started there rather than on this release's tag.
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main
+
   crates:
     if: vars.PUBLISH_CRATES == 'true'
     runs-on: ubuntu-24.04

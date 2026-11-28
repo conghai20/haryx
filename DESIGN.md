@@ -23,6 +23,19 @@ colors:
   web-track-dark: "rgb(241 245 249 / 0.1)"
   web-live-wash: "rgb(8 145 178 / 0.12)"
   web-live-wash-dark: "rgb(34 211 238 / 0.14)"
+  platform-amber-text-light: "#A85700"
+  platform-amber-text-dark: "#FFB340"
+  platform-red-text-light: "#C4261C"
+  platform-red-text-dark: "#FF6961"
+  platform-red-fill-light: "#D92D20"
+  platform-red-fill-dark: "#E5342A"
+  platform-popover-light: "#F8FAFC"
+  platform-popover-dark: "#172033"
+  platform-wash: "rgb(16 24 39 / 0.06)"
+  platform-wash-dark: "rgb(241 245 249 / 0.08)"
+  platform-muted: "rgb(16 24 39 / 0.05)"
+  platform-muted-dark: "rgb(241 245 249 / 0.06)"
+  platform-scrim: "rgb(16 24 39 / 0.4)"
 typography:
   display:
     fontFamily: "Space Grotesk, SF Pro Display, system-ui"
@@ -119,6 +132,70 @@ typography:
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.5
+  platform-signin-display:
+    fontFamily: "Space Grotesk Variable, Space Grotesk, system-ui, sans-serif"
+    fontSize: "clamp(3rem, 7vw, 6rem)"
+    fontWeight: 500
+    lineHeight: 0.96
+    letterSpacing: "-0.04em"
+  platform-hero-name:
+    fontFamily: "Space Grotesk Variable, Space Grotesk, system-ui, sans-serif"
+    fontSize: "clamp(3rem, 6vw, 5.5rem)"
+    fontWeight: 500
+    lineHeight: 1.02
+    letterSpacing: "-0.04em"
+  platform-hero-figure:
+    fontFamily: "Space Grotesk Variable, Space Grotesk, system-ui, sans-serif"
+    fontSize: "clamp(2.75rem, 4.6vw, 4rem)"
+    fontWeight: 500
+    lineHeight: 1
+    letterSpacing: "-0.04em"
+    fontFeature: "tnum"
+  platform-section:
+    fontFamily: "Space Grotesk Variable, Space Grotesk, system-ui, sans-serif"
+    fontSize: "clamp(1.75rem, 3vw, 2.75rem)"
+    fontWeight: 500
+    lineHeight: 1
+    letterSpacing: "-0.04em"
+  platform-sheet-title:
+    fontFamily: "Space Grotesk Variable, Space Grotesk, system-ui, sans-serif"
+    fontSize: "40px"
+    fontWeight: 500
+    lineHeight: 1
+    letterSpacing: "-0.04em"
+  platform-figure:
+    fontFamily: "Space Grotesk Variable, Space Grotesk, system-ui, sans-serif"
+    fontSize: "28px"
+    fontWeight: 500
+    lineHeight: 1
+    letterSpacing: "-0.04em"
+    fontFeature: "tnum"
+  platform-row-name:
+    fontFamily: "Geist Variable, Geist, system-ui, sans-serif"
+    fontSize: "17px"
+    fontWeight: 600
+  platform-tab:
+    fontFamily: "Geist Variable, Geist, system-ui, sans-serif"
+    fontSize: "15px"
+    fontWeight: 500
+  platform-body:
+    fontFamily: "Geist Variable, Geist, system-ui, sans-serif"
+    fontSize: "15px"
+    fontWeight: 400
+    lineHeight: 1.5
+    fontFeature: "tnum"
+  platform-small:
+    fontFamily: "Geist Variable, Geist, system-ui, sans-serif"
+    fontSize: "14px"
+    fontWeight: 400
+  platform-column-head:
+    fontFamily: "Geist Variable, Geist, system-ui, sans-serif"
+    fontSize: "12px"
+    fontWeight: 500
+  platform-command:
+    fontFamily: "Geist Mono Variable, Geist Mono, ui-monospace, monospace"
+    fontSize: "13px"
+    fontWeight: 400
 rounded:
   staff: "1.5px"
   banner: "10px"
@@ -137,6 +214,11 @@ spacing:
   web-column-gap: "clamp(16px, 2vw, 32px)"
   web-section: "clamp(96px, 14vw, 200px)"
   web-max: "1440px"
+  platform-gutter: "56px"
+  platform-gutter-tablet: "32px"
+  platform-gutter-phone: "16px"
+  platform-bar: "80px"
+  platform-row: "24px"
 components:
   button-primary:
     backgroundColor: "{colors.cyan-ink}"
@@ -213,6 +295,81 @@ components:
     textColor: "{colors.cyan-ink}"
     rounded: "{rounded.pill}"
     padding: "2px 8px"
+  platform-button-primary:
+    backgroundColor: "{colors.midnight-navy}"
+    textColor: "{colors.soft-white}"
+    rounded: "{rounded.web-field}"
+    padding: "0 16px"
+    height: "40px"
+  platform-button-primary-dark:
+    backgroundColor: "{colors.soft-white}"
+    textColor: "{colors.midnight-navy}"
+    rounded: "{rounded.web-field}"
+    padding: "0 16px"
+    height: "40px"
+  platform-button-primary-lg:
+    backgroundColor: "{colors.midnight-navy}"
+    textColor: "{colors.soft-white}"
+    rounded: "{rounded.web-field}"
+    padding: "0 20px"
+    height: "48px"
+  platform-button-outline:
+    backgroundColor: "{colors.soft-white}"
+    textColor: "{colors.midnight-navy}"
+    rounded: "{rounded.web-field}"
+    padding: "0 16px"
+    height: "40px"
+  platform-button-destructive:
+    backgroundColor: "{colors.platform-red-fill-light}"
+    textColor: "#FFFFFF"
+    rounded: "{rounded.web-field}"
+    padding: "0 16px"
+    height: "40px"
+  platform-button-destructive-dark:
+    backgroundColor: "{colors.platform-red-fill-dark}"
+    textColor: "#FFFFFF"
+    rounded: "{rounded.web-field}"
+    padding: "0 16px"
+    height: "40px"
+  platform-button-destructive-outline:
+    textColor: "{colors.platform-red-text-light}"
+    rounded: "{rounded.web-field}"
+    padding: "0 16px"
+    height: "40px"
+  platform-input:
+    textColor: "{colors.midnight-navy}"
+    typography: "{typography.platform-small}"
+    rounded: "{rounded.web-field}"
+    padding: "4px 12px"
+    height: "40px"
+  platform-command-field:
+    textColor: "{colors.midnight-navy}"
+    typography: "{typography.platform-command}"
+    rounded: "{rounded.web-field}"
+    padding: "10px 12px"
+  platform-tide-staff-last-used:
+    backgroundColor: "{colors.electric-cyan-light}"
+    rounded: "{rounded.staff}"
+    height: "6px"
+  platform-tide-staff-row:
+    backgroundColor: "{colors.web-ink-2}"
+    rounded: "{rounded.staff}"
+    height: "5px"
+  platform-tide-staff-week:
+    backgroundColor: "{colors.web-ink-2}"
+    rounded: "{rounded.staff}"
+    height: "3px"
+  platform-account-row:
+    typography: "{typography.platform-row-name}"
+    padding: "24px 0"
+  platform-sheet:
+    backgroundColor: "{colors.soft-white}"
+    width: "448px"
+  platform-avatar:
+    backgroundColor: "{colors.midnight-navy}"
+    textColor: "{colors.soft-white}"
+    rounded: "{rounded.web-field}"
+    size: "28px"
 ---
 
 # Design System: HaryX
@@ -284,9 +441,9 @@ One live hue against the system's neutrals, with the system's warning colours ca
 
 ## Layout
 
-The menu bar panel is 380pt wide with 14pt padding on all sides, stacked vertically in this order: header (lockup, auto-switch state, refresh / add / more), a hairline, the active-account tide block, a hairline, the "Next in line" almanac, the last auto-switch event, an optional banner, and the footer actions. Hairlines get 10pt of space above and below; the event and banner lines sit 8pt below the content above them; the footer actions sit 12pt below. The footer is three controls in an 8pt row: Switch (the one prominent action, filling the remaining width), Dashboard (icon-only glass split control, dashboard gauge symbol) and Terminal (glass split button). The two glass controls share one form, so they read as a pair. Switch strategies live in the header's more menu, not in the footer.
+The menu bar panel is 380pt wide with 14pt padding on all sides, stacked vertically in this order: header (lockup, the Auto-switch mini switch, refresh / add / more), a hairline, the active-account tide block, a hairline, the "Next in line" almanac, the last auto-switch event, an optional banner, and the footer actions. Hairlines get 10pt of space above and below; the event and banner lines sit 8pt below the content above them; the footer actions sit 12pt below. The footer is three controls in an 8pt row: Switch (the one prominent action, filling the remaining width, to the account with most headroom in the active account's group first, not a copy of the first row's Use), Dashboard (icon-only glass split control, dashboard gauge symbol) and Terminal (glass split button). The two glass controls share one form, so they read as a pair. Switch strategies live in the header's more menu, not in the footer.
 
-The almanac is a grid with fixed trailing-aligned columns (5h, 7d, Resets), 10pt column spacing, 30pt rows (5pt vertical padding) inset 8pt inside the full-width hover fill, scrolling past a 300pt cap. Every row carries its "Use" action.
+The almanac is a grid with fixed trailing-aligned columns (5h, 7d, Resets), 10pt column spacing, 30pt rows (5pt vertical padding) inset 8pt inside the full-width hover fill, scrolling past a 300pt cap. Every row carries its "Use" action. Status lines between the block and the almanac (Desktop, stopped sessions, update) carry at most one mini glass button each, the panel's one inline-action style.
 
 The dashboard is a sidebar (190–210pt) / detail split with a 300–420pt inspector. Account cards sit in an adaptive grid (minimum 250pt columns, 16pt gaps, 20pt pane inset), with 14pt internal padding. Cards run active account first, then switch order, matching the panel. Every card is laid out the same way whether usage is known or not, so the rows of cards stay the same height.
 
@@ -305,7 +462,7 @@ Two shape families. Readings are almost square: the tide staff is a flat rectang
 
 ### Buttons
 - **Shape:** system capsule (glass button styles).
-- **Primary:** prominent glass in the accent (Cyan Ink fill, white text), for the one main action on a surface: "Switch to <alias or email local part>" in the panel footer and "Switch" on a card. Large control size in the panel footer, small on cards.
+- **Primary:** prominent glass in the accent (Cyan Ink fill, white text), for the one main action on a surface: "Switch to <alias or email local part>" (the best account) in the panel footer and "Switch" on a card. Large control size in the panel footer, small on cards.
 - **Glass:** plain glass for secondary actions next to it: in the panel footer, the Dashboard control (an icon-only glass menu whose primary action opens the dashboard, symbol `gauge.with.dots.needle.50percent`, labelled "Open the dashboard" for assistive technology, menu indicator hidden) and the Terminal split button; on cards, the terminal split button. Icon-only controls always carry an accessibility label and a help tooltip.
 - **Sign In Again:** prominent glass tinted amber when a re-login is needed; plain glass when the login is merely due to expire. While a sign-in is pending it becomes a mini spinner with "Waiting for sign-in…".
 - **Borderless:** header icons (SF Symbols in secondary).
@@ -339,7 +496,7 @@ The week a weekly window has been, drawn on account cards (in place of the 3pt W
 The Usage page's first line, from the CLI's `rotation` in `list --json`: will the accounts auto-switch can use carry you to their resets. "The week lasts" in primary or "Runs dry Sat 10:28" in amber, title-sized, with one secondary line naming the accounts that count and the next reset. Below it, one almanac row per subscription account in switch order: name (middle-truncated, with "Held out of rotation", "Signed out" or "Not used by auto-switch" in secondary caption), Week Tide, weekly %, pace text and reset. A row opens the account's details. Usage's per-account charts give each account one fixed colour from `UsageChartSupport.palette` (deeper `lightPalette` on light backgrounds); none of them is a reading colour (cyan, amber, yellow, lime, red), and no account is recoloured for being active.
 
 ### Almanac Row (signature)
-One account per row in the "Next in line" table: an 18pt mascot, the name (middle-truncated) with its plan in tertiary caption, then 5h %, 7d % and reset clock in fixed trailing columns, all in tabular 12pt. A disabled account is shown at 50% opacity. Hovering draws one quaternary wash at 50% across the full row, column gaps included (a fill per cell would leave them bare); a click anywhere on the row opens the account menu.
+One account per row in the "Next in line" table: an 18pt mascot, the name (the alias, else the email's local part, else the whole email when another account shares that local part; middle-truncated, since local parts often differ only at the end) with its plan in tertiary caption only when the accounts' plans differ, then 5h %, 7d % and reset clock in fixed trailing columns, all in tabular 12pt. Rows sit under their group's name once each (the active account's groups first, switch order inside a group, an account in several groups at its first). Accounts held out of rotation are never next: they fold into one tertiary "Held out (N)" line with a chevron at the bottom, closed by default, and show at 50% opacity when opened. An account at its limit is not dimmed, so its red figure stays legible; its Use is grey. Hovering draws one quaternary wash at 50% across the full row, column gaps included (a fill per cell would leave them bare); a click anywhere on the row opens the account menu.
 
 ### Desktop Line
 Shown in the panel under the active account only while "Claude Desktop per account" is on: a `macwindow` symbol, then one caption line in secondary saying which account Claude Desktop is on ("Desktop: <name>", "Desktop still on <name>", "Desktop: not running", "Desktop: its own folder, not one of HaryX's", or a warning that the active account's folder is signed into another account), 8pt below the block above. At most one mini glass button sits at the trailing edge, only when Desktop is not on the active account: "Open" (the account has a folder) or "Set Up Desktop" (it has none yet). A mismatched folder never gets a button.
@@ -352,7 +509,7 @@ Wing H mark on its Midnight Navy tile (upper half Electric Cyan, lower half Soft
 ## Do's and Don'ts
 
 ### Do:
-- **Do** put the active account's 5-hour percentage first, as the one Display figure on the surface, with the reset clock right-aligned beside it.
+- **Do** put the active account's 5-hour percentage first, as the one Display figure on the surface, with the reset clock right-aligned beside it ("starts on first use" while the window has no reset). The Week Staff under it turns its label amber when the week is the tighter limit (over 50% and above the 5-hour reading).
 - **Do** draw every usage reading as a Tide Staff (flat fill, 1.5pt radius, pace tick) coloured cyan / amber / red by the Three-Step Fill Rule.
 - **Do** use tabular figures for every percentage, clock and countdown.
 - **Do** divide panel sections with 1pt system-separator rules and 10pt of space on each side.
@@ -366,9 +523,9 @@ Wing H mark on its Midnight Navy tile (upper half Electric Cyan, lower half Soft
 - **Don't** draw a usage reading as a capsule progress bar or label it in uppercase; use the Tide Staff and sentence case.
 - **Don't** use Midnight Navy as a surface or text colour; it exists as the mark's tile.
 
-## Web (site/)
+## Web (apps/landing/)
 
-The landing page in `site/` (Astro, tokens in `site/src/styles/global.css`) is the one surface outside the macOS app. It keeps the app's brand palette, its display face and its Tide Staff, and replaces the system's glass and appearance with a printed page: a gallery poster with one drawn mark, one tide line and a lot of empty ground. Everything above this section is the app system and still governs the app; this section governs `site/` only, and where the two differ it says so.
+The landing page in `apps/landing/` (Astro, tokens in `apps/landing/src/styles/global.css`) is the one surface outside the macOS app. It keeps the app's brand palette, its display face and its Tide Staff, and replaces the system's glass and appearance with a printed page: a gallery poster with one drawn mark, one tide line and a lot of empty ground. Everything above this section is the app system and still governs the app; this section governs `apps/landing/` only, and where the two differ it says so.
 
 ### Colors (web)
 
@@ -394,7 +551,7 @@ Brand palette only: Midnight Navy, Electric Cyan and Soft White, with Pace Amber
 
 `theme-color` follows the ground (Soft White light, Midnight Navy dark). Body text carries tabular figures by default.
 
-**The Navy Ground Rule (web only).** In the dark theme the whole page ground is Midnight Navy with Soft White ink; in the light theme it is Soft White paper with Midnight Navy ink. This is a deliberate exception, for `site/` only, to the app's rule that Midnight Navy is only the mark's tile. App surfaces keep the system appearance and never use navy as a surface.
+**The Navy Ground Rule (web only).** In the dark theme the whole page ground is Midnight Navy with Soft White ink; in the light theme it is Soft White paper with Midnight Navy ink. This is a deliberate exception, for `apps/landing/` only, to the app's rule that Midnight Navy is only the mark's tile. App surfaces keep the system appearance and never use navy as a surface.
 
 **The One Accent Rule (web).** Cyan is the page's only accent: the tide line, the active account and the route in the tide illustration, the `$`/`>` prompt before a command, the selected OS underline, link-hover underlines, the focus ring (2px, 3px offset), and the Copy button's hover and copied fill. Amber appears only inside the tide illustration, as a staff fill and its figure. No red ships on the page.
 
@@ -438,7 +595,7 @@ Square-cut. 2px corners on the command field and the Copy button, 1.5px on tide 
 ### Components (web)
 
 #### Drawn Mark (signature)
-The Wing H's two halves drawn straight on the ground, with no tile: upper half Electric Cyan, lower half in ink (navy on paper, Soft White on navy). In the hero it is tall (360px to 78vh, capped at 860px, and never wider than 45% of the frame so it cannot run over the copy), anchored top-right in the frame, behind the copy; on phones and on any window taller than 5:4 (portrait tablets) the hero stacks with the mark small above the headline. Entrance, as one GSAP timeline with the headline and the tide line (`site/src/scripts/motion.ts`): each half is first traced as a 1.25px outline (1.4s, power2.inOut; upper half at 0.25s, lower half at 0.5s), then floods with its fill from the bottom up (clip-path, 1s, expo.out, at 1.35s and 1.6s) while the trace fades out. The trace is drawn with `pathLength` dashes and no `non-scaling-stroke` (under it Chrome ignores `pathLength`); its width is set in user units to come out at 1.25px. With reduced motion the mark is simply filled. The closing section shows the mark static, 340px max (120px when stacked), and resolves the page: its halves start parted (3.2 units, 35% opacity) and join as "Install HaryX." arrives (1.6s, expo.out), reversing if the visitor scrolls back above it.
+The Wing H's two halves drawn straight on the ground, with no tile: upper half Electric Cyan, lower half in ink (navy on paper, Soft White on navy). In the hero it is tall (360px to 78vh, capped at 860px, and never wider than 45% of the frame so it cannot run over the copy), anchored top-right in the frame, behind the copy; on phones and on any window taller than 5:4 (portrait tablets) the hero stacks with the mark small above the headline. Entrance, as one GSAP timeline with the headline and the tide line (`apps/landing/src/scripts/motion.ts`): each half is first traced as a 1.25px outline (1.4s, power2.inOut; upper half at 0.25s, lower half at 0.5s), then floods with its fill from the bottom up (clip-path, 1s, expo.out, at 1.35s and 1.6s) while the trace fades out. The trace is drawn with `pathLength` dashes and no `non-scaling-stroke` (under it Chrome ignores `pathLength`); its width is set in user units to come out at 1.25px. With reduced motion the mark is simply filled. The closing section shows the mark static, 340px max (120px when stacked), and resolves the page: its halves start parted (3.2 units, 35% opacity) and join as "Install HaryX." arrives (1.6s, expo.out), reversing if the visitor scrolls back above it.
 
 #### Hero Headline
 "Take control of your AI workflow." in Web Display, 15ch max and never into the mark's space, balanced. It enters first: each line rises out of its own mask (1s, expo.out, 90ms apart); the lede and the install switch fade in after it (0.8s, from 0.6s). The lede opens with the product-specific line ("See every Claude account's tide and switch before one runs dry.") and is never hidden at any size.
@@ -447,7 +604,7 @@ The Wing H's two halves drawn straight on the ground, with no tile: upper half E
 One full-bleed cyan stroke (2.25px, round caps, non-scaling) running edge to edge of the viewport between the hero headline and the lede, behind the mark. It is drawn left to right under the landed headline by a clip-path wipe (2s, power2.inOut, from 0.85s), not a dash, then swells slowly (7s, alternate, 4px drop and 0.82 vertical scale); the swell rests while the hero is off screen. With reduced motion it is static and drawn.
 
 #### Tide Staff Illustration (signature)
-A table of three sample accounts that shows auto-switch: rows 84px tall between hairlines, columns for account, 5-hour staff, used % and reset time. Each staff is a 6px flat bar, 1.5px corners, on the track colour, with a 2px ink pace tick overhanging 4px above and below, and a 1px dashed tertiary threshold line overhanging 7px. Under it, "Week N%" in 0.75rem tertiary. The visitor's scroll drives it (`site/src/scripts/tide-demo.ts`): where the whole figure fits (wider than 760px and at least 700px tall) it pins with its centre at 55% of the viewport for 70% of a viewport of scroll, and elsewhere it scrubs as it passes. Across the first 78% of that scroll the active account's figure and staff rise from 62% to 91%, the fill and figure turn amber, and on crossing the threshold a cyan route curve wipes down (clip-path, 0.9s) from the active row's dot to the next row, whose dot fills cyan and gains the "active" badge; the last stretch holds the switched state, and scrolling back undoes it. Replay plays the same rise on its own (1.6s). Reduced motion and `?still` show the switched state (0.75rem 600, cyan text on the live wash, capsule). A live caption narrates the switch, with account names and the reached percentage in cyan semibold. It must always carry its plain sample-data line ("Illustration with sample accounts, not live data…") and a text Replay link; with reduced motion it jumps to the end state.
+A table of three sample accounts that shows auto-switch: rows 84px tall between hairlines, columns for account, 5-hour staff, used % and reset time. Each staff is a 6px flat bar, 1.5px corners, on the track colour, with a 2px ink pace tick overhanging 4px above and below, and a 1px dashed tertiary threshold line overhanging 7px. Under it, "Week N%" in 0.75rem tertiary. The visitor's scroll drives it (`apps/landing/src/scripts/tide-demo.ts`): where the whole figure fits (wider than 760px and at least 700px tall) it pins with its centre at 55% of the viewport for 70% of a viewport of scroll, and elsewhere it scrubs as it passes. Across the first 78% of that scroll the active account's figure and staff rise from 62% to 91%, the fill and figure turn amber, and on crossing the threshold a cyan route curve wipes down (clip-path, 0.9s) from the active row's dot to the next row, whose dot fills cyan and gains the "active" badge; the last stretch holds the switched state, and scrolling back undoes it. Replay plays the same rise on its own (1.6s). Reduced motion and `?still` show the switched state (0.75rem 600, cyan text on the live wash, capsule). A live caption narrates the switch, with account names and the reached percentage in cyan semibold. It must always carry its plain sample-data line ("Illustration with sample accounts, not live data…") and a text Replay link; with reduced motion it jumps to the end state.
 
 **The Sample Data Rule.** Any usage reading on the web is an illustration and says so on the page, next to it, in plain words.
 
@@ -471,7 +628,7 @@ It makes no request: Space Grotesk 500, Geist 400 and Geist Mono 400 are embedde
 ### Do's and Don'ts (web)
 
 #### Do:
-- **Do** use the navy ground in dark and Soft White paper in light on `site/`, and only there.
+- **Do** use the navy ground in dark and Soft White paper in light on `apps/landing/`, and only there.
 - **Do** let the drawn mark and the tide line be the page's only illustration, with the tide line full-bleed and behind the mark.
 - **Do** divide every list with 1px hairlines and leave sections separated by space.
 - **Do** label every usage illustration as sample data, in plain words beside it.
@@ -483,3 +640,126 @@ It makes no request: Space Grotesk 500, Geist 400 and Geist Mono 400 are embedde
 - **Don't** set anything but a runnable command in Geist Mono.
 - **Don't** add a second accent: cyan is the only one, amber lives only inside the tide illustration.
 - **Don't** present a usage figure as live data.
+
+## HaryX web (apps/platform)
+
+The signed-in web at haryx.wecoap.com/platform/ (Svelte 5, shadcn-svelte themed to this world, tokens in `apps/platform/src/app.css`). It is the `apps/landing/` world turned into a console: the same grounds, inks, rules, faces, drawn mark and tide line, with the homepage hero split in two. The account read most recently stands at display size on the left; every account is a hairline row on the right. Everything above governs the app and `apps/landing/`; this section governs `apps/platform` only, and where it differs from `apps/landing/` it says so.
+
+### Colors (platform)
+
+Same role tokens as `apps/landing/` (`--ground`, `--ink`, `--ink-2`, `--ink-3`, `--rule`, `--rule-strong`, `--track`, `--live-wash`), with the same light and dark values, mapped onto shadcn's roles: `--primary` is ink (so a default button is ink-filled), `--border` is the row rule, `--input` is the strong rule, `--ring` is live cyan, `--radius` is 2px. The theme follows the system appearance only (a `.dark` class kept in step with `prefers-color-scheme`); there is no `?theme=` override as on `apps/landing/`.
+
+| Role (CSS token) | Light | Dark |
+|---|---|---|
+| Live marker, staff fill, focus (`--live`) | Electric Cyan Light | Electric Cyan |
+| Live text (`--live-text`) | Cyan Ink | Electric Cyan |
+| Amber fill (`--amber`) | Pace Amber | Pace Amber |
+| Amber figure (`--amber-text`) | Platform Amber Text Light | Platform Amber Text Dark |
+| Red fill on staffs (`--red`) | Limit Red | Limit Red |
+| Red text (`--red-text`) | Platform Red Text Light | Platform Red Text Dark |
+| Destructive button (`--destructive`) | Platform Red Fill Light | Platform Red Fill Dark |
+| Menus, dialogs (`--popover`) | Platform Popover Light | Platform Popover Dark |
+| Hover and selected wash (`--secondary`, `--accent`) | Platform Wash | Platform Wash Dark |
+| Row hover, skeletons (`--muted`) | Platform Muted | Platform Muted Dark |
+| Sheet and dialog scrim | Platform Scrim | Platform Scrim |
+| Text selection | Live wash (12%), ink text | Live wash (14%), ink text |
+
+Text selection is the quiet live wash, not the 45% Electric Cyan of `apps/landing/`.
+
+**The Last-Used Cyan Rule (platform).** Cyan marks the one account read most recently (a cyan dot before its name in the hero and in its row, and a cyan fill on its Tide Staffs), keyboard focus and the input caret, the `$` prompt of a command, and a small set of in-text states: a consent that is "On", and inline links into another section (Privacy center, Download my data). Every other account's staff fills in secondary ink. Cyan is never a button fill and never a heading.
+
+**The Three Readings Rule (platform).** Unlike `apps/landing/`, where no red ships, amber and red readings ship here because the readings are real: a figure and its staff turn amber at 85% and red at 100%, in table cells too. Under 85% a figure stays ink. The web has no pace, so there is no "ahead of pace" amber.
+
+### Typography (platform)
+
+Same three faces as `apps/landing/`: Space Grotesk 500 (tracking -0.04em, tabular) for display text and figures, Geist for everything read, Geist Mono for runnable commands. Body is Geist 15px / 1.5 with tabular figures on by default.
+
+- **Sign-in Display** (Space Grotesk 500, up to 6rem, 0.96): the signed-out headline only.
+- **Hero Name** (Space Grotesk 500, up to 5.5rem, 1.02, two lines max, then an ellipsis; 2 to 2.5rem and one line on phones): the last-used account's name, or the email's local part with the domain below it in Geist at 18px, secondary. State headlines in the hero ("Unlock your accounts.", "Sync is off.") use the same face at 2.25 to 4.5rem.
+- **Hero Figure** (Space Grotesk 500, up to 4rem; 32px on phones): the hero's 5-hour percentage. The week figure beside or under it is 28px.
+- **Section** (Space Grotesk 500, up to 2.75rem): one heading per section, the section name, with the account count in tertiary ink after it on Accounts.
+- **Sheet Title** (Space Grotesk 500, 40px) and **Figure** (28px rows, 32px in the sheet, 40px for the month's token total).
+- **Row Name** (Geist 600, 17px): account, profile and machine names in rows.
+- **Tab** (Geist 500, 15px): section tabs and buttons.
+- **Small** (Geist 14px): metadata in tertiary, labels over figures in secondary ("5-hour window", "Week").
+- **Column Head** (Geist 500, 12px, tertiary, sentence case): the account list's head row and table heads.
+- **Command** (Geist Mono, 13px): the commands shown on empty states.
+
+**The Sentence-Case Label Rule (platform).** Labels, column heads and metadata are Geist in sentence case. No tracked uppercase mono eyebrows sit over headings or figures; the hero carries no "Last used" kicker, the cyan dot says it.
+
+### Layout (platform)
+
+Desktop (1024px and wider) is a split: the hero column at 40% (never under 26rem) on the left, sticky and full viewport height, with a 1px rule on its right edge; the sections column fills the rest. The sections column opens with an 80px tab bar (tabs left, a "Jump to ⌘K" field right) that stays at the top of the page, then the section heading and content. Gutters are 56px on desktop, 32px from 640px, 16px on phones. Rows are 24px top and bottom (16px on phones).
+
+On phones the hero becomes a compact block above the tabs (name on one line, 5-hour and week figures side by side), the tide line runs between them in flow, and the tabs scroll sideways under a hairline. The account list gains its week tide and machines from 640px, the "Jump to" button from 768px, and its five fixed columns with a column-head row (Account, 5-hour, Last 7 days, Machines, chevron) from 1280px.
+
+**The Tide Line Seat Rule.** On desktop the tide line sits fixed just under the tab bar (top at 80px + 16px, 24px tall), full viewport width, so it crosses both halves of the split in the band where the sections column's header meets its content. It is behind interaction (no pointer events) and over the hero's rule.
+
+### Elevation & Depth (platform)
+
+Flat, as on `apps/landing/`, for everything that sits in the page: rows, the hero, the sheet and dialogs carry no shadows and no fills behind content. The side sheet is set apart by a 1px rule on its open edge and a navy scrim at 40%; dialogs by a 1px ink ring at 10% and the same scrim. The only shadows are shadcn's small floating shadow on dropdown and select menus, which hover over the page and close on the next click. Depth in the hero comes from stacking: the X mark sits behind the copy.
+
+### Shapes (platform)
+
+Square-cut: every shadcn radius token resolves to 2px (buttons, inputs, menus, dialogs, the command palette, the sheet, the avatar square). Tide Staffs and the Week Tide keep 1.5px. Circles only for the last-used dot. The tide line is the one free curve.
+
+### Components (platform)
+
+#### Hero (signature)
+The left half of the split, the homepage hero turned console. Top row: the drawn HARYX wordmark (17px tall) and the account menu (a 28px ink square with the email's initial, the email, a chevron). Then, 12vh down on desktop, one of: the last-used account (cyan dot hanging in the left gutter, Hero Name, email domain, then a definition list of "5-hour window" with Hero Figure and a 6px Tide Staff, and "Week" with its figure and a 3px staff), the passphrase form, or a state headline with one action. Under the readings, one tertiary line says where and when they were read ("Read 10 hr ago on <machine>, the newest reading of any account.") with the account and machine counts on desktop. Clicking the name opens the account's sheet.
+
+The X mark (the Wing H halves, upper half Electric Cyan, lower half ink) is a watermark at 14% opacity in the hero's bottom-left corner on desktop, cropped by the column (up to 46vh, 420px max), behind the copy. The signed-out page shows it at full strength on the right (up to 64vh, 680px max), and on phones as a small mark at the bottom right.
+
+#### Tide Line (platform)
+The homepage's curve, drawn as a 1.25px non-scaling cyan stroke across the full width. It draws itself in once from the left (1.8s, expo-out, after 0.2s) and then holds still; there is no swell. With reduced motion it is simply drawn. Seated per the Tide Line Seat Rule on desktop, in flow above the tabs on phones, and between headline and lede on the signed-out page.
+
+#### Tide Staff (platform)
+A flat bar on the track at 1.5px corners: 6px in the hero and for the 5-hour reading in the sheet, 5px in account rows and for the week in the sheet, 3px for the hero's week. Fill: cyan for the last-used account, secondary ink for every other account, amber at 85% and over, red at 100%. **No pace tick** and no threshold line: sync carries no pace and no reset, so the web makes no pace claim. A staff with no reading is the bare track.
+
+#### Week Tide (platform)
+The last 7 days of an account's weekly readings, from 7 days ago to now (not the week from start to reset, as in the app). A filled curve (fill at 16%, 1.25px stroke, round joins) on the track at 1.5px corners, coloured by the latest reading: secondary ink, amber at 85%, red at 100%. **No pace diagonal** and no dashed estimates. 22px tall in rows, 64px in the sheet with "7 days ago" and "Now" in tertiary under its ends. Drawn at its rendered width so strokes never scale. With fewer than two readings it says so in words instead.
+
+#### Account Row (signature)
+One account per row between 1px rules, the whole row a button that opens the sheet, a muted wash on hover and a chevron that nudges 2px right. Name in Row Name (with the cyan dot when last used), the email or organisation in tertiary under it, "Held out of rotation" in secondary when it applies; then the 5-hour figure (28px) over its staff; "Week N%" over the Week Tide; machine names (or "N machines") with "read N ago" in tertiary. A filter field appears above the list from 7 accounts. Profile, machine, usage and consent lists use the same hairline row.
+
+#### Account Sheet
+A right side sheet (full width on phones, 448px max) on the ground colour, not the popover colour. Header between rules: Sheet Title name, email, then organisation, switch order and rotation state in tertiary. Body: the newest 5-hour and week figures (32px) with staffs and a "Read N ago on <machine>." line, the Week Tide at 64px, the machines as hairline rows (the one that took the newest reading marked "newest reading"), and this month's tokens as a figure with an outline "Open usage" button.
+
+#### Buttons
+- **Primary:** ink fill with ground text (navy on Soft White in light, Soft White on navy in dark), 2px corners, 40px tall with 16px sides, Geist 500 at 14px; 80% ink on hover. Large is 48px with 20px sides and 15px text (sign in). Cyan is never a button fill.
+- **Outline:** 1px rule border on the ground, muted wash on hover. Used for every secondary action (Download, Open WeCoAp account, Try again on a section).
+- **Ghost:** text only, muted wash on hover (Rename, Cancel).
+- **Destructive outline:** strong rule border, red text, a 10% red wash and red border on hover; the first step of anything that removes (Withdraw, Sign out a machine).
+- **Destructive:** solid red fill with white text, only as the confirming button inside an alert dialog ("Withdraw and erase", "Sign out"), beside "Keep it on" or Cancel.
+- **Focus:** the border turns cyan with a 3px cyan ring at 50%; everything else focuses with a 2px cyan outline at 2px offset. Disabled is 45% opacity.
+
+#### Inputs
+40px tall (48px with 16px text for the passphrase), 1px strong-rule border, transparent fill, 2px corners, tertiary placeholder, cyan caret; on focus the border turns cyan with a 3px cyan ring at 50%; invalid turns the border red. While unlocking, a 3px cyan bar slides along an 80px track (1.1s, looping) beside "Unlocking" text.
+
+#### Command Field (platform)
+A runnable command on an empty state: 1px strong rule, 2px corners, Geist Mono 13px, a cyan `$` that is not selectable, and an ink Copy button beside it that becomes an outline "Copied" for 1.8s ("Selected" if the clipboard is blocked). Unlike `apps/landing/`, Copy never turns cyan.
+
+#### Section Tabs and Jump To
+Plain text links in Tab type, tertiary ink, ink on hover; the current one in ink with a 2px ink underline on the bar's bottom edge. "Jump to" is a 36px ruled field with a search icon and a `⌘ K` (or `Ctrl K`) key cap in Geist Mono 11px; it and ⌘K/Ctrl K open a command palette of sections, accounts and Lock synced data.
+
+#### States
+Loading, empty, error, locked and consent-needed are plain text on the page under a rule (Geist 600 at 20px, a secondary sentence, one outline action), never a boxed card. Loading is skeleton bars on the muted wash between rules.
+
+**The Synced, Not Live Rule.** Every reading on the web is history carried by sync, never live: no "in use now", no rotation verdict, no pace and no reset time. Every figure carries when it was read and on which machine, next to it in plain words ("Read 10 hr ago on <machine>", "read N ago" in each row, "newest reading" in the sheet).
+
+### Do's and Don'ts (platform)
+
+#### Do:
+- **Do** set the last-used account at Hero Name size on the left and every account as a hairline row on the right, with the cyan dot marking the last-used one in both places.
+- **Do** say when and on which machine every reading was taken, beside the figure.
+- **Do** colour a reading amber at 85% and red at 100%, in figures, staffs and table cells.
+- **Do** fill buttons with ink, and make the confirming button of a destructive dialog solid red after a red-outline first step.
+- **Do** theme every shadcn-svelte component to 2px corners, hairline rules and the ground colour before it ships.
+- **Do** seat the tide line under the tab bar so it crosses both halves of the split, and keep the X mark at 14% behind the hero.
+
+#### Don't:
+- **Don't** draw a pace tick, a pace diagonal, a threshold line or a reset time on the web; sync carries none of them.
+- **Don't** present a synced reading as live ("now", "in use", "running").
+- **Don't** fill a button with cyan or set a heading in cyan.
+- **Don't** add shadows, cards or fills to in-page surfaces; only floating menus carry a shadow.
+- **Don't** put a tracked uppercase eyebrow or kicker over a heading or figure; labels are sentence-case Geist.

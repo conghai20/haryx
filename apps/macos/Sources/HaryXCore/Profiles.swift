@@ -218,3 +218,26 @@ public enum ProfileArgs {
 public func profileByteString(_ bytes: UInt64) -> String {
     ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .binary)
 }
+
+extension ProfileInventory {
+    /// A category's collapsed line: how many items, their size on disk, and how many need attention.
+    public static func summary(_ items: [ProfileItem]) -> String {
+        let bytes = items.filter { $0.files > 0 }.reduce(UInt64(0)) { $0 + $1.size }
+        let problems = items.filter(\.isProblem).count
+        var parts = ["\(items.count) item\(items.count == 1 ? "" : "s")"]
+        if bytes > 0 { parts.append(profileByteString(bytes)) }
+        if problems > 0 { parts.append("\(problems) need\(problems == 1 ? "s" : "") attention") }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Lines in first-seen order, each once, with how many times it appeared.
+    public static func counted(_ lines: [String]) -> [(line: String, count: Int)] {
+        lines.reduce(into: [(line: String, count: Int)]()) { acc, line in
+            if let i = acc.firstIndex(where: { $0.line == line }) {
+                acc[i].count += 1
+            } else {
+                acc.append((line, 1))
+            }
+        }
+    }
+}

@@ -8,31 +8,36 @@ import Foundation
 public struct WhoAmI: Decodable, Sendable, Equatable {
     public let signedIn: Bool
     public let user: HaryXUser?
+    /// Absent from an older `haryx` and when signed out.
+    public let consents: [ConsentState]?
 
     public static let signedOut = WhoAmI(signedIn: false, user: nil)
 
-    public init(signedIn: Bool, user: HaryXUser?) {
+    public init(signedIn: Bool, user: HaryXUser?, consents: [ConsentState]? = nil) {
         self.signedIn = signedIn
         self.user = user
+        self.consents = consents
     }
 }
 
 public struct HaryXUser: Decodable, Sendable, Equatable {
     public let id: String
     public let email: String
-    /// `github` or `google`.
+    /// `github`, `google`, `apple` or `email`.
     public let provider: String
 
     public var providerName: String {
         switch provider {
         case "github": "GitHub"
         case "google": "Google"
+        case "apple": "Apple"
+        case "email": "Email"
         default: provider.capitalized
         }
     }
 }
 
-/// One line of `haryx login --provider … --json`.
+/// One line of `haryx login --json`.
 public enum LoginEvent: Equatable, Sendable {
     case browser(url: URL?, opened: Bool)
     case signedIn(HaryXUser)
@@ -157,8 +162,13 @@ extension CSwapCLI {
 
 /// What a failed sync means for the account pane. Failures are quiet: a status line, never an alert.
 public enum SyncProblem: Equatable, Sendable {
-    /// Signed out here or on the server: show the sign-in state.
+    /// Not signed in on this machine: show the sign-in state.
     case signedOut
+    /// The sign-in server ended this machine's session (signed out from HaryX on the web or the
+    /// WeCoAp account page): show the sign-in state with that notice.
+    case signedOutFromWeb
+    /// The HaryX ID has not given (or withdrew) its consent to sync: ask for it again.
+    case consentRequired
     /// No sync key on this machine: show the passphrase form.
     case locked
     /// The passphrase was reset on another machine: show the passphrase form with that reason.
@@ -171,7 +181,9 @@ public enum SyncProblem: Equatable, Sendable {
 
     public init(_ failure: HaryXFailure) {
         switch failure.code {
-        case "not_signed_in", "signed_out": self = .signedOut
+        case "not_signed_in": self = .signedOut
+        case "signed_out": self = .signedOutFromWeb
+        case "consent_required": self = .consentRequired
         case "locked": self = .locked
         case "key_changed": self = .keyChanged
         case "busy": self = .busy
@@ -184,6 +196,8 @@ public enum SyncProblem: Equatable, Sendable {
     public var summary: String {
         switch self {
         case .signedOut: "Signed out."
+        case .signedOutFromWeb: "Signed out of HaryX from the web."
+        case .consentRequired: "Sync is off for your HaryX account. Turn it on to sync."
         case .locked: "Enter your sync passphrase to sync."
         case .keyChanged: "The sync passphrase was changed on another machine. Enter the new one."
         case .busy: "Another sync is running. Will retry."
@@ -194,6 +208,9 @@ public enum SyncProblem: Equatable, Sendable {
 
     /// The pane should ask for the passphrase again.
     public var needsUnlock: Bool { self == .locked || self == .keyChanged }
+
+    /// The session is gone: re-read who is signed in.
+    public var isSignedOut: Bool { self == .signedOut || self == .signedOutFromWeb }
 }
 
 /// The rules the passphrase form enforces before `sync unlock` / `sync passphrase`.
@@ -207,4 +224,56 @@ public enum SyncPassphrase {
         if let confirm, confirm != passphrase { return "The two passphrases do not match." }
         return nil
     }
+}
+
+// MARK: - consents, machines, usage sync
+// (`packages/contracts/haryx/{consents,machines,usage-sync}.json`; `whoami.json` carries `consents`.)
+
+/// A HaryX consent purpose: `sync` or `machines`.
+public typealias ConsentPurpose = String
+
+/// One entry of `whoami.json`'s `consents`.
+public struct ConsentState: Decodable, Sendable, Equatable {
+    public let purpose: ConsentPurpose
+    public let granted: Bool
+    public let version: String?
+}
+
+public struct ConsentEvent: Decodable, Sendable, Equatable {
+    /// `grant` or `withdraw`.
+    public let action: String
+    public let version: String
+    public let at: String
+    /// `cli`, `macos`, `windows`, `web` or `sso`.
+    public let source: String
+}
+
+public struct Consent: Decodable, Sendable, Equatable {
+    public let purpose: ConsentPurpose
+    public let granted: Bool
+    public let version: String?
+    public let at: String?
+    public let history: [ConsentEvent]
+}
+
+/// `haryx account consents --json`.
+public struct Consents: Decodable, Sendable, Equatable {
+    public let consents: [Consent]
+}
+
+public struct HaryXMachine: Decodable, Sendable, Equatable {
+    public let machineId: String
+    public let name: String
+    public let os: String
+    public let version: String
+    public let lastSeenAt: String
+    public let isThisMachine: Bool
+    public let signedIn: Bool
+    /// The machine's Keycloak session id (the web ends that session); unused by the app.
+    public let sessionId: String?
+}
+
+/// `haryx account machines --json`.
+public struct HaryXMachines: Decodable, Sendable, Equatable {
+    public let machines: [HaryXMachine]
 }

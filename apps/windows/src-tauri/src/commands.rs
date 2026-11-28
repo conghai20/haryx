@@ -51,10 +51,21 @@ pub const ALLOWED_VERBS: &[&str] = &[
     "sync",
 ];
 
-/// `auto --once` is allowed (a single tick); a looping `auto` is not.
+/// Second words the UI may send after `account`: the privacy verbs of the HaryX Account pane
+/// (`consents`, `consent grant|withdraw`, `export`, `machines`, `machine rename`) and `delete`,
+/// which only answers where a WeCoAp ID is deleted.
+pub const ACCOUNT_VERBS: &[&str] = &[
+    "consent", "consents", "export", "machines", "machine", "delete",
+];
+
+/// `auto --once` is allowed (a single tick); a looping `auto` is not. `account` needs a second word
+/// from [`ACCOUNT_VERBS`].
 pub fn is_allowed(args: &[String]) -> bool {
     match args.first().map(String::as_str) {
         Some("auto") => args.iter().any(|a| a == "--once"),
+        Some("account") => args
+            .get(1)
+            .is_some_and(|verb| ACCOUNT_VERBS.contains(&verb.as_str())),
         Some(verb) => ALLOWED_VERBS.contains(&verb),
         None => false,
     }
@@ -419,15 +430,14 @@ pub fn login_open(logins: State<'_, Logins>, id: u64) -> Result<(), String> {
     updater::open_in_browser(&url)
 }
 
-/// Start the HaryX sign-in (`haryx login --provider <provider> --json`); its events arrive as
+/// Start the HaryX sign-in (`haryx login --json`, WeCoAp SSO); its events arrive as
 /// `account-login`.
 #[tauri::command]
 pub fn account_login_start(
     app: AppHandle,
     login: State<'_, crate::account::AccountLogin>,
-    provider: String,
 ) -> Result<(), String> {
-    login.start(&app, &provider)
+    login.start(&app)
 }
 
 #[tauri::command]
@@ -438,7 +448,16 @@ pub fn account_login_cancel(login: State<'_, crate::account::AccountLogin>) {
 /// Open the sign-in page again. The UI names the run, never the URL.
 #[tauri::command]
 pub fn account_login_open(login: State<'_, crate::account::AccountLogin>) -> Result<(), String> {
-    updater::open_in_browser(&login.url().ok_or("no sign-in link yet")?)
+    let url = login.url().ok_or("no sign-in link yet")?;
+    if !is_sign_in_link(&url) {
+        return Err("not a sign-in link".into());
+    }
+    updater::open_in_browser(&url)
+}
+
+/// A sign-in page HaryX may open: https, or a local test stack on 127.0.0.1.
+fn is_sign_in_link(url: &str) -> bool {
+    url.starts_with("https://") || url.starts_with("http://127.0.0.1:")
 }
 
 /// Sync now (Sync now, or after unlocking); never alongside another sync.
@@ -470,6 +489,29 @@ pub fn sync_info(syncer: State<'_, crate::sync::Syncer>) -> Value {
 }
 
 #[cfg(test)]
+mod sign_in_link_tests {
+    use super::is_sign_in_link;
+
+    #[test]
+    fn only_https_or_a_local_stack_opens() {
+        assert!(is_sign_in_link(
+            "https://sso.wecoap.com/realms/wecoap/device?user_code=AB"
+        ));
+        assert!(is_sign_in_link(
+            "http://127.0.0.1:18084/realms/wecoap/device"
+        ));
+        for bad in [
+            "file:///C:/x",
+            "http://evil.example/",
+            "javascript:alert(1)",
+            "ms-settings:",
+        ] {
+            assert!(!is_sign_in_link(bad), "{bad}");
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -494,10 +536,26 @@ mod tests {
     #[test]
     fn account_and_sync_verbs_are_allowed_and_nothing_else_new() {
         for words in [
-            &["login", "--provider", "github", "--json"][..],
+            &["login", "--json"][..],
             &["logout", "--json"],
             &["whoami", "--json"],
             &["account", "delete", "--yes", "--json"],
+            &["account", "consents", "--json"],
+            &[
+                "account", "consent", "grant", "sync", "--yes", "--source", "windows", "--json",
+            ],
+            &[
+                "account", "consent", "withdraw", "machines", "--yes", "--source", "windows",
+                "--json",
+            ],
+            &[
+                "account",
+                "export",
+                "C:\\Users\\me\\haryx-data.json",
+                "--json",
+            ],
+            &["account", "machines", "--json"],
+            &["account", "machine", "rename", "abc", "Work PC", "--json"],
             &["sync", "--json"],
             &["sync", "status", "--json"],
             &["sync", "unlock", "--passphrase-stdin", "--json"],
@@ -517,6 +575,18 @@ mod tests {
         ] {
             assert!(!is_allowed(&args(&[verb])), "{verb}");
         }
+        for words in [
+            &["account"][..],
+            &["account", "frobnicate"],
+            &["account", "--help"],
+        ] {
+            assert!(!is_allowed(&args(words)), "{words:?}");
+        }
+        assert_eq!(
+            ACCOUNT_VERBS.len(),
+            6,
+            "a new account verb needs its own review and test"
+        );
         assert_eq!(
             ALLOWED_VERBS.len(),
             28,

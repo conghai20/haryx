@@ -1,5 +1,5 @@
 //! `haryx sync` without a server: the shapes the apps read, and the errors before any network.
-//! The full two-machine flow against a real Supabase stack is `server/supabase/tests/cli-e2e.sh`.
+//! The full two-machine flow against a local Keycloak and API is `deploy/cli-e2e.sh`.
 
 // The fake `security` is a `#!/bin/sh` script.
 #![cfg(unix)]
@@ -24,7 +24,8 @@ fn haryx(home: &Path, argv: &[&str], stdin: &str) -> Output {
         .env("HOME", home)
         .env("HARYX_HOME", home.join("store"))
         .env("HARYX_SECURITY_BIN", &security)
-        .env("HARYX_SUPABASE_URL", "http://127.0.0.1:9")
+        .env("HARYX_SSO_ISSUER", "http://127.0.0.1:9/realms/t")
+        .env("HARYX_API_URL", "http://127.0.0.1:9/api/v1")
         .env("NO_COLOR", "1")
         .env_remove("XDG_DATA_HOME")
         .env_remove("CLAUDE_CONFIG_DIR")
@@ -33,12 +34,10 @@ fn haryx(home: &Path, argv: &[&str], stdin: &str) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    // A command that never reads stdin may exit before the write lands: that broken pipe is fine.
+    if let Err(e) = child.stdin.take().unwrap().write_all(stdin.as_bytes()) {
+        assert_eq!(e.kind(), std::io::ErrorKind::BrokenPipe, "{e}");
+    }
     child.wait_with_output().unwrap()
 }
 

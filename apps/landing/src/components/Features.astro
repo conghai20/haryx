@@ -1,0 +1,136 @@
+---
+// What HaryX does, as captioned lines with the real command beside each.
+const LINES = [
+  {
+    say: "See every account's 5-hour and weekly usage.",
+    caption: "Each window is read like a tide: how high now, where it should be by now, when it resets.",
+    cmd: ["haryx ai list"],
+  },
+  {
+    say: "Choose which account Claude Code is logged in as.",
+    caption: "By number, email or alias, or let HaryX pick the one with the most quota left.",
+    cmd: ["haryx ai switch 2", "haryx ai switch --strategy best"],
+  },
+  {
+    say: "Run Claude as one account in one terminal, or one folder.",
+    caption: "The global login stays put. A mapped folder always opens as its account.",
+    cmd: ["haryx ai run 2 -- --resume", "haryx ai map 2"],
+  },
+  {
+    say: "Sign an account in again without losing the active one.",
+    caption: "Fixes “re-login needed” from the menu bar, the tray or the terminal.",
+    cmd: ["haryx ai login 3"],
+  },
+  {
+    say: "Move to another of your accounts at a threshold you set.",
+    caption: "Opt-in auto-switch, with a log of every move it made and why.",
+    cmd: ["haryx ai auto"],
+  },
+  {
+    say: "Carry your Claude Code setup to another machine.",
+    caption: "Settings, hooks, skills, MCP servers, plugins and history, with secrets redacted or encrypted, a dry run before apply and one-step rollback.",
+    cmd: ["haryx ai profile export work.haryx-profile"],
+  },
+  {
+    say: "Sync your machines, and see them all from a browser.",
+    caption: "Sign in with a WeCoAp ID. Accounts, usage and profiles sync end-to-end encrypted with your passphrase; HaryX web opens them only in your tab.",
+    cmd: ["haryx login", "haryx sync"],
+  },
+] as const;
+---
+
+<section class="features frame" id="features" aria-labelledby="features-title">
+  <h2 id="features-title" class="section-title" data-reveal="wipe">What it does.</h2>
+  <ul class="lines">
+    {
+      LINES.map((l, i) => (
+        <li class="line" data-reveal style={`--i:${i % 3}`}>
+          <div class="words">
+            <h3 class="say">{l.say}</h3>
+            <p class="caption">{l.caption}</p>
+          </div>
+          <div class="cmds">
+            {l.cmd.map((c) => (
+              <code class="cmd">{c}</code>
+            ))}
+          </div>
+        </li>
+      ))
+    }
+  </ul>
+</section>
+
+<style>
+  .features {
+    padding-top: var(--space-section);
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: clamp(16px, 2vw, 32px);
+    row-gap: 56px;
+  }
+  .section-title {
+    grid-column: 1 / span 5;
+  }
+  .lines {
+    grid-column: 1 / -1;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--rule-strong);
+  }
+  .line {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: clamp(16px, 2vw, 32px);
+    row-gap: 14px;
+    padding-block: clamp(28px, 3.4vw, 44px);
+    border-bottom: 1px solid var(--rule);
+    transition: background-color 0.3s var(--ease-out);
+  }
+  .words {
+    grid-column: 1 / span 7;
+    display: grid;
+    gap: 10px;
+  }
+  .say {
+    font-family: var(--font-text);
+    font-weight: 450;
+    font-size: clamp(1.375rem, 2.3vw, 2rem);
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+  }
+  .caption {
+    color: var(--ink-2);
+    max-width: 58ch;
+  }
+  .cmds {
+    grid-column: 9 / -1;
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    padding-top: 6px;
+  }
+  .cmd {
+    font-size: 0.875rem;
+    color: var(--ink-2);
+    overflow-wrap: anywhere;
+  }
+  .cmd::before {
+    content: "$ ";
+    color: var(--live);
+  }
+  .line:hover .cmd {
+    color: var(--ink);
+  }
+
+  @media (max-width: 900px) {
+    .section-title,
+    .words,
+    .cmds {
+      grid-column: 1 / -1;
+    }
+    .cmds {
+      padding-top: 0;
+    }
+  }
+</style>

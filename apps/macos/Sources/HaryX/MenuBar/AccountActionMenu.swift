@@ -2,7 +2,7 @@ import AppKit
 import HaryXCore
 
 /// Left-click menu for an account in the menu bar panel: Info, Sign In Again, Set Up Claude Desktop,
-/// Switch, Force Switch, Remove.
+/// Switch, Switch Without Saving Current Login, Groups, Remove.
 /// Built with AppKit so it pops at the cursor without wrapping the row in a SwiftUI `Menu`
 /// (which would swallow clicks on the row's own "Use" button).
 @MainActor
@@ -34,7 +34,9 @@ enum AccountActionMenu {
         }
         switchItem.isEnabled = !account.active && store.busy == nil
         menu.addItem(switchItem)
-        let forceItem = ActionItem("Force Switch", symbol: "bolt.fill") {
+        // Named and confirmed as in the account inspector: it skips backing up the current login.
+        let forceItem = ActionItem("Switch Without Saving Current Login…", symbol: "bolt.fill") {
+            guard confirmForce(account) else { return }
             Task { await store.switchTo(account, force: true) }
         }
         forceItem.isEnabled = store.busy == nil
@@ -83,6 +85,17 @@ enum AccountActionMenu {
         }
         item.submenu = sub
         return item
+    }
+
+    private static func confirmForce(_ account: Account) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Switch to \(account.displayName) without saving the current login?"
+        alert.informativeText = "Activates the stored credentials without first backing up the current login (--force). Use it when the current login is broken."
+        alert.addButton(withTitle: "Switch Anyway").hasDestructiveAction = true
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate()
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     private static func confirmRemove(_ account: Account) -> Bool {

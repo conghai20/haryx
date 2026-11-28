@@ -217,13 +217,84 @@ export interface RunResult {
 export interface HaryxUser {
   id: string;
   email: string;
-  provider: "github" | "google" | string;
+  provider: "github" | "google" | "apple" | "email" | string;
 }
 
 /** `haryx whoami --json` and `haryx logout --json`. */
 export interface Whoami {
   signedIn: boolean;
   user: HaryxUser | null;
+  /** Absent from an older `haryx` and when signed out. */
+  consents?: ConsentState[];
+}
+
+export type ConsentPurpose = "sync" | "machines";
+
+/** `consents` in whoami.json. */
+export interface ConsentState {
+  purpose: ConsentPurpose;
+  granted: boolean;
+  version: string | null;
+}
+
+export interface ConsentEvent {
+  action: "grant" | "withdraw";
+  version: string;
+  at: string;
+  source: "cli" | "macos" | "windows" | "web" | "sso" | string;
+}
+
+export interface Consent {
+  purpose: ConsentPurpose;
+  granted: boolean;
+  version: string | null;
+  at: string | null;
+  history: ConsentEvent[];
+}
+
+/** `haryx account consents --json` (contract: consents.json). */
+export interface Consents {
+  consents: Consent[];
+}
+
+export interface HaryxMachine {
+  machineId: string;
+  name: string;
+  os: "macos" | "windows" | "linux" | string;
+  version: string;
+  lastSeenAt: string;
+  isThisMachine: boolean;
+  signedIn: boolean;
+  /** The machine's Keycloak session id; the web ends that session through the account API. */
+  sessionId?: string;
+}
+
+/** `haryx account machines --json` (contract: machines.json). */
+export interface HaryxMachines {
+  machines: HaryxMachine[];
+}
+
+/** One (day, account, model) row of a usage sync body. Tokens only. */
+export interface UsageSyncDay {
+  day: string;
+  account: string | null;
+  model: string;
+  replies: number;
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite5m: number;
+  cacheWrite1h: number;
+}
+
+/** The plaintext of one `usage` sync row, before encryption (contract: usage-sync.json). */
+export interface UsageSync {
+  schema: number;
+  machineId: string;
+  month: string;
+  updatedAt: string;
+  days: UsageSyncDay[];
+  quota: { at: number; account: string | null; fiveHourPct: number | null; sevenDayPct: number | null }[];
 }
 
 /** One `haryx login --json` line (backend `account::LoginEvent`); `cancelled` is the app's own. */

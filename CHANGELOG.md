@@ -11,6 +11,92 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+### Breaking changes
+
+- HaryX accounts moved from Supabase to WeCoAp SSO (`sso.wecoap.com`) and the HaryX API
+  (`haryx.wecoap.com`), both in Vietnam. Sign-in was never released, so there is nothing to
+  migrate; a Supabase-era session is signed out and asks you to sign in again. `HARYX_SUPABASE_URL`
+  and `HARYX_SUPABASE_KEY` are gone; `HARYX_SSO_ISSUER` and `HARYX_API_URL` point a build at a
+  local stack. `haryx account delete` no longer deletes: it shows where to delete your WeCoAp ID.
+  `haryx login --provider` is gone: sign-in always goes through the WeCoAp SSO page, which offers
+  every method. Drop the flag from scripts.
+
+### Added
+
+- Sign in with WeCoAp SSO, the only way in: `haryx login` (`--no-browser` for the device grant) and
+  one "Sign in with WeCoAp" button in both apps. The WeCoAp page offers GitHub, Google, Apple, and
+  email and password.
+- Consents, per Law 91/2025: Sync, and showing your machines on HaryX web, each asked before
+  first use and withdrawable; withdrawing erases that purpose's data on the server. `haryx account
+  consents`, `haryx account consent grant|withdraw sync|machines`, `haryx account export`,
+  `haryx account machines`, `haryx account machine rename`. Both apps: consent sheets, a Privacy
+  section (machine toggle, Withdraw, Export, policy link), and "Open HaryX on the web".
+- Usage syncs end-to-end encrypted: one monthly summary per machine (tokens by day, account and
+  model, plus 5h/7d readings; never a project path, session id or conversation text). The Usage
+  pane says "It stays on this machine" only when it does not sync.
+- HaryX web (`https://haryx.wecoap.com/platform/`): Machines (rename, sign out) and the Privacy
+  center; Accounts, Usage and Profiles once you enter your sync passphrase in the browser, which
+  the server never sees.
+- "Signed out of HaryX from the web" in both apps when a machine is signed out remotely.
+- HaryX web checks for a WeCoAp SSO session silently, in a hidden frame: a signed-in browser opens
+  straight on the accounts, without a trip through the SSO page; anyone else gets the sign-in page.
+  A check that gets no answer in 15 seconds offers Try again instead of waiting.
+- The landing site links into HaryX web (Sign in in the header, a Web entry under "Four ways in",
+  the footer) and its roadmap and feature list match this release: sync and HaryX web are shipped.
+
+### Changed
+
+- The landing site moved from `site/` to `apps/landing/`, where future landing pages will live.
+
+- Set up panes, both apps. AI settings runs by task: usage (the CLI's usage readings now sit with
+  the app's own usage settings), notifications, usage history, terminal, run, Claude Desktop, then
+  one "Command line" section for display and updates. Choice settings read as words ("Auto",
+  "Skip them") instead of raw values. Setup profiles explains what a profile is until one exists,
+  labels its toolbar buttons, folds each category to a count and size (a category with a problem
+  starts open), shows a repeated hook once with ×N, and offers Undo Last Apply only after an apply.
+  Backup & maintenance folds the export accounts into one "Accounts" row ("All 20", "3 of 20")
+  that opens to checkboxes, so a long account list no longer pushes Export down; it splits Import into accounts and
+  usage, picks the usage hold time from a list instead of a 5-minute stepper, explains unclaimed
+  credentials, and marks its purge buttons red. The CLI's version, executable, upgrade, data
+  folder and log moved to About & updates. Windows keeps sentence-case buttons and has no Claude
+  Desktop section, as before.
+
+- Auto-switch `best` strategy: when candidates are within `hysteresis_pct` of the one with the most
+  headroom, it now takes the one whose weekly window resets soonest, so quota that would reset
+  unused is spent first. A clearly roomier account still wins. CLI only: both apps run `haryx auto`
+  and pick up the change; their "Next in line" order stays a usage-% approximation.
+
+- Menu bar panel (macOS) and tray flyout (Windows): an unstarted 5-hour window reads "starts on
+  first use" instead of a bare dash, and the week line turns amber when the week is the tighter
+  limit (over 50% and above the 5-hour). "Next in line" names each group once (switch order inside
+  it), folds accounts held out of rotation into a "Held out (N)" line at the bottom, grows to 300 pt
+  before it scrolls (macOS showed two accounts), names rows by alias or email local part cut in the
+  middle, shows plan labels only when plans differ, and no longer dims an account at its limit. The
+  footer Switch goes to the account with most headroom rather than repeating the first row's Use.
+  Force Switch in the row menu is now "Switch Without Saving Current Login…" and asks first.
+  Auto-switch in the header is a switch; Windows can now turn it on and off from the flyout. macOS:
+  VoiceOver can open a row's account menu and Use it; the status lines share one mini glass button
+  style; a Use that cannot be used is grey; the wake note says "wake skipped: not switchable".
+
+### Fixed
+
+- The landing site no longer fails to deploy after a release: Pages deploys only from `main`, and the
+  release-tag run was refused by the github-pages environment. Publishing a release now starts the
+  site build on `main`.
+
+- macOS: in a narrow window the Usage pane was wider than the window, pushing the sidebar off its
+  left edge. Each account's week now stacks (name and %, the tide, then pace and reset) when a row
+  no longer fits, and the history controls wrap onto two lines, as the Windows app already did.
+- macOS: purging one unclaimed credential now asks first, as on Windows.
+- macOS: a collapsible list (profile categories, export accounts, an account's Advanced settings,
+  the login's terminal output) opened only from its small chevron; a click anywhere on its row now
+  opens or closes it, and its rows line up with the label instead of being indented. Windows export
+  checkboxes now come before the account name, as on macOS.
+- Both apps: "Also read Fable's weekly limit" sat above the setting it says it needs; it now
+  follows "Read setup-token usage" and is off while that setting is off.
+- Both apps: a hook whose command ends in a flag value (`--node /path/node`) was summarised as the
+  flag's program ("node"); it now names the script the hook runs.
+
 ## [0.2.0] - 2026-11-27
 
 ### Added

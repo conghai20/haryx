@@ -186,6 +186,9 @@ struct TideStaff: View {
 struct WeekStaff: View {
     let window: UsageWindow?
     var off = false
+    /// The week is the tighter limit right now: its label turns amber below the 85% step too, so
+    /// the 5-hour figure above it does not hide it (the menu bar panel).
+    var tighter = false
     /// The week's readings: draws the Week Tide in place of the thin staff. Empty draws the average.
     var readings: [(at: Date, pct: Double)]?
 
@@ -195,7 +198,8 @@ struct WeekStaff: View {
         VStack(alignment: .leading, spacing: 1) {
             HStack {
                 Text("Week \(week?.pct.map { "\(Int($0))%" } ?? "—")")
-                    .foregroundStyle(high ? AnyShapeStyle(Brand.usageFill(week, off: off)) : AnyShapeStyle(.secondary))
+                    .foregroundStyle(high ? AnyShapeStyle(Brand.usageFill(week, off: off))
+                                     : tighter ? AnyShapeStyle(Brand.warn) : AnyShapeStyle(.secondary))
                 Spacer()
                 if let c = week?.countdown { Text("resets in \(c)").foregroundStyle(.secondary) }
             }

@@ -1,0 +1,461 @@
+---
+import "@fontsource-variable/space-grotesk";
+import "@fontsource-variable/geist";
+import "@fontsource-variable/geist-mono";
+import "../styles/global.css";
+
+import Wordmark from "../components/Wordmark.astro";
+import Mark from "../components/Mark.astro";
+import WecoapMark from "../components/WecoapMark.astro";
+import Hero from "../components/Hero.astro";
+import TideDemo from "../components/TideDemo.astro";
+import Features from "../components/Features.astro";
+import Sections from "../components/Sections.astro";
+import Roadmap from "../components/Roadmap.astro";
+import Install from "../components/Install.astro";
+import { latestRelease, REPO_URL, RELEASES_URL } from "../lib/release";
+
+const COMPANY_URL = "https://www.wecoap.com/";
+// HaryX web lives on the same origin, behind the same proxy (deploy/nginx: /platform/ goes to its container).
+const WEB_URL = new URL("platform/", Astro.site).href;
+const release = await latestRelease();
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+const title = "HaryX — a control center for your AI coding accounts";
+const description =
+  "See every Claude account's 5-hour and weekly usage, choose which one Claude Code runs as, and switch before one runs dry. macOS, Windows, a CLI and the web. Free and open source.";
+
+const PLATFORMS = [
+  {
+    name: "macOS",
+    what: "A menu bar app. The active account's usage at a glance, switching, sign-in, and a dashboard with every control.",
+    needs: "macOS 26 or later",
+  },
+  {
+    name: "Windows",
+    what: "A tray app with a flyout and a dashboard: accounts, running sessions, auto-switch, setup profiles.",
+    needs: "Windows 10 22H2 or 11, x64 or ARM64",
+  },
+  {
+    name: "Terminal",
+    what: "The haryx command, in Rust, with an interactive dashboard. Both apps include it and keep it updated.",
+    needs: "macOS, Linux and Windows",
+  },
+  {
+    name: "Web",
+    what: "HaryX web: every account's readings, usage, setup profiles and machines from any browser, synced end-to-end encrypted and unlocked only in your tab.",
+    needs: "A WeCoAp ID and sync turned on in an app",
+    href: WEB_URL,
+  },
+] as const;
+
+const TERMS = [
+  ["Your own accounts only.", "Use HaryX with subscriptions you hold and pay for yourself. Never share a login."],
+  [
+    "Claude Code does the work.",
+    "HaryX sends no model requests. It keeps each login on your machine and chooses which one the official Claude Code uses.",
+  ],
+  [
+    "Plan limits still apply.",
+    "Auto-switch is off until you start it. Don't use it to get more out of a plan than the plan allows.",
+  ],
+  ["Anthropic decides.", "Anthropic may warn, throttle or close accounts it believes break its terms."],
+] as const;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={new URL(base, Astro.site)} />
+    <link rel="icon" href={`${base}favicon.svg`} type="image/svg+xml" />
+    <link rel="icon" href={`${base}favicon.ico`} sizes="any" />
+    <link rel="apple-touch-icon" href={`${base}apple-touch-icon.png`} />
+    <meta name="theme-color" content="#F1F5F9" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#101827" media="(prefers-color-scheme: dark)" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={new URL(base, Astro.site)} />
+    <script is:inline define:vars={{ origin: Astro.site?.origin }}>
+      // The raw GitHub Pages address can't load the root-based assets; send visitors to the proxied one.
+      if (origin && location.hostname.endsWith(".github.io")) {
+        location.replace(origin + location.pathname.replace(/^\/haryx/, "") + location.search + location.hash);
+      }
+    </script>
+    <script is:inline>
+      // ?still renders the settled end state of every entrance (review captures, print).
+      document.documentElement.classList.add("js");
+      // If the motion script never starts (blocked, failed), show every entrance's end state.
+      setTimeout(() => {
+        const root = document.documentElement;
+        if (!root.classList.contains("motion-ready")) root.classList.add("no-motion");
+      }, 2500);
+      const q = new URLSearchParams(location.search);
+      if (q.has("still")) document.documentElement.dataset.still = "";
+      const t = q.get("theme");
+      if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="frame top">
+      <a href={base} class="brand" aria-label="HaryX home"><Wordmark /></a>
+      <nav aria-label="Main">
+        <a href="#features">What it does</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="#install">Install</a>
+        <a href={RELEASES_URL}>Releases</a>
+        <a href={REPO_URL}>GitHub</a>
+        <a href={WEB_URL} class="web-link">Sign in<span aria-hidden="true"> →</span></a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <Hero release={release} />
+
+      <section class="frame tide-section" aria-labelledby="tide-title">
+        <div class="tide-intro" data-reveal>
+          <h2 id="tide-title" class="section-title">Read the tide, not a&nbsp;dashboard.</h2>
+          <p class="lede">
+            Every account gets one line: a flat staff for the 5-hour window, a tick where usage should be by now, the
+            time until it resets. Cyan while on pace, amber when ahead of it.
+          </p>
+        </div>
+        <div class="tide-plate">
+          <TideDemo />
+        </div>
+      </section>
+
+      <Features />
+
+      <Sections />
+
+      <Roadmap release={release} />
+
+      <section class="frame platforms" aria-labelledby="platforms-title">
+        <h2 id="platforms-title" class="section-title" data-reveal="wipe">Four ways in.</h2>
+        <dl class="plat-list">
+          {
+            PLATFORMS.map((p, i) => (
+              <div class="plat" data-reveal style={`--i:${i}`}>
+                <dt class="plat-name">{p.name}</dt>
+                <dd class="plat-what">
+                  {p.what}
+                  {"href" in p && (
+                    <>
+                      {" "}
+                      <a href={p.href}>Open HaryX web</a>
+                    </>
+                  )}
+                </dd>
+                <dd class="plat-needs">{p.needs}</dd>
+              </div>
+            ))
+          }
+        </dl>
+      </section>
+
+      <section class="frame terms" aria-labelledby="terms-title">
+        <div class="terms-head" data-reveal>
+          <h2 id="terms-title" class="section-title">Your accounts. Your&nbsp;plans.</h2>
+          <p class="lede">
+            HaryX is an independent project, not made, endorsed or supported by Anthropic. Read the{" "}
+            <a href="https://www.anthropic.com/legal/consumer-terms">Consumer Terms</a> and the{" "}
+            <a href="https://www.anthropic.com/legal/aup">Usage Policy</a> before you use it.
+          </p>
+        </div>
+        <ul class="terms-list">
+          {
+            TERMS.map(([head, body], i) => (
+              <li data-reveal style={`--i:${i + 1}`}>
+                <strong>{head}</strong> {body}
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+
+      <section class="close" id="install" aria-labelledby="close-title">
+        <div class="frame close-inner">
+          <div class="close-art" data-join>
+            <Mark class="close-mark" />
+          </div>
+          <div class="close-copy">
+            <h2 id="close-title" class="close-title" data-reveal="wipe">Install HaryX.</h2>
+            <Install release={release} size="close" />
+            <p class="aside">
+              Coming from cswap? <code>haryx ai import --from-cswap</code> copies your accounts and leaves cswap untouched.
+              Then run one switcher only: two tools holding the same login sign each other out.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="frame foot">
+      <Wordmark class="foot-mark" />
+      <nav aria-label="Project">
+        <a href={REPO_URL}>Source</a>
+        <a href={RELEASES_URL}>Releases</a>
+        <a href={WEB_URL}>HaryX web</a>
+        <a href={`${REPO_URL}/blob/main/CHANGELOG.md`}>Changelog</a>
+        <a href={`${REPO_URL}/blob/main/LICENSE`}>MIT License</a>
+      </nav>
+      <p class="fine">
+        <span class="maker">Made by <a href={COMPANY_URL} class="maker-link"><WecoapMark />WeCoAp</a> · © 2026.</span>
+        Claude is a trademark of Anthropic. HaryX is not affiliated with Anthropic.
+      </p>
+    </footer>
+    <script>
+      import "../scripts/motion";
+    </script>
+  </body>
+</html>
+
+<style>
+  .top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding-block: 24px;
+    position: relative;
+    z-index: 2;
+  }
+  .brand {
+    font-size: 18px;
+    color: var(--ink);
+    display: block;
+    padding-block: 6px;
+  }
+  .top nav,
+  .foot nav {
+    display: flex;
+    gap: clamp(16px, 2.4vw, 32px);
+    font-size: 0.9375rem;
+  }
+  .top nav a,
+  .foot nav a {
+    text-decoration-color: transparent;
+    padding-block: 6px;
+  }
+  .top nav a:hover,
+  .foot nav a:hover {
+    text-decoration-color: var(--live);
+  }
+  .top nav .web-link {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .tide-section {
+    padding-top: var(--space-section);
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: clamp(16px, 2vw, 32px);
+    row-gap: 56px;
+  }
+  .tide-intro {
+    grid-column: 1 / span 6;
+    display: grid;
+    gap: 22px;
+  }
+  .tide-plate {
+    grid-column: 2 / -1;
+  }
+
+  .platforms {
+    padding-top: var(--space-section);
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: clamp(16px, 2vw, 32px);
+  }
+  .platforms .section-title {
+    grid-column: 1 / span 5;
+    max-width: 7ch;
+  }
+  .plat-list {
+    grid-column: 6 / -1;
+    margin: 0;
+    border-top: 1px solid var(--rule-strong);
+  }
+  .plat {
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    column-gap: 24px;
+    row-gap: 6px;
+    padding-block: 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .plat-name {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    grid-row: span 2;
+  }
+  .plat dd {
+    margin: 0;
+  }
+  .plat-what {
+    max-width: 52ch;
+  }
+  .plat-needs {
+    font-size: 0.875rem;
+    color: var(--ink-3);
+  }
+
+  .terms {
+    padding-top: var(--space-section);
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: clamp(16px, 2vw, 32px);
+    row-gap: 40px;
+  }
+  .terms-head {
+    grid-column: 1 / span 6;
+    display: grid;
+    gap: 22px;
+  }
+  .terms-list {
+    grid-column: 7 / -1;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 18px;
+    color: var(--ink-2);
+    align-content: end;
+  }
+  .terms-list strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .close {
+    margin-top: var(--space-section);
+    padding-block: clamp(72px, 10vw, 140px);
+    border-top: 1px solid var(--rule-strong);
+  }
+  .close-inner {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: clamp(16px, 2vw, 32px);
+    align-items: start;
+  }
+  .close-art {
+    grid-column: 1 / span 4;
+    max-width: 340px;
+  }
+  .close-inner :global(.close-mark) {
+    width: 100%;
+    height: auto;
+  }
+  /* The closing join is tweened directly; the drift's own easing would lag behind it. */
+  .close-art :global(.drift) {
+    transition: none;
+  }
+  .close-copy {
+    grid-column: 5 / -1;
+    display: grid;
+    gap: 32px;
+  }
+  .close-title {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(2.75rem, 6vw, 5rem);
+    line-height: 1;
+    letter-spacing: -0.035em;
+  }
+  .aside {
+    color: var(--ink-3);
+    font-size: 0.9375rem;
+    max-width: 62ch;
+  }
+  .aside code {
+    color: var(--ink);
+    font-size: 0.875em;
+  }
+
+  .foot {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 20px 40px;
+    padding-block: 40px 56px;
+    border-top: 1px solid var(--rule);
+  }
+  .foot :global(.foot-mark) {
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+  .foot nav {
+    justify-self: end;
+    flex-wrap: wrap;
+  }
+  .foot .maker {
+    margin-right: 0.35em;
+  }
+  .foot .maker-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    margin-left: 0.15em;
+    color: var(--ink-2);
+    font-weight: 500;
+    text-decoration-color: transparent;
+  }
+  .foot .maker-link:hover {
+    text-decoration-color: var(--live);
+  }
+  .foot .fine {
+    grid-column: 1 / -1;
+    font-size: 0.8125rem;
+    color: var(--ink-3);
+  }
+
+  @media (max-width: 900px) {
+    .tide-intro,
+    .tide-plate,
+    .platforms .section-title,
+    .plat-list,
+    .terms-head,
+    .terms-list,
+    .close-copy {
+      grid-column: 1 / -1;
+    }
+    .plat-list {
+      margin-top: 40px;
+    }
+    .close-art {
+      grid-column: 1 / span 4;
+      max-width: 120px;
+      margin-bottom: 40px;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .top nav a[href="#features"],
+    .top nav a[href="#roadmap"],
+    .top nav a[href="#install"],
+    .top nav a[href*="releases"] {
+      display: none;
+    }
+    .plat {
+      grid-template-columns: 1fr;
+    }
+    .plat-name {
+      grid-row: auto;
+    }
+    .foot {
+      grid-template-columns: 1fr;
+    }
+    .foot nav {
+      justify-self: start;
+    }
+  }
+</style>

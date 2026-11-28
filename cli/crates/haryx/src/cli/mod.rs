@@ -155,7 +155,7 @@ pub enum Command {
     Sessions { json: bool },
     /// `ai usage [index|report|quota|summary] [--json]`.
     Usage { action: UsageAction, json: bool },
-    /// `login`, `logout`, `whoami`, `account delete` (top level): the HaryX account, not a Claude
+    /// `login`, `logout`, `whoami`, `account …` (top level): the HaryX account, not a Claude
     /// account.
     Account(AccountAction),
     /// `sync [...]` (top level): encrypted sync between the account's machines.
@@ -310,6 +310,11 @@ impl Command {
             Self::Account(AccountAction::Logout { .. }) => "logout",
             Self::Account(AccountAction::Whoami { .. }) => "whoami",
             Self::Account(AccountAction::Delete { .. }) => "account delete",
+            Self::Account(AccountAction::Consents { .. }) => "account consents",
+            Self::Account(AccountAction::Consent { .. }) => "account consent",
+            Self::Account(AccountAction::Export { .. }) => "account export",
+            Self::Account(AccountAction::Machines { .. }) => "account machines",
+            Self::Account(AccountAction::RenameMachine { .. }) => "account machine rename",
             Self::Sync(_) => "sync",
         }
     }

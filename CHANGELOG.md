@@ -18,11 +18,14 @@ cannot be released without one. Sections, in this order, only when they have ent
   migrate; a Supabase-era session is signed out and asks you to sign in again. `HARYX_SUPABASE_URL`
   and `HARYX_SUPABASE_KEY` are gone; `HARYX_SSO_ISSUER` and `HARYX_API_URL` point a build at a
   local stack. `haryx account delete` no longer deletes: it shows where to delete your WeCoAp ID.
+  `haryx login --provider` is gone: sign-in always goes through the WeCoAp SSO page, which offers
+  every method. Drop the flag from scripts.
 
 ### Added
 
-- Sign in with a WeCoAp ID: GitHub, Google, Apple or email and password (`haryx login
-  --provider …`, `--no-browser` for the device grant). Both apps offer the same four.
+- Sign in with WeCoAp SSO, the only way in: `haryx login` (`--no-browser` for the device grant) and
+  one "Sign in with WeCoAp" button in both apps. The WeCoAp page offers GitHub, Google, Apple, and
+  email and password.
 - Consents, per Law 91/2025: Sync, and showing your machines on HaryX web, each asked before
   first use and withdrawable; withdrawing erases that purpose's data on the server. `haryx account
   consents`, `haryx account consent grant|withdraw sync|machines`, `haryx account export`,
@@ -35,8 +38,15 @@ cannot be released without one. Sections, in this order, only when they have ent
   center; Accounts, Usage and Profiles once you enter your sync passphrase in the browser, which
   the server never sees.
 - "Signed out of HaryX from the web" in both apps when a machine is signed out remotely.
+- HaryX web checks for a WeCoAp SSO session silently, in a hidden frame: a signed-in browser opens
+  straight on the accounts, without a trip through the SSO page; anyone else gets the sign-in page.
+  A check that gets no answer in 15 seconds offers Try again instead of waiting.
+- The landing site links into HaryX web (Sign in in the header, a Web entry under "Four ways in",
+  the footer) and its roadmap and feature list match this release: sync and HaryX web are shipped.
 
 ### Changed
+
+- The landing site moved from `site/` to `apps/landing/`, where future landing pages will live.
 
 - Set up panes, both apps. AI settings runs by task: usage (the CLI's usage readings now sit with
   the app's own usage settings), notifications, usage history, terminal, run, Claude Desktop, then
@@ -69,6 +79,10 @@ cannot be released without one. Sections, in this order, only when they have ent
   style; a Use that cannot be used is grey; the wake note says "wake skipped: not switchable".
 
 ### Fixed
+
+- The landing site no longer fails to deploy after a release: Pages deploys only from `main`, and the
+  release-tag run was refused by the github-pages environment. Publishing a release now starts the
+  site build on `main`.
 
 - macOS: in a narrow window the Usage pane was wider than the window, pushing the sidebar off its
   left edge. Each account's week now stacks (name and %, the tide, then pace and reset) when a row

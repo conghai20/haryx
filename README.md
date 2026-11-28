@@ -10,6 +10,8 @@
 **Take control of your AI workflow and other DevSecOps, SRE, Cloud… all in one.**
 A unified control center for AI coding accounts, usage and sessions.
 
+**Website: [haryx.wecoap.com](https://haryx.wecoap.com)** · **HaryX web: [haryx.wecoap.com/platform](https://haryx.wecoap.com/platform/)** · [Releases](https://github.com/conghai20/haryx/releases)
+
 HaryX helps one person who keeps several of their own Claude subscriptions manage them in one place:
 see each account's 5-hour and weekly usage, choose which account Claude Code is logged in as, sign
 accounts in again, run Claude as a given account per folder or terminal, and carry your Claude Code
@@ -20,8 +22,12 @@ setup (skills, hooks, MCP servers, plugins, history) from one machine to another
   [claude-swap](https://github.com/realiti4/claude-swap) (`cswap`) and keeps its commands, flags and
   `--json` output, plus an interactive dashboard (`haryx ai tui`).
 - **HaryX for macOS**, a native menu bar app (`apps/macos/`) that drives `haryx` and bundles it.
+- **HaryX for Windows**, a tray app (`apps/windows/`) with a flyout and a dashboard over the same CLI.
+- **HaryX web** ([haryx.wecoap.com/platform](https://haryx.wecoap.com/platform/), `apps/platform/`):
+  sign in with your WeCoAp ID to see your machines and consents, and, once unlocked with your sync
+  passphrase, every account's readings, usage and setup profiles. Optional; it needs sync.
 
-A server, a web dashboard and native mobile apps are on the [roadmap](docs/roadmap.md).
+A team view and native mobile apps are on the [roadmap](docs/roadmap.md).
 
 ## Use within Anthropic's terms
 
@@ -117,7 +123,7 @@ haryx ai help                 # every command
 ### Sync between your machines (optional)
 
 ```sh
-haryx login                 # WeCoAp ID sign-in in your browser (--provider github|google|apple|email)
+haryx login                 # WeCoAp SSO sign-in in your browser (--no-browser over SSH)
 haryx sync unlock           # the first machine sets a sync passphrase; the others enter it
 haryx sync                  # settings, app preferences, account settings, API-key and setup-token accounts
 haryx sync profile push work   # a saved setup profile (secrets redacted, no history)
@@ -134,9 +140,10 @@ is a second, separate consent. Withdrawing a consent erases that data on the ser
 export` downloads everything kept about you. Claude browser logins and conversations never leave your
 machine. Accounts on another machine are listed so you can sign them in here.
 
-**HaryX web** (`https://haryx.wecoap.com/platform/`) shows your machines and consents, and, once you
-enter your sync passphrase in the browser, your accounts, usage and profiles. The server never sees the
-passphrase or the key.
+**HaryX web** ([haryx.wecoap.com/platform](https://haryx.wecoap.com/platform/)) shows your machines and
+consents, and, once you enter your sync passphrase in the browser, your accounts, usage and profiles.
+The server never sees the passphrase or the key. If this browser is already signed in to your WeCoAp
+ID, the page opens straight away (a silent check, no redirect); otherwise it shows its sign-in page.
 
 ### Move your Claude Code setup to another machine
 
@@ -160,6 +167,8 @@ confirmation before it is applied. Details: [docs/ai-profile-plan.md](docs/ai-pr
 | [`cli/`](cli) | `haryx` CLI and dashboard (Rust workspace: `haryx-core`, `haryx`) |
 | [`apps/macos/`](apps/macos) | HaryX macOS app (SwiftUI, macOS 26+) |
 | [`apps/windows/`](apps/windows) | HaryX Windows tray app (Tauri 2 + Svelte 5) |
+| [`apps/platform/`](apps/platform) | HaryX web at `/platform/` (Svelte 5 + shadcn-svelte), shipped as a Docker image |
+| [`apps/landing/`](apps/landing) | the landing site at [haryx.wecoap.com](https://haryx.wecoap.com) (Astro, GitHub Pages behind the site's proxy); more landing pages will live here |
 | [`packaging/`](packaging), `scripts/release/` | PyPI and npm wrappers, release tarballs, Homebrew formula |
 | [`packages/contracts/`](packages/contracts) | JSON contracts shared by the app and the CLI |
 | `assets/brand/`, `scripts/brand/` | logo sources, exports and generators |
@@ -243,6 +252,28 @@ scripts/package-dmg.sh      # → apps/macos/build/HaryX-<version>.dmg with hary
 CPU is ~0.3% idle and ~4% while the menu bar mascot walks; that cost comes from AppKit re-snapshotting the status
 item each frame. Turn it off under Preferences → "Animate menu bar mascot". In-app mascots animate only while
 visible (4 fps idle, 8 fps running) from cached frames.
+
+## Web
+
+Two web surfaces share `haryx.wecoap.com`:
+
+- **Landing site** (`apps/landing/`, Astro): what HaryX does, install commands and the roadmap, with
+  links into HaryX web. GitHub Pages builds it from `main` (`.github/workflows/pages.yml`, also after
+  each published release) and the site's nginx serves it at the root.
+
+  ```sh
+  cd apps/landing && npm ci && npm run dev
+  ```
+
+- **HaryX web** (`apps/platform/`, Svelte 5 + shadcn-svelte): served at `/platform/` from its own
+  container (`apps/platform/Dockerfile`, nginx with a strict CSP). Sign-in is WeCoAp SSO with PKCE and
+  a silent check: a hidden frame asks SSO whether this browser already has a session, so a signed-in
+  visitor goes straight to their accounts and anyone else sees the sign-in page.
+
+  ```sh
+  cd apps/platform && npm ci && npm run dev    # http://127.0.0.1:5173/platform/
+  npm run check && npm test
+  ```
 
 ## License
 

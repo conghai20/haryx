@@ -37,7 +37,7 @@ public struct HaryXUser: Decodable, Sendable, Equatable {
     }
 }
 
-/// One line of `haryx login --provider … --json`.
+/// One line of `haryx login --json`.
 public enum LoginEvent: Equatable, Sendable {
     case browser(url: URL?, opened: Bool)
     case signedIn(HaryXUser)

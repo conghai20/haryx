@@ -27,7 +27,7 @@ struct AccountFooter: View {
             case .waiting(let url, _):
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
-                    Text("Signing in with \(sync.signInProvider.label)…")
+                    Text("Signing in with WeCoAp…")
                         .font(.callout).foregroundStyle(.secondary).lineLimit(1)
                     Spacer(minLength: 0)
                     if let url {
@@ -47,27 +47,21 @@ struct AccountFooter: View {
                     Label(message, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption).foregroundStyle(Brand.warn).lineLimit(3)
                 }
-                SignInMenu(sync: sync, title: "Sign in to HaryX")
-                    .menuStyle(.button).buttonStyle(.glass)
+                SignInButton(sync: sync, title: AccountSync.signInTitle)
+                    .buttonStyle(.glass)
                     .frame(maxWidth: .infinity)
             }
         }
     }
 }
 
-/// A menu of the ways to sign in to HaryX. Unavailable providers are listed, disabled.
-struct SignInMenu: View {
+/// Sign in to HaryX through WeCoAp SSO; its page offers every sign-in method.
+struct SignInButton: View {
     let sync: AccountSync
     let title: String
 
     var body: some View {
-        Menu {
-            ForEach(AccountSync.SignInProvider.allCases) { provider in
-                Button(provider.menuTitle) {
-                    sync.signIn(with: provider)
-                }
-            }
-        } label: {
+        Button { sync.startSignIn() } label: {
             Label(title, systemImage: "person.crop.circle")
                 .frame(maxWidth: .infinity)
         }

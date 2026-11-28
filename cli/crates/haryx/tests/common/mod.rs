@@ -163,7 +163,7 @@ impl Sandbox {
     pub fn signed_in() -> Self {
         let mut sandbox = Sandbox::new(200);
         sandbox.api = Some(FakeApi::start());
-        let out = sandbox.haryx(&["login", "--provider", "github"], "code=c");
+        let out = sandbox.haryx(&["login"], "code=c");
         assert!(
             out.status.success(),
             "{}",

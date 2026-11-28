@@ -92,15 +92,8 @@ export function syncedAgo(iso: string | null, now: number): string {
   return `Synced ${new Date(at).toLocaleString()}`;
 }
 
-/** The ways to sign in to HaryX; the id is `haryx login --provider`. */
-export const SIGN_IN_PROVIDERS = [
-  { id: "github", label: "GitHub", menu: "Continue with GitHub" },
-  { id: "google", label: "Google", menu: "Continue with Google" },
-  { id: "apple", label: "Apple", menu: "Continue with Apple" },
-  { id: "email", label: "Email", menu: "Sign in with email" },
-] as const;
-
-export type SignInProvider = (typeof SIGN_IN_PROVIDERS)[number]["id"];
+/** The one way into HaryX: `haryx login`, whose WeCoAp SSO page offers every method. */
+export const SIGN_IN_LABEL = "Sign in with WeCoAp";
 
 export function providerName(provider: string): string {
   const names: Record<string, string> = { github: "GitHub", google: "Google", apple: "Apple", email: "Email" };

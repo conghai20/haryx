@@ -6,7 +6,7 @@
 //! deleted on its account page, not by HaryX (plan A10).
 
 use haryx_core::account::{
-    self, AccountError, Backend, DeviceCode, LOGIN_TIMEOUT, Provider, SessionStore, User, browser,
+    self, AccountError, Backend, DeviceCode, LOGIN_TIMEOUT, SessionStore, User, browser,
 };
 
 use std::time::Duration;
@@ -30,11 +30,7 @@ pub fn run(action: &AccountAction) -> Result<(), CommandError> {
     let (root, store) = session_store()?;
     let backend = Backend::from_env();
     match *action {
-        AccountAction::Login {
-            provider,
-            no_browser,
-            json,
-        } => login(&backend, &store, provider, no_browser, json),
+        AccountAction::Login { no_browser, json } => login(&backend, &store, no_browser, json),
         AccountAction::Logout { json } => logout(&backend, &store, &root, json),
         AccountAction::Whoami { json } => whoami(&backend, &store, json),
         AccountAction::Delete { json, .. } => delete(&backend, json),
@@ -85,25 +81,21 @@ fn provider_label(user: &User) -> &str {
 fn login(
     backend: &Backend,
     store: &SessionStore,
-    provider: Option<Provider>,
     no_browser: bool,
     json: bool,
 ) -> Result<(), CommandError> {
-    let with = provider
-        .map(|p| format!(" with {}", p.label()))
-        .unwrap_or_default();
     let show_url = |url: &str| {
         let opened = browser::open(url);
         if json {
             print_line(&json!({"event": "browser", "url": url, "opened": opened}));
         } else if opened {
-            println!("Opening your browser to sign in to HaryX{with}…");
+            println!("Opening your browser to sign in to HaryX with WeCoAp…");
             println!(
                 "{}",
                 dimmed(&format!("If it did not open, visit:\n  {url}"))
             );
         } else {
-            println!("Open this link to sign in to HaryX{with}:\n  {url}");
+            println!("Open this link to sign in to HaryX with WeCoAp:\n  {url}");
         }
     };
     // The same `browser` event, never opened: the link is for another device.
@@ -122,7 +114,7 @@ fn login(
     let signed_in = if no_browser {
         account::login_device(backend, store, LOGIN_TIMEOUT, show_device)
     } else {
-        account::login(backend, store, provider, LOGIN_TIMEOUT, show_url)
+        account::login(backend, store, LOGIN_TIMEOUT, show_url)
     };
     match signed_in {
         Ok(user) if json => {

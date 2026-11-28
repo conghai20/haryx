@@ -1,4 +1,4 @@
-//! HaryX sign-in: `haryx login --provider github --json` as a child that streams one JSON event per
+//! HaryX sign-in: `haryx login --json` (WeCoAp SSO, whose page offers every method) as a child that streams one JSON event per
 //! line (contract: `packages/contracts/haryx/login-events.json`). The CLI opens the browser and waits
 //! up to 5 minutes; Cancel kills it. Each event goes to the UI as `account-login`.
 
@@ -57,21 +57,12 @@ pub struct AccountLogin {
     cancelled: Arc<Mutex<bool>>,
 }
 
-/// The `haryx login --provider` value for a provider the UI names; anything else is refused.
-pub fn provider_arg(provider: &str) -> Result<&'static str, String> {
-    match provider {
-        "github" => Ok("github"),
-        "google" => Ok("google"),
-        "apple" => Ok("apple"),
-        "email" => Ok("email"),
-        other => Err(format!("unknown sign-in provider: {other}")),
-    }
-}
+/// The sign-in command: WeCoAp SSO's own page, with every sign-in method on it.
+const LOGIN_ARGS: [&str; 2] = ["login", "--json"];
 
 impl AccountLogin {
-    /// Start the sign-in with `provider`; a run already going is left alone.
-    pub fn start(&self, app: &AppHandle, provider: &str) -> Result<(), String> {
-        let provider = provider_arg(provider)?;
+    /// Start the sign-in; a run already going is left alone.
+    pub fn start(&self, app: &AppHandle) -> Result<(), String> {
         let mut slot = self.child.lock().unwrap_or_else(|e| e.into_inner());
         if slot
             .as_mut()
@@ -84,7 +75,7 @@ impl AccountLogin {
         }
         let cli = app.state::<Arc<AppState>>().cli()?;
         let mut child = cli
-            .command(&["login", "--provider", provider, "--json"])
+            .command(&LOGIN_ARGS)
             .env("NO_COLOR", "1")
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -213,13 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn provider_arg_takes_only_known_providers() {
-        assert_eq!(provider_arg("github"), Ok("github"));
-        assert_eq!(provider_arg("google"), Ok("google"));
-        assert_eq!(provider_arg("apple"), Ok("apple"));
-        assert_eq!(provider_arg("email"), Ok("email"));
-        assert!(provider_arg("supabase").is_err());
-        assert!(provider_arg("github --evil").is_err());
-        assert!(provider_arg("").is_err());
+    fn signs_in_through_wecoap_without_a_provider() {
+        assert_eq!(LOGIN_ARGS, ["login", "--json"]);
     }
 }

@@ -31,45 +31,6 @@ const MIN_POLL: Duration = Duration::from_secs(1);
 /// RFC 8628 §3.5: a `slow_down` adds five seconds to the interval.
 const SLOW_DOWN: Duration = Duration::from_secs(5);
 
-/// A way to sign in to a WeCoAp ID.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Provider {
-    Github,
-    Google,
-    Apple,
-    /// Email and password, on the WeCoAp page itself.
-    Email,
-}
-
-impl Provider {
-    /// The `--provider` value, and Keycloak's `identity_provider` claim.
-    pub fn id(self) -> &'static str {
-        match self {
-            Provider::Github => "github",
-            Provider::Google => "google",
-            Provider::Apple => "apple",
-            Provider::Email => "email",
-        }
-    }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Provider::Github => "GitHub",
-            Provider::Google => "Google",
-            Provider::Apple => "Apple",
-            Provider::Email => "email",
-        }
-    }
-
-    /// Keycloak's `kc_idp_hint`, which skips the WeCoAp page. Email has none: it is that page.
-    pub fn hint(self) -> Option<&'static str> {
-        match self {
-            Provider::Email => None,
-            other => Some(other.id()),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum AccountError {
     #[error("No sign-in arrived within {}.", wait_text(*.0))]
@@ -119,21 +80,20 @@ fn wait_text(wait: Duration) -> String {
     }
 }
 
-/// Sign this machine in through the browser and keep the session. `provider` goes straight to
-/// GitHub, Google or Apple; `None` (or email) shows the WeCoAp page with every method.
+/// Sign this machine in through the browser and keep the session. The browser shows the WeCoAp
+/// SSO page, which offers every sign-in method.
 ///
 /// `open` gets the sign-in URL once the local listener is up; it shows or opens it.
 pub fn login(
     backend: &Backend,
     store: &SessionStore,
-    provider: Option<Provider>,
     timeout: Duration,
     open: impl FnOnce(&str),
 ) -> Result<User, AccountError> {
     let loopback = Loopback::bind().map_err(|e| AccountError::Network(e.to_string()))?;
     let pkce = Pkce::generate();
     let redirect = loopback.redirect_uri();
-    open(&backend.authorize_url(provider, &redirect, &pkce.challenge)?);
+    open(&backend.authorize_url(&redirect, &pkce.challenge)?);
     let arrival = loopback.wait(timeout)?;
     let outcome = match &arrival.callback {
         Callback::Code(code) => backend
@@ -269,7 +229,6 @@ mod tests {
         let user = login(
             &backend,
             &store,
-            Some(Provider::Github),
             Duration::from_secs(10),
             browser("code=the-code", Arc::clone(&seen)),
         )
@@ -287,7 +246,7 @@ mod tests {
         assert!(page.contains("data-state=\"done\"") && page.contains("you@example.com"));
 
         let url = seen.url.lock().unwrap().clone();
-        assert_eq!(query_param(&url, "kc_idp_hint"), "github");
+        assert!(!url.contains("kc_idp_hint"), "always the WeCoAp page");
         let redirect = query_param(&url, "redirect_uri");
         assert!(redirect.starts_with("http://127.0.0.1:"));
         let exchange = &at(&stub, TOKEN)[0].body;
@@ -300,7 +259,7 @@ mod tests {
     }
 
     #[test]
-    fn login_without_a_provider_shows_the_wecoap_page_and_records_email() {
+    fn a_password_sign_in_on_the_wecoap_page_records_email() {
         let (_dir, store) = store();
         let stub = fake::keycloak(|_| Reply::json(200, &fake::tokens(None, "rt")));
         let backend = fake::backend(&stub);
@@ -308,7 +267,6 @@ mod tests {
         let user = login(
             &backend,
             &store,
-            None,
             Duration::from_secs(10),
             browser("code=c", Arc::clone(&seen)),
         )
@@ -327,7 +285,6 @@ mod tests {
         let err = login(
             &backend,
             &store,
-            Some(Provider::Google),
             Duration::from_secs(10),
             browser(
                 "error=access_denied&error_description=denied",
@@ -356,7 +313,6 @@ mod tests {
         let err = login(
             &backend,
             &store,
-            Some(Provider::Apple),
             Duration::from_secs(10),
             browser("code=stale", Arc::clone(&seen)),
         )
@@ -371,7 +327,7 @@ mod tests {
     fn an_unreachable_issuer_fails_before_the_browser_opens() {
         let (_dir, store) = store();
         let backend = Backend::new(&closed_base(), "api");
-        let err = login(&backend, &store, None, Duration::from_secs(10), |_| {
+        let err = login(&backend, &store, Duration::from_secs(10), |_| {
             panic!("no browser for a sign-in that cannot finish")
         })
         .unwrap_err();
@@ -475,19 +431,6 @@ mod tests {
         assert_eq!(logout(&backend, &store).unwrap(), None);
         assert_eq!(store.load().unwrap(), None);
         assert!(stub.requests().is_empty());
-    }
-
-    #[test]
-    fn providers_hint_keycloak_except_email() {
-        let hints: Vec<_> = [
-            Provider::Github,
-            Provider::Google,
-            Provider::Apple,
-            Provider::Email,
-        ]
-        .map(Provider::hint)
-        .to_vec();
-        assert_eq!(hints, [Some("github"), Some("google"), Some("apple"), None]);
     }
 
     #[test]

@@ -5,7 +5,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { api } from "./api";
-import { isFailure, parseCli, syncProblem, type SignInProvider, type SyncProblem } from "./account";
+import { isFailure, parseCli, syncProblem, type SyncProblem } from "./account";
 import { DELETE_ACCOUNT_MESSAGE, WECOAP_ACCOUNT, consentArgs, consentGranted, withConsents } from "./consent";
 import { store } from "./store.svelte";
 import type {
@@ -37,7 +37,6 @@ class HaryxAccount {
   loadError = $state<string | null>(null);
   signIn = $state<SignIn>({ phase: "idle" });
   /** The provider of the sign-in in progress, or of the last one. */
-  signInProvider = $state<SignInProvider>("github");
   syncing = $state(false);
   last = $state<SyncResult | null>(null);
   /** This PC's sign-in was ended from elsewhere (HaryX on the web, the WeCoAp account page). */
@@ -130,12 +129,11 @@ class HaryxAccount {
     }
   }
 
-  async startSignIn(provider: SignInProvider = "github") {
-    this.signInProvider = provider;
+  async startSignIn() {
     this.signedOutFromWeb = false;
     this.signIn = { phase: "waiting", hasLink: false, browserOpened: false };
     try {
-      await api.accountLoginStart(provider);
+      await api.accountLoginStart();
     } catch (e) {
       this.signIn = { phase: "error", message: String(e) };
     }

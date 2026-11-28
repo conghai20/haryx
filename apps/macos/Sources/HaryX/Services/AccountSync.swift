@@ -22,23 +22,8 @@ final class AccountSync {
         case failed(String)
     }
 
-    /// How to sign in to HaryX; the raw value is `haryx login --provider`.
-    enum SignInProvider: String, CaseIterable, Identifiable {
-        case github, google, apple, email
-        var id: String { rawValue }
-
-        var label: String {
-            switch self {
-            case .github: "GitHub"
-            case .google: "Google"
-            case .apple: "Apple"
-            case .email: "Email"
-            }
-        }
-
-        /// The sign-in menu's item.
-        var menuTitle: String { self == .email ? "Sign in with email" : "Continue with \(label)" }
-    }
+    /// The one way into HaryX: WeCoAp SSO, whose page offers every sign-in method.
+    static let signInTitle = "Sign in with WeCoAp"
 
     /// Consent changes record where they were made.
     static let consentSource = "macos"
@@ -53,7 +38,6 @@ final class AccountSync {
     private(set) var passphraseCheckError: String?
     private(set) var signIn = SignIn.idle
     /// The provider of the sign-in in progress, or of the last one.
-    private(set) var signInProvider = SignInProvider.github
     private(set) var isSyncing = false
     /// Why the last sync failed; nil after a good one.
     private(set) var problem: SyncProblem?
@@ -251,14 +235,13 @@ final class AccountSync {
 
     // MARK: sign-in
 
-    /// `haryx login --provider <id> --json`: it opens the browser and waits up to 5 minutes.
-    func signIn(with provider: SignInProvider) {
+    /// `haryx login --json`: it opens WeCoAp SSO in the browser and waits up to 5 minutes.
+    func startSignIn() {
         guard let cli, loginProcess == nil else { return }
-        signInProvider = provider
         signedOutFromWeb = false
         let process = Process()
         process.executableURL = cli.executable
-        process.arguments = ["login", "--provider", provider.rawValue, "--json"]
+        process.arguments = ["login", "--json"]
         process.environment = CSwapCLI.environment
         process.standardInput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice

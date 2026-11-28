@@ -56,7 +56,7 @@ private struct SignedOutSection: View {
             case .waiting(let url, let opened):
                 HStack {
                     ProgressView().controlSize(.small)
-                    Text(opened ? "Finish signing in with \(sync.signInProvider.label) in your browser…" : "Open the sign-in page to continue…")
+                    Text(opened ? "Finish signing in with WeCoAp in your browser…" : "Open the sign-in page to continue…")
                         .foregroundStyle(.secondary)
                     Spacer()
                     if let url { Link(opened ? "Open Again" : "Open Sign-In Page", destination: url) }
@@ -66,7 +66,7 @@ private struct SignedOutSection: View {
                 if case .failed(let message) = sync.signIn {
                     Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(Brand.warn)
                 }
-                SignInMenu(sync: sync, title: sync.signIn == .idle ? "Sign In…" : "Try Again")
+                SignInButton(sync: sync, title: sync.signIn == .idle ? AccountSync.signInTitle : "Try Again")
                     .buttonStyle(.glassProminent)
                     .fixedSize()
             }

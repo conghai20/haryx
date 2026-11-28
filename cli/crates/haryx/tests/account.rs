@@ -26,10 +26,7 @@ fn whoami_signed_out_matches_the_contract() {
 #[test]
 fn login_through_the_browser_keeps_the_session_and_whoami_shows_it() {
     let s = Sandbox::new(200);
-    let out = s.haryx(
-        &["login", "--provider", "github", "--json"],
-        "code=the-code",
-    );
+    let out = s.haryx(&["login", "--json"], "code=the-code");
     assert!(
         out.status.success(),
         "{}",
@@ -51,7 +48,7 @@ fn login_through_the_browser_keeps_the_session_and_whoami_shows_it() {
         s.keycloak.issuer
     )));
     assert!(url.contains("&redirect_uri=http%3A%2F%2F127.0.0.1%3A"));
-    assert!(url.contains("&kc_idp_hint=github"));
+    assert!(!url.contains("kc_idp_hint"), "always the WeCoAp page");
     let token = format!("{OIDC}/token");
     assert_eq!(
         s.keycloak.paths(),
@@ -85,7 +82,7 @@ fn login_through_the_browser_keeps_the_session_and_whoami_shows_it() {
 }
 
 #[test]
-fn login_without_a_provider_offers_every_method() {
+fn login_offers_every_method_on_the_wecoap_page() {
     let s = Sandbox::new(200);
     let out = s.haryx(&["login", "--json"], "code=c");
     assert!(out.status.success());

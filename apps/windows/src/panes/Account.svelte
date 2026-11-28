@@ -6,11 +6,10 @@
   import { ask, save } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
   import ConsentDialog from "../components/ConsentDialog.svelte";
-  import MenuButton from "../components/MenuButton.svelte";
   import {
     MIN_PASSPHRASE,
     PASSPHRASE_WARNING,
-    SIGN_IN_PROVIDERS,
+    SIGN_IN_LABEL,
     overwriteLine,
     passphraseProblem,
     providerName,
@@ -33,9 +32,6 @@
   let overwritten = $derived((acct.last?.ok ? acct.last.overwritten : acct.status?.overwritten) ?? []);
   let privacyNote = $state<string | null>(null);
   let privacyError = $state<string | null>(null);
-  let signInSections = $derived([
-    { heading: null, items: SIGN_IN_PROVIDERS.map((p) => ({ label: p.menu, onpick: () => acct.startSignIn(p.id) })) },
-  ]);
 
   function openLink(url: string) {
     api.openLink(url).catch((e) => store.flash(String(e), true));
@@ -141,7 +137,7 @@
         <div class="banner error" role="alert">{acct.signIn.message}</div>
       {/if}
       <div class="row">
-        <MenuButton sections={signInSections} align="start" label={acct.signIn.phase === "error" ? "Try again" : "Sign in…"} />
+        <button class="primary" onclick={() => acct.startSignIn()}>{acct.signIn.phase === "error" ? "Try again" : SIGN_IN_LABEL}</button>
       </div>
     {/if}
     <p class="caption tertiary">Signed out, HaryX sends nothing.</p>

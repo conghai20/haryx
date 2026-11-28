@@ -13,8 +13,8 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use serde::Deserialize;
 use serde_json::Value;
 
+use super::AccountError;
 use super::session::{Session, User};
-use super::{AccountError, Provider};
 use crate::oauth::http::{self, FetchError};
 
 pub const SSO_ISSUER: &str = "https://sso.wecoap.com/realms/wecoap";
@@ -129,15 +129,10 @@ impl Backend {
         Ok(self.discovery.get_or_init(|| doc))
     }
 
-    /// Where the browser goes to sign in; it comes back to `redirect` with `?code=`. `provider`
-    /// skips the WeCoAp page straight to GitHub, Google or Apple; email (or none) shows the page.
-    pub fn authorize_url(
-        &self,
-        provider: Option<Provider>,
-        redirect: &str,
-        challenge: &str,
-    ) -> Result<String, AccountError> {
-        let mut params = vec![
+    /// Where the browser goes to sign in: the WeCoAp SSO page, with every sign-in method. It comes
+    /// back to `redirect` with `?code=`.
+    pub fn authorize_url(&self, redirect: &str, challenge: &str) -> Result<String, AccountError> {
+        let params = [
             ("client_id", CLIENT_ID),
             ("response_type", "code"),
             ("scope", SCOPE),
@@ -145,9 +140,6 @@ impl Backend {
             ("code_challenge", challenge),
             ("code_challenge_method", "S256"),
         ];
-        if let Some(hint) = provider.and_then(Provider::hint) {
-            params.push(("kc_idp_hint", hint));
-        }
         let endpoint = &self.discovery()?.authorization_endpoint;
         let sep = if endpoint.contains('?') { '&' } else { '?' };
         Ok(format!("{endpoint}{sep}{}", form(&params)))
@@ -514,7 +506,7 @@ mod tests {
         let (stub, backend) = with_token(Reply::json(200, &fake::tokens(None, "rt")));
         let clone = backend.clone();
         backend
-            .authorize_url(None, "http://127.0.0.1:5/cb", "ch")
+            .authorize_url("http://127.0.0.1:5/cb", "ch")
             .unwrap();
         clone.refresh("rt-0").unwrap();
         let discovery: Vec<_> = stub
@@ -544,33 +536,28 @@ mod tests {
     }
 
     #[test]
-    fn authorize_url_hints_the_provider_and_asks_for_an_offline_pkce_sign_in() {
+    fn authorize_url_shows_the_wecoap_page_and_asks_for_an_offline_pkce_sign_in() {
         let (stub, backend) = with_token(Reply::json(500, "{}"));
-        for (provider, hint) in [
-            (Some(Provider::Github), Some("github")),
-            (Some(Provider::Google), Some("google")),
-            (Some(Provider::Apple), Some("apple")),
-            (Some(Provider::Email), None),
-            (None, None),
-        ] {
-            let url = backend
-                .authorize_url(provider, "http://127.0.0.1:5/callback/n", "ch-_")
-                .unwrap();
-            assert!(url.starts_with(&format!(
-                "{}/realms/t/protocol/openid-connect/auth?client_id=haryx-cli&response_type=code",
-                stub.base()
-            )));
-            assert_eq!(query(&url, "kc_idp_hint").as_deref(), hint, "{provider:?}");
-            assert_eq!(query(&url, "scope").unwrap(), "openid offline_access");
-            assert_eq!(
-                query(&url, "redirect_uri").unwrap(),
-                "http://127.0.0.1:5/callback/n"
-            );
-            assert_eq!(query(&url, "code_challenge").unwrap(), "ch-_");
-            assert_eq!(query(&url, "code_challenge_method").unwrap(), "S256");
-        }
+        let url = backend
+            .authorize_url("http://127.0.0.1:5/callback/n", "ch-_")
+            .unwrap();
+        assert!(url.starts_with(&format!(
+            "{}/realms/t/protocol/openid-connect/auth?client_id=haryx-cli&response_type=code",
+            stub.base()
+        )));
+        assert_eq!(
+            query(&url, "kc_idp_hint"),
+            None,
+            "no shortcut past the WeCoAp page"
+        );
+        assert_eq!(query(&url, "scope").unwrap(), "openid offline_access");
+        assert_eq!(
+            query(&url, "redirect_uri").unwrap(),
+            "http://127.0.0.1:5/callback/n"
+        );
+        assert_eq!(query(&url, "code_challenge").unwrap(), "ch-_");
+        assert_eq!(query(&url, "code_challenge_method").unwrap(), "S256");
     }
-
     #[test]
     fn exchange_posts_the_code_and_keeps_only_what_haryx_needs() {
         let (stub, backend) = with_token(Reply::json(200, &fake::tokens(Some("github"), "rt-1")));

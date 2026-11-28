@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import whoami from "../../../../packages/contracts/haryx/whoami.json";
 import consents from "../../../../packages/contracts/haryx/consents.json";
-import { SIGN_IN_PROVIDERS } from "./account";
+import { SIGN_IN_LABEL } from "./account";
 import {
   CONSENT_COPY,
   HARYX_WEB,
@@ -72,14 +72,8 @@ describe("copy", () => {
     ]);
   });
 
-  it("offers four ways to sign in", () => {
-    expect(SIGN_IN_PROVIDERS.map((p) => p.id)).toEqual(["github", "google", "apple", "email"]);
-    expect(SIGN_IN_PROVIDERS.map((p) => p.menu)).toEqual([
-      "Continue with GitHub",
-      "Continue with Google",
-      "Continue with Apple",
-      "Sign in with email",
-    ]);
+  it("signs in one way: WeCoAp SSO", () => {
+    expect(SIGN_IN_LABEL).toBe("Sign in with WeCoAp");
   });
 
   it("says usage stays on this PC only while it does not sync", () => {

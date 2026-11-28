@@ -430,15 +430,14 @@ pub fn login_open(logins: State<'_, Logins>, id: u64) -> Result<(), String> {
     updater::open_in_browser(&url)
 }
 
-/// Start the HaryX sign-in (`haryx login --provider <provider> --json`); its events arrive as
+/// Start the HaryX sign-in (`haryx login --json`, WeCoAp SSO); its events arrive as
 /// `account-login`.
 #[tauri::command]
 pub fn account_login_start(
     app: AppHandle,
     login: State<'_, crate::account::AccountLogin>,
-    provider: String,
 ) -> Result<(), String> {
-    login.start(&app, &provider)
+    login.start(&app)
 }
 
 #[tauri::command]
@@ -537,7 +536,7 @@ mod tests {
     #[test]
     fn account_and_sync_verbs_are_allowed_and_nothing_else_new() {
         for words in [
-            &["login", "--provider", "github", "--json"][..],
+            &["login", "--json"][..],
             &["logout", "--json"],
             &["whoami", "--json"],
             &["account", "delete", "--yes", "--json"],

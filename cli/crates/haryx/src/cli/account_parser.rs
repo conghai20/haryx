@@ -5,7 +5,6 @@ use std::path::PathBuf;
 
 use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser, ValueEnum};
-use haryx_core::account::Provider;
 use haryx_core::account::api::Source;
 use haryx_core::contracts::Purpose;
 
@@ -18,8 +17,6 @@ pub const ACCOUNT_VERBS: &[&str] = &["login", "logout", "whoami", "account"];
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AccountAction {
     Login {
-        /// `None`: the WeCoAp page, with every method.
-        provider: Option<Provider>,
         no_browser: bool,
         json: bool,
     },
@@ -80,14 +77,6 @@ impl AccountAction {
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
-enum ProviderArg {
-    Github,
-    Google,
-    Apple,
-    Email,
-}
-
-#[derive(Debug, Clone, Copy, ValueEnum)]
 enum ChangeArg {
     Grant,
     Withdraw,
@@ -112,15 +101,13 @@ enum SourceArg {
 #[command(
     name = "login",
     bin_name = format!("{} login", haryx_core::PROG),
-    about = p("Sign this machine in to your HaryX account with your WeCoAp ID: GitHub, Google, \
-               Apple, or email and password. Your browser opens; approve, and it comes back to HaryX."),
+    about = p("Sign this machine in to your HaryX account with WeCoAp SSO. Your browser opens the \
+               WeCoAp page (GitHub, Google, Apple, or email and password); approve, and it comes \
+               back to HaryX."),
     after_help = login_epilog(),
     help_template = HELP_TEMPLATE,
 )]
 struct LoginArgs {
-    /// Who to sign in with; without it, the WeCoAp page offers every method
-    #[arg(long, value_enum)]
-    provider: Option<ProviderArg>,
     /// No browser here (over SSH): print a link and a code to approve on any other device
     #[arg(long)]
     no_browser: bool,
@@ -315,8 +302,6 @@ account, use '{ai} login'.
 
 Examples:
   {prog} login
-  {prog} login --provider google
-  {prog} login --provider email
   {prog} login --no-browser",
     )
 }
@@ -343,16 +328,9 @@ pub(super) fn parse(verb: &str, rest: &[String]) -> Result<Invocation, Error> {
                     ),
                 ));
                 }
-                let provider = args.provider.map(|arg| match arg {
-                    ProviderArg::Github => Provider::Github,
-                    ProviderArg::Google => Provider::Google,
-                    ProviderArg::Apple => Provider::Apple,
-                    ProviderArg::Email => Provider::Email,
-                });
                 (
                     args.debug,
                     AccountAction::Login {
-                        provider,
                         no_browser: args.no_browser,
                         json: args.json,
                     },
@@ -398,34 +376,25 @@ mod tests {
     }
 
     #[test]
-    fn login_defaults_to_the_wecoap_page_and_opens_a_browser() {
+    fn login_is_the_wecoap_page_and_opens_a_browser() {
         assert_eq!(
             action("login", &[]).unwrap(),
             AccountAction::Login {
-                provider: None,
                 no_browser: false,
                 json: false
             }
         );
         assert_eq!(
-            action("login", &["--provider", "google", "--no-browser", "--json"]).unwrap(),
+            action("login", &["--no-browser", "--json"]).unwrap(),
             AccountAction::Login {
-                provider: Some(Provider::Google),
                 no_browser: true,
                 json: true
             }
         );
-        for (arg, provider) in [
-            ("github", Provider::Github),
-            ("apple", Provider::Apple),
-            ("email", Provider::Email),
-        ] {
-            assert!(matches!(
-                action("login", &["--provider", arg]).unwrap(),
-                AccountAction::Login { provider: Some(p), .. } if p == provider
-            ));
-        }
-        assert!(action("login", &["--provider", "gitlab"]).is_err());
+        assert!(
+            action("login", &["--provider", "github"]).is_err(),
+            "WeCoAp SSO is the only way in"
+        );
     }
 
     #[test]

@@ -4,6 +4,8 @@
   // pull` would import (`<name>.haryx-profile`).
   import { onMount } from "svelte";
   import State from "./State.svelte";
+  import CommandField from "./CommandField.svelte";
+  import { Button } from "$lib/components/ui/button/index.js";
   import { api } from "../lib/auth.svelte";
   import { ApiError } from "../lib/api";
   import { syncLock } from "../lib/synclock";
@@ -64,33 +66,28 @@
 {:else if failed}
   <State kind="error" title="Could not load your profiles" onAction={load} />
 {:else if items!.length === 0}
-  <State kind="empty" title="No synced profiles" detail="Upload one from a machine with: haryx sync profile push NAME. Up to 3 are kept." />
+  <State kind="empty" title="No synced profiles" detail="Upload a profile from a Mac or PC. Up to 3 are kept.">
+    <CommandField command="haryx sync profile push NAME" />
+  </State>
 {:else}
-  <ul>
+  <ul class="border-rule max-w-4xl border-b">
     {#each items! as p (p.objectKey)}
-      <li>
-        <div class="info">
-          <strong>{p.name}</strong>
-          <span class="meta">{size(p.bytes)} · uploaded <time datetime={new Date(p.pushedAt * 1000).toISOString()}>{exactTime(new Date(p.pushedAt * 1000).toISOString())}</time></span>
-          {#if p.storedBytes === null}<span class="err">The file is missing on the server.</span>{/if}
-          {#if errors[p.objectKey]}<span class="err" role="alert">{errors[p.objectKey]}</span>{/if}
+      <li class="border-rule flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t py-6">
+        <div class="grid min-w-0 flex-[1_1_16rem] gap-1">
+          <p class="text-[17px] font-semibold break-words">{p.name}</p>
+          <p class="text-ink-3 text-sm">{size(p.bytes)} · uploaded <time datetime={new Date(p.pushedAt * 1000).toISOString()}>{exactTime(new Date(p.pushedAt * 1000).toISOString())}</time></p>
+          {#if p.storedBytes === null}<p class="text-red-text text-sm">The file is missing on the server.</p>{/if}
+          {#if errors[p.objectKey]}<p class="text-red-text text-sm" role="alert">{errors[p.objectKey]}</p>{/if}
         </div>
-        <button onclick={() => download(p)} disabled={busy !== null || p.storedBytes === null}>{busy === p.objectKey ? "Downloading…" : "Download"}</button>
+        <Button variant="outline" onclick={() => download(p)} disabled={busy !== null || p.storedBytes === null}>{busy === p.objectKey ? "Downloading…" : "Download"}</Button>
       </li>
     {/each}
   </ul>
-  <p class="note">Import a download on a machine with: haryx ai profile import FILE. Secrets were redacted and history left out when it was uploaded.</p>
+  <div class="mt-10 grid max-w-2xl gap-3">
+    <p class="text-ink-2">Import a download on a Mac or PC. Secrets were redacted and history left out when it was uploaded.</p>
+    <CommandField command="haryx ai profile import ACCOUNT FILE.haryx-profile" />
+  </div>
 {/if}
 {#if items && unnamed > 0}
-  <p class="note">{unnamed} stored {unnamed === 1 ? "file is" : "files are"} not named in your encrypted profile list, so {unnamed === 1 ? "it" : "they"} cannot be opened here.</p>
+  <p class="text-ink-3 mt-6 max-w-2xl text-sm">{unnamed} stored {unnamed === 1 ? "file is" : "files are"} not named in your encrypted profile list, so {unnamed === 1 ? "it" : "they"} cannot be opened here.</p>
 {/if}
-
-<style>
-  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; max-width: 52rem; }
-  li { background: var(--surface); border: 1px solid var(--separator); border-radius: var(--radius-card); padding: .8rem 1rem; display: flex; gap: .75rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
-  .info { display: grid; gap: .15rem; min-width: 0; flex: 1 1 14rem; }
-  strong { overflow-wrap: anywhere; }
-  .meta, .note { color: var(--label-2); font-size: .85rem; }
-  .note { max-width: 52rem; margin-top: .75rem; overflow-wrap: anywhere; }
-  .err { color: var(--red); font-size: .85rem; }
-</style>

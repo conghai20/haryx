@@ -1,9 +1,10 @@
 <script lang="ts">
   // An account's pixel mascot, still: the Windows app's sprite renderer drawn once on a canvas.
-  // The web has no live usage per account, so it always stands idle.
-  import { CANVAS, pixels, speciesTitle, stillPose, type Style } from "@win/lib/mascot";
+  // The web has no live usage per account, so it always stands idle. Decorative: the account's
+  // name is announced beside it, so screen readers skip the mascot.
+  import { CANVAS, pixels, stillPose, type Style } from "@win/lib/mascot";
 
-  let { style }: { style: Style } = $props();
+  let { style, class: className = "size-10" }: { style: Style; class?: string } = $props();
   let canvas = $state<HTMLCanvasElement>();
   const grid = $derived(pixels(style, stillPose("idle")));
 
@@ -21,11 +22,4 @@
   });
 </script>
 
-<span class="mascot" role="img" aria-label="{speciesTitle(style.species)} mascot">
-  <canvas bind:this={canvas} width={CANVAS} height={CANVAS}></canvas>
-</span>
-
-<style>
-  .mascot { display: block; flex-shrink: 0; }
-  canvas { display: block; width: 2.5rem; height: 2.5rem; flex-shrink: 0; image-rendering: pixelated; }
-</style>
+<canvas bind:this={canvas} width={CANVAS} height={CANVAS} class="block shrink-0 [image-rendering:pixelated] {className}" aria-hidden="true"></canvas>

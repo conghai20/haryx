@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import Section from "../components/Section.svelte";
   import State from "../components/State.svelte";
-  import Dialog from "../components/Dialog.svelte";
+  import * as AlertDialog from "$lib/components/ui/alert-dialog/index.js";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { vault } from "../lib/vault.svelte";
   import { api } from "../lib/auth.svelte";
   import { ApiError } from "../lib/api";
   import { accountConsoleUrl } from "../lib/config";
@@ -34,6 +35,8 @@
     const { path, ...init } = consentRequest(purpose, grant);
     try {
       consents = (await api<{ consents: Consent[] }>(path, init)).consents;
+      vault.setConsents(consents);
+      if (purpose === "machines") void vault.loadMachines();
       withdrawing = null;
     } catch {
       actionError = "Could not save that change. Nothing was changed. Try again.";
@@ -56,74 +59,78 @@
   }
 </script>
 
-<Section title="Privacy center" blurb="Your consents, your data export, and your WeCoAp account.">
-  {#if consents === null && !failed}
-    <State kind="loading" />
-  {:else if failed}
-    <State kind="error" title="Could not load your consents" onAction={load} />
-  {:else}
-    {#if actionError && !withdrawing}<p class="err" role="alert">{actionError}</p>{/if}
+<p class="text-ink-2 mb-10 max-w-2xl">What HaryX may keep for you, your data export, and your WeCoAp account. Each choice is yours and can be changed here at any time.</p>
+
+{#if consents === null && !failed}
+  <State kind="loading" />
+{:else if failed}
+  <State kind="error" title="Could not load your consents" onAction={load} />
+{:else}
+  {#if actionError && !withdrawing}<p class="text-red-text mb-4 text-sm" role="alert">{actionError}</p>{/if}
+  <div class="max-w-3xl">
     {#each consents! as c (c.purpose)}
-      <section class="card">
-        <header>
-          <h2>{PURPOSES[c.purpose].title}</h2>
-          <span class="tag" class:on={c.granted}>{c.granted ? "On" : "Off"}</span>
-        </header>
-        <p>{PURPOSES[c.purpose].grants}</p>
-        {#if c.at}<p class="meta">Version {c.version} · {c.granted ? "granted" : "withdrawn"} <time datetime={c.at}>{exactTime(c.at)}</time></p>{/if}
-        {#if c.granted}
-          <button class="danger" onclick={() => { actionError = ""; withdrawing = c.purpose; }}>Withdraw</button>
-        {:else}
-          <button class="primary" onclick={() => change(c.purpose, true)} disabled={busy}>Grant</button>
-        {/if}
-        {#if c.history.length}
-          <details>
-            <summary>History ({c.history.length})</summary>
-            <ol>
-              {#each [...c.history].reverse() as e}
-                <li>{e.action === "grant" ? "Granted" : "Withdrawn"} · v{e.version} · {e.source} · <time datetime={e.at}>{exactTime(e.at)}</time></li>
-              {/each}
-            </ol>
-          </details>
-        {/if}
+      <section class="border-rule grid gap-3 border-t py-8 sm:grid-cols-[1fr_auto] sm:gap-x-10" aria-labelledby="consent-{c.purpose}">
+        <div class="grid gap-2">
+          <h3 id="consent-{c.purpose}" class="flex items-center gap-3 text-lg font-semibold">
+            {PURPOSES[c.purpose].title}
+            <span class="text-sm font-medium {c.granted ? 'text-live-text' : 'text-ink-3'}">{c.granted ? "On" : "Off"}</span>
+          </h3>
+          <p class="text-ink-2 max-w-xl">{PURPOSES[c.purpose].grants}</p>
+          {#if c.at}<p class="text-ink-3 text-sm">{c.granted ? "Allowed" : "Withdrawn"} <time datetime={c.at}>{exactTime(c.at)}</time> · policy of {c.version}</p>{/if}
+          {#if c.history.length}
+            <details class="text-ink-3 mt-1 text-sm">
+              <summary class="hover:text-ink cursor-pointer">History ({c.history.length})</summary>
+              <ol class="mt-2 grid gap-1 pl-4">
+                {#each [...c.history].reverse() as e}
+                  <li>{e.action === "grant" ? "Allowed" : "Withdrawn"} · policy of {e.version} · from {e.source} · <time datetime={e.at}>{exactTime(e.at)}</time></li>
+                {/each}
+              </ol>
+            </details>
+          {/if}
+        </div>
+        <div class="sm:pt-1">
+          {#if c.granted}
+            <Button variant="destructive-outline" onclick={() => { actionError = ""; withdrawing = c.purpose; }}>Withdraw</Button>
+          {:else}
+            <Button onclick={() => change(c.purpose, true)} disabled={busy}>Allow</Button>
+          {/if}
+        </div>
       </section>
     {/each}
-  {/if}
-
-  <section class="card">
-    <h2>Your data</h2>
-    <p>Download everything HaryX holds about you as one JSON file. HaryX data is erased after 12 months without use.</p>
-    <button onclick={download}>Download my data</button>
-    {#if exportError}<p class="err" role="alert">{exportError}</p>{/if}
-  </section>
-
-  <section class="card">
-    <h2>Your WeCoAp account</h2>
-    <p>Password, linked sign-in methods, sessions and deleting your account are managed by WeCoAp. Deleting it removes your WeCoAp ID for every WeCoAp product.</p>
-    <a class="btn" href={accountConsoleUrl()} rel="noopener">Open WeCoAp account</a>
-  </section>
-</Section>
-
-{#if withdrawing}
-  <Dialog title={`Withdraw ${PURPOSES[withdrawing].title}?`} onClose={() => (withdrawing = null)}>
-    <p>{withdrawWarning(withdrawing)}</p>
-    {#if actionError}<p class="err" role="alert">{actionError}</p>{/if}
-    <div class="row">
-      <button onclick={() => (withdrawing = null)} disabled={busy}>Cancel</button>
-      <button class="primary" onclick={() => change(withdrawing!, false)} disabled={busy}>Withdraw and erase</button>
-    </div>
-  </Dialog>
+  </div>
 {/if}
 
-<style>
-  .card { background: var(--surface); border: 1px solid var(--separator); border-radius: var(--radius-card); padding: 1rem 1.25rem; max-width: 44rem; margin-bottom: .75rem; }
-  header { display: flex; align-items: center; gap: .6rem; }
-  .tag { font-size: .75rem; background: var(--fill-strong); border-radius: 99px; padding: .05rem .5rem; margin-bottom: .5rem; }
-  .tag.on { background: var(--selected); }
-  .meta { color: var(--label-2); font-size: .85rem; }
-  .err { color: var(--red); font-size: .85rem; }
-  details { margin-top: .75rem; font-size: .85rem; color: var(--label-2); }
-  summary { cursor: pointer; }
-  ol { margin: .4rem 0 0; padding-left: 1.2rem; }
-  .row { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; flex-wrap: wrap; }
-</style>
+<section class="border-rule grid max-w-3xl gap-3 border-t py-8 sm:grid-cols-[1fr_auto] sm:gap-x-10" aria-labelledby="your-data">
+  <div class="grid gap-2">
+    <h3 id="your-data" class="text-lg font-semibold">Your data</h3>
+    <p class="text-ink-2 max-w-xl">Download everything HaryX holds about you as one JSON file. HaryX erases its data after 12 months without use.</p>
+    {#if exportError}<p class="text-red-text text-sm" role="alert">{exportError}</p>{/if}
+  </div>
+  <div class="sm:pt-1"><Button variant="outline" onclick={download}>Download my data</Button></div>
+</section>
+
+<section class="border-rule grid max-w-3xl gap-3 border-t border-b py-8 sm:grid-cols-[1fr_auto] sm:gap-x-10" aria-labelledby="wecoap-account">
+  <div class="grid gap-2">
+    <h3 id="wecoap-account" class="text-lg font-semibold">Your WeCoAp account</h3>
+    <p class="text-ink-2 max-w-xl">Password, sign-in methods, sessions and deleting your account are managed by WeCoAp. Deleting it removes your WeCoAp ID for every WeCoAp product.</p>
+  </div>
+  <div class="sm:pt-1"><Button variant="outline" href={accountConsoleUrl()} target="_blank" rel="noopener">Open WeCoAp account</Button></div>
+</section>
+
+<AlertDialog.Root open={withdrawing !== null} onOpenChange={(open) => { if (!open && !busy) withdrawing = null; }}>
+  <AlertDialog.Content>
+    {#if withdrawing}
+      <AlertDialog.Header>
+        <AlertDialog.Title>Withdraw {PURPOSES[withdrawing].title}?</AlertDialog.Title>
+        <AlertDialog.Description>{withdrawWarning(withdrawing)}</AlertDialog.Description>
+      </AlertDialog.Header>
+      <p class="text-ink-2 text-sm">Want a copy first? <button class="text-live-text underline underline-offset-3" onclick={download}>Download my data</button> before you withdraw.</p>
+      {#if exportError}<p class="text-red-text text-sm" role="alert">{exportError}</p>{/if}
+      {#if actionError}<p class="text-red-text text-sm" role="alert">{actionError}</p>{/if}
+      <AlertDialog.Footer>
+        <AlertDialog.Cancel disabled={busy}>Keep it on</AlertDialog.Cancel>
+        <Button variant="destructive" onclick={() => change(withdrawing!, false)} disabled={busy}>{busy ? "Withdrawing…" : "Withdraw and erase"}</Button>
+      </AlertDialog.Footer>
+    {/if}
+  </AlertDialog.Content>
+</AlertDialog.Root>

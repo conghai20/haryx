@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import Section from "../components/Section.svelte";
   import State from "../components/State.svelte";
-  import Dialog from "../components/Dialog.svelte";
+  import * as AlertDialog from "$lib/components/ui/alert-dialog/index.js";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { Input } from "$lib/components/ui/input/index.js";
+  import CommandField from "../components/CommandField.svelte";
   import { api } from "../lib/auth.svelte";
   import { ApiError } from "../lib/api";
   import { endSession } from "../lib/keycloak";
@@ -50,9 +52,10 @@
     }
   }
   function onKey(e: KeyboardEvent, m: Machine) {
-    if (e.key === "Enter") void save(m);
+    if (e.key === "Enter") { e.preventDefault(); void save(m); }
     else if (e.key === "Escape") { e.stopPropagation(); editing = null; }
   }
+  const osName = (os: string) => ({ macos: "macOS", windows: "Windows", linux: "Linux" })[os.toLowerCase()] ?? os;
 
   function ask(m: Machine) { confirming = m; signOutError = ""; sessionEnded = false; }
   async function confirmSignOut() {
@@ -75,61 +78,62 @@
   }
 </script>
 
-<Section title="Machines" blurb="Where HaryX is signed in.">
-  {#if machines === null && !failed}
-    <State kind="loading" />
-  {:else if failed}
-    <State kind="error" title="Could not load your machines" onAction={load} />
-  {:else if machines!.length === 0}
-    <State kind="empty" title="No machines to show" detail="A machine appears here once it is signed in to HaryX and “Show this machine on HaryX web” is on in its app, or you ran haryx account consent grant machines." />
-  {:else}
-    <ul>
-      {#each machines! as m (m.machineId)}
-        <li>
-          <div class="info">
-            {#if editing === m.machineId}
-              <label class="sr" for={`n-${m.machineId}`}>Machine name</label>
+{#if machines === null && !failed}
+  <State kind="loading" />
+{:else if failed}
+  <State kind="error" title="Could not load your machines" onAction={load} />
+{:else if machines!.length === 0}
+  <State kind="empty" title="No machines to show" detail="A Mac or PC appears here once it is signed in to HaryX and “Show this machine on HaryX web” is on in its app. From a terminal:">
+    <CommandField command="haryx account consent grant machines" />
+  </State>
+{:else}
+  <ul class="border-rule max-w-4xl border-b">
+    {#each machines! as m (m.machineId)}
+      <li class="border-rule flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t py-6">
+        <div class="grid min-w-0 flex-[1_1_16rem] gap-1">
+          {#if editing === m.machineId}
+            <label class="sr-only" for={`n-${m.machineId}`}>Machine name</label>
+            <form class="flex flex-wrap gap-2" onsubmit={(e) => { e.preventDefault(); void save(m); }}>
               <!-- svelte-ignore a11y_autofocus -->
-              <input id={`n-${m.machineId}`} type="text" bind:value={draft} onkeydown={(e) => onKey(e, m)} onblur={() => (editing = null)} maxlength="80" autofocus aria-invalid={nameError ? "true" : undefined} />
-              {#if nameError}<span class="err" role="alert">{nameError}</span>{/if}
-            {:else}
-              <strong>{m.name}</strong>
-              {#if m.isThisMachine}<span class="tag">This is you</span>{/if}
-              {#if !m.signedIn}<span class="tag off">Signed out</span>{/if}
-            {/if}
-            <span class="meta">{m.os} · v{m.version} · <time datetime={m.lastSeenAt} title={exactTime(m.lastSeenAt)}>seen {lastSeen(m.lastSeenAt)}</time></span>
+              <Input id={`n-${m.machineId}`} type="text" class="max-w-xs" bind:value={draft} onkeydown={(e: KeyboardEvent) => onKey(e, m)} maxlength={80} autofocus aria-invalid={nameError ? "true" : undefined} />
+              <Button type="submit">Save</Button>
+              <Button variant="ghost" onclick={() => (editing = null)}>Cancel</Button>
+            </form>
+            {#if nameError}<p class="text-red-text text-sm" role="alert">{nameError}</p>{/if}
+          {:else}
+            <p class="flex flex-wrap items-baseline gap-x-3 text-[17px] font-semibold">
+              <span class="break-words">{m.name}</span>
+              {#if m.isThisMachine}<span class="text-ink-3 text-sm font-normal">This machine</span>{/if}
+              {#if !m.signedIn}<span class="text-ink-3 text-sm font-normal">Signed out</span>{/if}
+            </p>
+          {/if}
+          <p class="text-ink-3 text-sm">{osName(m.os)} · HaryX {m.version} · <time datetime={m.lastSeenAt} title={exactTime(m.lastSeenAt)}>seen {lastSeen(m.lastSeenAt)}</time></p>
+        </div>
+        {#if editing !== m.machineId}
+          <div class="flex gap-2">
+            <Button variant="ghost" onclick={() => startEdit(m)}>Rename</Button>
+            {#if m.signedIn}<Button variant="destructive-outline" onclick={() => ask(m)}>Sign out</Button>{/if}
           </div>
-          <div class="actions">
-            <button onmousedown={(e) => e.preventDefault()} onclick={() => startEdit(m)}>Rename</button>
-            <button class="danger" onclick={() => ask(m)} disabled={!m.signedIn}>Sign out</button>
-          </div>
-        </li>
-      {/each}
-    </ul>
-  {/if}
-</Section>
-
-{#if confirming}
-  <Dialog title={`Sign out ${confirming.name}?`} onClose={() => (confirming = null)}>
-    <p>It will be signed out of WeCoAp. Its next sync will ask to sign in again; local data on that machine stays.</p>
-    {#if signOutError}<p class="err" role="alert">{signOutError}</p>{/if}
-    <div class="row">
-      <button onclick={() => (confirming = null)} disabled={busy}>Cancel</button>
-      <button class="primary" onclick={confirmSignOut} disabled={busy}>{sessionEnded ? "Retry" : "Sign out"}</button>
-    </div>
-  </Dialog>
+        {/if}
+      </li>
+    {/each}
+  </ul>
 {/if}
 
-<style>
-  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; max-width: 44rem; }
-  li { background: var(--surface); border: 1px solid var(--separator); border-radius: var(--radius-card); padding: .8rem 1rem; display: flex; gap: .75rem; align-items: center; justify-content: space-between; flex-wrap: wrap; min-height: 4.4rem; }
-  .info { display: grid; gap: .15rem; min-width: 0; flex: 1 1 14rem; }
-  strong { overflow-wrap: anywhere; margin-right: .4rem; }
-  .meta { color: var(--label-2); font-size: .85rem; }
-  .tag { font-size: .75rem; background: var(--selected); border-radius: 99px; padding: .05rem .5rem; margin-right: .3rem; }
-  .tag.off { background: var(--fill-strong); }
-  .actions, .row { display: flex; gap: .5rem; flex-wrap: wrap; }
-  .row { justify-content: flex-end; margin-top: 1rem; }
-  .err { color: var(--red); font-size: .85rem; }
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-</style>
+<AlertDialog.Root open={confirming !== null} onOpenChange={(open) => { if (!open && !busy) confirming = null; }}>
+  <AlertDialog.Content>
+    {#if confirming}
+      <AlertDialog.Header>
+        <AlertDialog.Title>Sign out {confirming.name}?</AlertDialog.Title>
+        <AlertDialog.Description>
+          {confirming.isThisMachine ? "This is the machine you are using. " : ""}It will be signed out of WeCoAp. Its next sync asks to sign in again; local data on that machine stays.
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      {#if signOutError}<p class="text-red-text text-sm" role="alert">{signOutError}</p>{/if}
+      <AlertDialog.Footer>
+        <AlertDialog.Cancel disabled={busy}>Cancel</AlertDialog.Cancel>
+        <Button variant="destructive" onclick={confirmSignOut} disabled={busy}>{busy ? "Signing out…" : sessionEnded ? "Retry" : "Sign out"}</Button>
+      </AlertDialog.Footer>
+    {/if}
+  </AlertDialog.Content>
+</AlertDialog.Root>

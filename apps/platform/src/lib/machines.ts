@@ -12,7 +12,7 @@ export function validateName(raw: string): { ok: true; name: string } | { ok: fa
 }
 
 export const lastSeen = (iso: string, now = Date.now()) => relativeTime(Date.parse(iso), now);
-export const exactTime = (iso: string) => new Date(iso).toLocaleString();
+export const exactTime = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 export type SignOutStep = "keycloak" | "haryx";
 export type SignOutResult = { ok: true } | { ok: false; failedAt: SignOutStep };

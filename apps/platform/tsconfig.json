@@ -9,7 +9,7 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "types": ["vite/client"],
-    "paths": { "@win/*": ["../windows/src/*"] }
+    "paths": { "@win/*": ["../windows/src/*"], "$lib": ["./src/lib"], "$lib/*": ["./src/lib/*"] }
   },
   "include": ["src/**/*.ts", "src/**/*.svelte"]
 }

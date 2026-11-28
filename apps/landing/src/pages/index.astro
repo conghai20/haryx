@@ -16,11 +16,13 @@ import Install from "../components/Install.astro";
 import { latestRelease, REPO_URL, RELEASES_URL } from "../lib/release";
 
 const COMPANY_URL = "https://www.wecoap.com/";
+// HaryX web lives on the same origin, behind the same proxy (deploy/nginx: /platform/ goes to its container).
+const WEB_URL = new URL("platform/", Astro.site).href;
 const release = await latestRelease();
 const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
 const title = "HaryX — a control center for your AI coding accounts";
 const description =
-  "See every Claude account's 5-hour and weekly usage, choose which one Claude Code runs as, and switch before one runs dry. macOS, Windows and a CLI. Free and open source.";
+  "See every Claude account's 5-hour and weekly usage, choose which one Claude Code runs as, and switch before one runs dry. macOS, Windows, a CLI and the web. Free and open source.";
 
 const PLATFORMS = [
   {
@@ -37,6 +39,12 @@ const PLATFORMS = [
     name: "Terminal",
     what: "The haryx command, in Rust, with an interactive dashboard. Both apps include it and keep it updated.",
     needs: "macOS, Linux and Windows",
+  },
+  {
+    name: "Web",
+    what: "HaryX web: every account's readings, usage, setup profiles and machines from any browser, synced end-to-end encrypted and unlocked only in your tab.",
+    needs: "A WeCoAp ID and sync turned on in an app",
+    href: WEB_URL,
   },
 ] as const;
 
@@ -102,6 +110,7 @@ const TERMS = [
         <a href="#install">Install</a>
         <a href={RELEASES_URL}>Releases</a>
         <a href={REPO_URL}>GitHub</a>
+        <a href={WEB_URL} class="web-link">Sign in<span aria-hidden="true"> →</span></a>
       </nav>
     </header>
 
@@ -128,13 +137,21 @@ const TERMS = [
       <Roadmap release={release} />
 
       <section class="frame platforms" aria-labelledby="platforms-title">
-        <h2 id="platforms-title" class="section-title" data-reveal="wipe">Three ways in.</h2>
+        <h2 id="platforms-title" class="section-title" data-reveal="wipe">Four ways in.</h2>
         <dl class="plat-list">
           {
             PLATFORMS.map((p, i) => (
               <div class="plat" data-reveal style={`--i:${i}`}>
                 <dt class="plat-name">{p.name}</dt>
-                <dd class="plat-what">{p.what}</dd>
+                <dd class="plat-what">
+                  {p.what}
+                  {"href" in p && (
+                    <>
+                      {" "}
+                      <a href={p.href}>Open HaryX web</a>
+                    </>
+                  )}
+                </dd>
                 <dd class="plat-needs">{p.needs}</dd>
               </div>
             ))
@@ -184,6 +201,7 @@ const TERMS = [
       <nav aria-label="Project">
         <a href={REPO_URL}>Source</a>
         <a href={RELEASES_URL}>Releases</a>
+        <a href={WEB_URL}>HaryX web</a>
         <a href={`${REPO_URL}/blob/main/CHANGELOG.md`}>Changelog</a>
         <a href={`${REPO_URL}/blob/main/LICENSE`}>MIT License</a>
       </nav>
@@ -228,6 +246,10 @@ const TERMS = [
   .top nav a:hover,
   .foot nav a:hover {
     text-decoration-color: var(--live);
+  }
+  .top nav .web-link {
+    font-weight: 600;
+    color: var(--ink);
   }
 
   .tide-section {
@@ -419,7 +441,8 @@ const TERMS = [
   @media (max-width: 560px) {
     .top nav a[href="#features"],
     .top nav a[href="#roadmap"],
-    .top nav a[href="#install"] {
+    .top nav a[href="#install"],
+    .top nav a[href*="releases"] {
       display: none;
     }
     .plat {

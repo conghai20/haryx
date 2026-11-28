@@ -1,13 +1,13 @@
 ---
 version: 1
-slug: "site"
-primary_target: "site"
+slug: "apps-landing"
+primary_target: "apps/landing"
 related_targets: []
 ---
 
-# Surface: site (public landing page)
+# Surface: apps/landing (public landing page)
 
-Mode: Persuade. Static Astro site in `site/`, deployed to GitHub Pages (`conghai20.github.io/haryx`) and served at `haryx.wecoap.com` through a proxy.
+Mode: Persuade. Static Astro site in `apps/landing/` (moved from `site/`; more landing pages will join it), deployed to GitHub Pages (`conghai20.github.io/haryx`) and served at `haryx.wecoap.com` through a proxy.
 
 Audience: developers who hold several of their own Claude subscriptions. Job: understand HaryX in one viewport, install it (macOS or Windows one-liner, or Releases). Proof: real product facts from README only; demo accounts are labelled illustrations. No users, testimonials, metrics or press exist; never invent them. Must carry the "use within Anthropic's terms" honesty and the not-affiliated notice.
 

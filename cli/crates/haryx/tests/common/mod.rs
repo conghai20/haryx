@@ -212,6 +212,29 @@ impl Sandbox {
             self.home().join("store/account/session")
         }
     }
+
+    /// The stored session as text. The fake macOS keychain keeps it plain; elsewhere it is a
+    /// sealed file, as the real store writes it.
+    pub fn read_session(&self) -> String {
+        let bytes = std::fs::read(self.stored_session()).unwrap();
+        if cfg!(target_os = "macos") {
+            String::from_utf8(bytes).unwrap()
+        } else {
+            haryx_core::credentials::sealed::unseal(&bytes).unwrap()
+        }
+    }
+
+    /// Store `text` as the session, the way this OS's store would.
+    pub fn write_session(&self, text: &str) {
+        let path = self.stored_session();
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let body = if cfg!(target_os = "macos") {
+            text.to_owned()
+        } else {
+            haryx_core::credentials::sealed::seal(text).unwrap()
+        };
+        std::fs::write(path, body).unwrap();
+    }
 }
 
 pub fn write_exec(path: &Path, body: &str) {

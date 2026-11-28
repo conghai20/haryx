@@ -61,7 +61,7 @@ fn login_through_the_browser_keeps_the_session_and_whoami_shows_it() {
     assert!(exchange.starts_with("grant_type=authorization_code&code=the-code&"));
     assert!(exchange.contains("&code_verifier=") && exchange.ends_with("&client_id=haryx-cli"));
 
-    let stored = std::fs::read_to_string(s.stored_session()).unwrap();
+    let stored = s.read_session();
     assert!(!stored.contains("id_never_kept"));
     assert!(stored.contains(r#""sid":"sid-test""#));
 
@@ -182,15 +182,11 @@ fn logout_revokes_the_refresh_token_and_forgets_the_session() {
 #[test]
 fn a_supabase_session_is_signed_out_and_says_to_sign_in_again() {
     let s = Sandbox::new(200);
-    let path = s.stored_session();
-    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-    std::fs::write(
-        &path,
+    s.write_session(
         r#"{"access_token":"at","refresh_token":"rt-old","expires_at":4000000000,
             "user":{"id":"u","email":"you@example.com","provider":"github"},
             "project":"https://ygvcznwlugaxqqmlsssh.supabase.co"}"#,
-    )
-    .unwrap();
+    );
 
     let text = s.haryx(&["whoami"], "");
     assert!(text.status.success());
@@ -206,7 +202,7 @@ fn a_supabase_session_is_signed_out_and_says_to_sign_in_again() {
     assert!(same_shape(status, &whoami_without_consents()));
 
     assert!(s.haryx(&["logout"], "").status.success());
-    assert!(!path.exists());
+    assert!(!s.stored_session().exists());
     assert!(s.keycloak.paths().is_empty(), "its tokens go nowhere");
 }
 

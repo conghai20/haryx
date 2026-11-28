@@ -11,11 +11,13 @@ cannot be released without one. Sections, in this order, only when they have ent
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-28
+
 ### Breaking changes
 
 - HaryX accounts moved from Supabase to WeCoAp SSO (`sso.wecoap.com`) and the HaryX API
-  (`haryx.wecoap.com`), both in Vietnam. Sign-in was never released, so there is nothing to
-  migrate; a Supabase-era session is signed out and asks you to sign in again. `HARYX_SUPABASE_URL`
+  (`haryx.wecoap.com`), both in Vietnam. Nothing migrates from 0.2.0's Supabase sign-in: a
+  Supabase-era session is signed out and asks you to sign in again with your WeCoAp ID. `HARYX_SUPABASE_URL`
   and `HARYX_SUPABASE_KEY` are gone; `HARYX_SSO_ISSUER` and `HARYX_API_URL` point a build at a
   local stack. `haryx account delete` no longer deletes: it shows where to delete your WeCoAp ID.
   `haryx login --provider` is gone: sign-in always goes through the WeCoAp SSO page, which offers
@@ -520,7 +522,8 @@ cannot be released without one. Sections, in this order, only when they have ent
 First release: the `haryx` CLI (a Rust port of claude-swap, drop-in compatible with `cswap`) and
 the HaryX macOS menu bar app.
 
-[Unreleased]: https://github.com/conghai20/haryx/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/conghai20/haryx/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/conghai20/haryx/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/conghai20/haryx/compare/v0.1.6...v0.2.0
 [0.1.6]: https://github.com/conghai20/haryx/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/conghai20/haryx/compare/v0.1.4...v0.1.5
